@@ -386,7 +386,7 @@
         }
         
         .table-responsive > .table > thead > tr > th::after {
-            content: '↕';
+            content: '';
             position: absolute;
             right: 0.5rem;
             opacity: 0.3;
@@ -411,17 +411,18 @@
         
         .table-responsive > .table > thead > tr > th:first-child,
         .table-responsive > .table > tbody > tr > td:first-child {
-            width: 40%;
+            width: 35%;
         }
         
         .table-responsive > .table > thead > tr > th:nth-child(2),
         .table-responsive > .table > tbody > tr > td:nth-child(2) {
-            width: 40%;
+            width: 35%;
         }
         
         .table-responsive > .table > thead > tr > th:last-child,
         .table-responsive > .table > tbody > tr > td:last-child {
-            width: 20%;
+            width: 30%;
+            min-width: 100px;
         }
         
         .table-responsive > .table > tbody > tr.expandable-row {
