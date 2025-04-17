@@ -902,9 +902,8 @@
         /* Options styling */
         .options-container {
             display: none;
-            margin-top: 1rem;
             margin-bottom: 3rem;
-            padding: 0rem;
+            padding: 0.5rem 2rem;
             max-height: 400px;
             overflow-y: scroll;
         }
@@ -1167,6 +1166,7 @@
                 </table>
                 <div class="d-flex gap-2 align-items-center">
                     <button class="btn btn-sm btn-outline-secondary" id="electricity-plot-btn">Plot</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="electricity-csv-btn">CSV</button>
                     <button class="btn btn-sm btn-outline-secondary" id="electricity-now-btn">Now</button>
                 </div>
             </div>
@@ -1328,7 +1328,7 @@
                         <label><input type="checkbox" name="channels" value="all-data" checked>Export all data channels</label>
                         <div class="mt-3">
                             <label class="d-block mb-2">Time step (seconds):</label>
-                            <input type="number" class="form-control bg-dark text-light border-secondary" id="csv-timestep" value="1">
+                            <input type="number" class="form-control bg-dark text-light border-secondary" style="width: 100px;" id="csv-timestep" value="1">
                         </div>
                     </div>
                 </div>
@@ -2458,7 +2458,7 @@
             }
         }
 
-        let isRunningLocally = false;
+        let isRunningLocally = true;
         let api_host = isRunningLocally ? 'http://localhost:8000' : 'https://visualizer.electricity.works';
 
         function getDefaultDate(start, electricity_use) {
@@ -3292,6 +3292,67 @@
 
         // Add event listener for the electricity plot button
         document.getElementById('electricity-plot-btn').addEventListener('click', fetchElectricityPlots);
+
+        // Function to export electricity use CSV
+        async function exportElectricityCSV() {
+            const csvBtn = document.getElementById('electricity-csv-btn');
+            
+            csvBtn.disabled = true;
+            csvBtn.style.opacity = '0.5';
+            
+            const startDate = document.getElementById('electricity-start-date').value;
+            const startTime = document.getElementById('electricity-start-time').value;
+            const endDate = document.getElementById('electricity-end-date').value;
+            const endTime = document.getElementById('electricity-end-time').value;
+
+            const startDateTime = luxon.DateTime.fromFormat(`${startDate} ${startTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
+            const endDateTime = luxon.DateTime.fromFormat(`${endDate} ${endTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
+            
+            const startUnixMilliseconds = startDateTime.toUTC().toMillis();
+            const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+            
+            try {
+                const selectedAliases = getSelectedHouseAliases();
+                
+                const response = await fetch(`${api_host}/electricity-use-csv`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    },
+                    body: JSON.stringify({
+                        selected_short_aliases: selectedAliases,
+                        start_ms: startUnixMilliseconds,
+                        end_ms: endUnixMilliseconds
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const contentDisposition = response.headers.get('Content-Disposition');
+                const filename = contentDisposition.split('filename=')[1].replace(/"/g, '');
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Error getting electricity use CSV:', error);
+            } finally {
+                csvBtn.disabled = false;
+                csvBtn.style.opacity = '1';
+            }
+        }
+
+        // Add event listener for the electricity CSV button
+        document.getElementById('electricity-csv-btn').addEventListener('click', exportElectricityCSV);
     </script>
 </body>
 </html> 
