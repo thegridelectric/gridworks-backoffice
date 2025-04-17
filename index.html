@@ -1,0 +1,3134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GridWorks - Backoffice</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1/build/global/luxon.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+        :root {
+            /* Dark mode colors (default) */
+            --primary-color: #3a86ff;
+            --primary-hover: #2667cc;
+            --background-color: #141414;
+            --card-background: #1b1b1c;
+            --datetime-background: #d4d4d4;
+            --datetime-text: #1b1b1c;
+            --text-color: #d4d4d4;
+            --text-muted: #858585;
+            --border-color: rgba(47, 47, 47, 0.5);
+            --hover-color: rgb(32, 32, 32);
+            --success-color: #28a745;
+            --danger-color: #ff4444;
+            --scrollbar-width: 10px;
+            --table-header-bg: var(--card-background);
+            --table-row-border: rgba(60, 60, 60, 0.3);
+            --detail-table-bg: rgba(33, 33, 33, 0.9);
+            --brand-text-color: #e5e7eb;
+            --input-bg: var(--text-color);
+            --input-text: var(--card-background);
+            --selected-house-bg: rgba(56, 77, 164, 0.2);
+            --selected-house-text: var(--text-color);
+        }
+
+        :root[data-theme="light"] {
+            /* Light mode colors */
+            --primary-color: #3a86ff;
+            --primary-hover: #2667cc;
+            --background-color: #f8f9fa;
+            --card-background: #ffffff;
+            --datetime-background: #f1f3f5;
+            --datetime-text: #1b1b1c;
+            --text-color: #212529;
+            --text-muted: #6c757d;
+            --border-color: rgba(0, 0, 0, 0.1);
+            --hover-color: #f1f3f5;
+            --success-color: #28a745;
+            --danger-color: #ff4444;
+            --scrollbar-width: 10px;
+            --table-header-bg: #f8f9fa;
+            --table-row-border: rgba(0, 0, 0, 0.1);
+            --detail-table-bg: rgba(248, 249, 250, 0.9);
+            --brand-text-color: #212529;
+            --input-bg: #ffffff;
+            --input-text: var(--text-color);
+            --selected-house-bg: rgba(56, 77, 164, 0.1);
+            --selected-house-text: var(--text-color);
+        }
+        
+        html {
+            overflow-y: scroll;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-color) var(--background-color);
+        }
+        
+        body {
+            font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .navbar {
+            background-color: var(--background-color);
+            padding: 1rem 0;
+            /* border-bottom: 1px solid var(--border-color); */
+        }
+        
+        .navbar-brand {
+            font-weight: 600;
+            color: var(--text-color);
+            letter-spacing: -0.5px;
+            text-decoration: none;
+            font-family: 'Menlo', 'Montserrat', sans-serif;
+            display: flex;
+            align-items: center;
+            padding-top: 15px;
+            gap: 0.5rem;
+        }
+        
+        @media (max-width: 992px) {
+            .navbar-brand {
+                justify-content: center;
+                width: 100%;
+            }
+            
+            .navbar .container {
+                justify-content: center;
+            }
+        }
+        
+        .navbar-brand:hover {
+            color: var(--text-color);
+        }
+        
+        .brand-text {
+            font-weight: 400;
+            font-size: 1.3rem;
+            color: var(--brand-text-color);
+            letter-spacing: -0.5px;
+        }
+        
+        .brand-subtitle {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        
+        .navbar-brand i {
+            color: var(--primary-color);
+        }
+        
+        .main-container {
+            max-width: 1000px;
+            margin: 3rem auto 2rem auto;
+            padding: 0 1.5rem;
+            flex: 1;
+        }
+        
+        .card {
+            background-color: var(--card-background);
+            border-radius: 0.25rem;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            margin-bottom: 3rem;
+            transition: all 0.3s ease;
+        }
+
+        .card.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            z-index: 1000;
+            border-radius: 0;
+            overflow-y: auto;
+        }
+
+        .card.fullscreen .p-4 {
+            border-bottom: solid 1px var(--border-color);
+        }
+
+        .card.fullscreen #plot-container {
+            border: none;
+        }
+
+        /* TODO */
+        /* .card.fullscreen .card-header {
+            position: sticky;
+            top: 0;
+            z-index: 1001;
+        } */
+
+        .card.fullscreen #plot-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .fullscreen-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            background-color: var(--hover-color);
+        }
+
+        .fullscreen-btn:hover {
+            background-color: var(--hover-color);
+            color: var(--text-color);
+        }
+        
+        .card-header {
+            background-color: var(--card-background);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 1.5rem;
+        }
+        
+        .card-title {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        .status-badges {
+            display: flex;
+            gap: 0.75rem;
+            margin-left: auto;
+            align-items: center;
+        }
+        
+        .filter-toggle {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            background-color: var(--hover-color);
+        }
+        
+        .filter-toggle:hover {
+            background-color: var(--hover-color);
+            color: var(--text-color);
+        }
+        
+        .filter-toggle i {
+            font-size: 0.875rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .filter-toggle.active i {
+            transform: rotate(180deg);
+        }
+        
+        .status-badge {
+            display: flex;
+            align-items: center;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 0.25rem;
+        }
+        
+        .status-badge-count {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-weight: 600;
+        }
+        
+        .status-badge.ok {
+            background-color: rgba(40, 167, 69, 0.2);
+            color: var(--success-color);
+        }
+        
+        .status-badge.offline {
+            background-color: rgba(220, 53, 69, 0.2);
+            color: var(--danger-color);
+        }
+        
+        .search-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin: 1.5rem 0 0 0;
+            padding: 0 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+            display: none;
+        }
+        
+        .search-container.visible {
+            display: flex;
+        }
+        
+        .search-group {
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            width: 150px;
+            flex: none;
+        }
+        
+        .search-input-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            pointer-events: none;
+            z-index: 1;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .search-input {
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            width: 100%;
+            padding-left: 2rem;
+            height: 2.5rem;
+            line-height: 1.5;
+        }
+        
+        .search-group.alias {
+            flex: none;
+        }
+        
+        .search-group.city {
+            flex: none;
+        }
+        
+        .search-group.status {
+            flex: none;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #ff6b6b;
+            box-shadow: none;
+            background-color: rgba(255, 107, 107, 0.05);
+        }
+        
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+        
+        .search-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+        
+        .search-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Main table styling */
+        .table-responsive > .table {
+            margin-bottom: 0;
+            color: var(--text-color);
+            width: 100%;
+            table-layout: fixed;
+        }
+        
+        .table-responsive > .table > thead > tr > th {
+            font-weight: 500;
+            color: var(--text-muted);
+            background-color: var(--table-header-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 1.5rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            position: relative;
+            user-select: none;
+        }
+        
+        .table-responsive > .table > thead > tr > th:hover {
+            background-color: var(--hover-color);
+        }
+        
+        .table-responsive > .table > thead > tr > th::after {
+            content: '↕';
+            position: absolute;
+            right: 0.5rem;
+            opacity: 0.3;
+        }
+        
+        .table-responsive > .table > thead > tr > th.sort-asc::after {
+            content: '↑';
+            opacity: 1;
+        }
+        
+        .table-responsive > .table > thead > tr > th.sort-desc::after {
+            content: '↓';
+            opacity: 1;
+        }
+        
+        .table-responsive > .table > tbody > tr > td {
+            padding: 0.75rem 1.5rem;
+            vertical-align: middle;
+            border-bottom: 0.5px solid var(--table-row-border);
+            font-size: 0.875rem;
+        }
+        
+        .table-responsive > .table > thead > tr > th:first-child,
+        .table-responsive > .table > tbody > tr > td:first-child {
+            width: 40%;
+        }
+        
+        .table-responsive > .table > thead > tr > th:nth-child(2),
+        .table-responsive > .table > tbody > tr > td:nth-child(2) {
+            width: 40%;
+        }
+        
+        .table-responsive > .table > thead > tr > th:last-child,
+        .table-responsive > .table > tbody > tr > td:last-child {
+            width: 20%;
+        }
+        
+        .table-responsive > .table > tbody > tr.expandable-row {
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .table-responsive > .table > tbody > tr.expandable-row.expanded {
+            background-color: rgba(56, 77, 164, 0.2);
+        }
+        
+        .table-responsive > .table > tbody > tr.expandable-row:hover {
+            background-color: var(--hover-color);
+        }
+        
+        .table-responsive > .table > tbody > tr.expandable-row.expanded:hover {
+            background-color: rgba(56, 77, 164, 0.2);
+        }
+        
+        .table-responsive > .table > tbody > tr:last-child > td {
+            border-bottom: none;
+        }
+        
+        .json-cell {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .badge {
+            font-weight: 500;
+            padding: 0.25em 0.5em;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+        }
+        
+        .bg-success {
+            font-weight: 600;
+            background-color: rgba(40, 167, 69, 0.2) !important;
+            color: var(--success-color);
+        }
+        
+        .bg-danger {
+            background-color: rgba(220, 53, 69, 0.2) !important;
+            color: var(--danger-color);
+        }
+        
+        .bg-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .empty-state {
+            padding: 2rem 1.5rem;
+            text-align: center;
+            color: var(--text-muted);
+        }
+        
+        .empty-state i {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+        }
+        
+        .empty-state h3 {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+        }
+        
+        .empty-state p {
+            margin-bottom: 1.5rem;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            border-color: var(--primary-hover);
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 2rem 0;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            border-top: 1px solid var(--border-color);
+            margin-top: auto;
+            background-color: var(--background-color);
+        }
+        
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+        
+        .footer-links {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        .footer-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        
+        .footer-link:hover {
+            color: var(--text-color);
+        }
+        
+        .footer-copyright {
+            color: var(--text-muted);
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: var(--scrollbar-width);
+            height: var(--scrollbar-width);
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--background-color);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+        /* Code-like styling for JSON cells */
+        .json-cell {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.8rem;
+        }
+        
+        /* Expanded row details */
+        .row-details {
+            display: none;
+            padding: 1.5rem;
+            background-color: var(--card-background);
+            border-top: 0.5px solid rgba(60, 60, 60, 0.3);
+        }
+        
+        .row-details.expanded {
+            display: block;
+        }
+        
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .detail-item {
+            margin-bottom: 0.5rem;
+        }
+        
+        .detail-item.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .detail-label {
+            font-weight: 500;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .detail-value {
+            color: var(--text-color);
+            font-size: 0.9rem;
+            word-break: break-word;
+        }
+        
+        .json-detail {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+            background-color: rgba(0, 0, 0, 0.2);
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .no-results {
+            padding: 2rem 1.5rem;
+            text-align: center;
+            color: var(--text-muted);
+        }
+        
+        .no-results i {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+        }
+        
+        .no-results h3 {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+        }
+        
+        .no-results p {
+            margin-bottom: 1rem;
+        }
+        
+        .no-results-row {
+            text-align: center;
+            color: var(--text-muted);
+            background-color: var(--card-background);
+            height: 120px;
+        }
+        
+        .no-results-row td {
+            padding: 0;
+            border-bottom: none;
+            text-align: center;
+            vertical-align: middle;
+            color: var(--text-muted);
+            font-style: italic;
+            font-size: 0.875rem;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .no-results-row td span {
+            padding: 0.5rem 1rem;
+        }
+        
+        .no-results-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            width: 100%;
+        }
+        
+        .no-results-icon {
+            font-size: 2rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+        
+        .no-results-text {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        .table td:focus,
+        .table th:focus {
+            outline: none;
+        }
+        
+        .search-input.active {
+            border-color: #ff6b6b;
+            background-color: rgba(255, 107, 107, 0.05);
+        }
+        
+        .clear-filters-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            height: 2.5rem;
+            transition: all 0.2s ease;
+        }
+        
+        .clear-filters-btn:hover {
+            background-color: var(--hover-color);
+            color: var(--text-color);
+        }
+        
+        /* Override table hover styles */
+        .table tbody tr.expandable-row:hover {
+            background-color: var(--hover-color);
+        }
+
+        .table tbody tr:not(.expandable-row):hover {
+            background-color: transparent;
+        }
+        
+        /* Detail table styling */
+        .detail-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 0.25rem;
+            table-layout: fixed;
+        }
+
+        .detail-table th,
+        .detail-table td {
+            padding: 0.5rem 1rem;
+            text-align: left;
+            font-size: 0.875rem;
+            word-wrap: break-word;
+            white-space: normal;
+        }
+
+        .detail-table th {
+            font-weight: 500;
+            color: var(--text-muted);
+            width: 120px;
+            background-color: var(--detail-table-bg);
+            border-radius: 4px 0 0 4px;
+        }
+
+        .detail-table td {
+            color: var(--text-color);
+            background-color: var(--detail-table-bg);
+            border-radius: 0 4px 4px 0;
+            width: auto;
+        }
+
+        .detail-table th::after {
+            content: none !important;
+        }
+
+        .detail-table tr {
+            margin-bottom: 0.25rem;
+        }
+
+        @media (max-width: 768px) {
+            .detail-table th {
+                width: 100px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .detail-table th {
+                width: 80px;
+            }
+        }
+
+        .username {
+            color: var(--text-color);
+            padding-right: 1rem;
+        }
+        
+        .btn-outline-secondary {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            background-color: var(--hover-color);
+        }
+        
+        .btn-outline-secondary:hover {
+            background-color: var(--hover-color);
+            color: var(--text-color);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            background-color: var(--card-background);
+        }
+
+        .action-buttons .btn {
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+        }
+
+        /* Map card styling */
+        .map-card {
+            height: 400px;
+            margin-bottom: 3rem;
+        }
+
+        .map-container {
+            height: 100%;
+            width: 100%;
+            position: relative;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            border-radius: 0 0 0.25rem 0.25rem;
+        }
+
+        .map-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .map-loading i {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Plot container styling */
+        #plot-container {
+            margin-top: 0.5rem;
+            padding: 0;
+            padding-top: 1rem;
+            background-color: var(--card-background);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .plot-div {
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0;
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .plot-div:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Loader styling */
+        .loader {
+            display: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--text-muted);
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #plot-btn:disabled + .loader {
+            display: inline-block;
+        }
+
+        /* Options styling */
+        .options-container {
+            display: none;
+            margin-top: 1rem;
+            margin-bottom: 3rem;
+            padding: 0rem;
+            max-height: 400px;
+            overflow-y: scroll;
+        }
+
+        .options-content {
+            max-width: 400px;
+        }
+
+        .options-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .options-section h6 {
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: var(--text-color);
+            margin-bottom: 0.75rem;
+        }
+
+        .options-section input[type="checkbox"] {
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border: 2px solid var(--text-muted);
+            border-radius: 4px;
+            background-color: transparent;
+            position: relative;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+            vertical-align: middle;
+        }
+
+        .options-section input[type="checkbox"]:checked {
+            background-color: var(--text-muted);
+            border-color: var(--text-muted);
+        }
+
+        .options-section label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            color: var(--text-color);
+            padding-left: 0.5rem;
+            cursor: pointer;
+        }
+
+        #selected-house,
+        #info-selected-house,
+        #electricity-selected-house {
+            border: none;
+            cursor: pointer;
+            background-color: var(--selected-house-bg) !important;
+            color: var(--selected-house-text) !important;
+        }
+        
+        /* Placeholder styling */
+        #selected-house::placeholder,
+        #info-selected-house::placeholder,
+        #electricity-selected-house::placeholder {
+            color: var(--text-muted) !important;
+            font-size: 0.875rem;
+            opacity: 0.7;
+        }
+        
+        input[type="date"],
+        input[type="time"] {
+            background-color: var(--datetime-background);
+            color: var(--datetime-text);
+            border: 1px solid var(--border-color) !important;
+            font-size: 0.875rem !important;
+            padding: 0.25rem 0.5rem !important;
+            height: auto !important;
+        }
+
+        /* Add these styles */
+        .theme-selector {
+            display: flex;
+            align-items: center;
+            background-color: var(--hover-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 2px;
+        }
+
+        .theme-btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            border: none;
+            background: none;
+            color: var(--text-muted);
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+        }
+
+        .theme-btn:hover {
+            color: var(--text-color);
+        }
+
+        .theme-btn.active {
+            color: var(--text-color);
+            background-color: var(--card-background);
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <div>
+                    <span class="brand-text">gridworks</span>
+                </div>
+            </a>
+            <div class="d-flex align-items-center gap-3">
+                <span class="username" style="font-size: 0.9rem;" id="username-display">User</span>
+                <a href="#" class="btn btn-outline-secondary btn-sm" id="logout-button">Logout</a>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="main-container">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title">Houses</h5>
+                <div class="status-badges">
+                    <button class="filter-toggle" id="filter-toggle">
+                        <span>Filter</span>
+                    </button>
+                    <div class="status-badge ok">
+                        <span class="status-badge-count">0</span>
+                    </div>
+                    <div class="status-badge offline">
+                        <span class="status-badge-count">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="search-container">
+                <div class="search-group alias">
+                    <div class="search-input-wrapper">
+                        <i class="bi bi-search search-icon"></i>
+                        <input type="text" class="search-input" id="search-alias" placeholder="Alias">
+                    </div>
+                </div>
+                <div class="search-group city">
+                    <div class="search-input-wrapper">
+                        <i class="bi bi-search search-icon"></i>
+                        <input type="text" class="search-input" id="search-city" placeholder="Location">
+                    </div>
+                </div>
+                <div class="search-group status">
+                    <div class="search-input-wrapper">
+                        <i class="bi bi-search search-icon"></i>
+                        <input type="text" class="search-input" id="search-status" placeholder="Status">
+                    </div>
+                </div>
+                <button class="clear-filters-btn" id="clear-filters">
+                    <i class="bi bi-x-lg"></i>
+                    Clear
+                </button>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th data-sort="short_alias">Alias</th>
+                            <th data-sort="address">Location</th>
+                            <th data-sort="status">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Houses will be loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="empty-state" style="display: none;">
+                <i class="bi bi-house"></i>
+                <h3>No homes found</h3>
+                <p>There are no homes in the database yet.</p>
+                <button class="btn btn-primary">Add Home</button>
+            </div>
+            
+            <div class="no-results" style="display: none;">
+                <i class="bi bi-search"></i>
+                <h3>No results found</h3>
+                <button class="btn btn-primary" id="clear-search">Clear Search</button>
+            </div>
+        </div>
+
+        <!-- Map Card -->
+        <div class="card map-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title">Map</h5>
+                <div class="status-badges">
+                    <button class="filter-toggle" id="map-reset-btn">
+                        <span>Reset</span>
+                    </button>
+                </div>
+            </div>
+            <div class="map-container">
+                <div id="map"></div>
+                <div class="map-loading">
+                    <i class="bi bi-arrow-repeat"></i>
+                    <span>Loading map...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Electricity Use Card -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title">Electricity use</h5>
+                <div class="status-badges">
+                    <button class="fullscreen-btn" id="electricity-fullscreen-btn">
+                        <i class="bi bi-arrows-fullscreen"></i>
+                    </button>
+                    <button class="filter-toggle" id="electricity-clear-btn">
+                        <span>Clear</span>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4" style="border-bottom: 1px solid var(--border-color);">
+                <div class="mb-4">
+                    <label class="form-label" style="font-size: 0.875rem; color: var(--text-muted);">Selected House(s)</label>
+                    <input type="text" class="form-control text-light border-secondary" style="background-color: rgba(56, 77, 164, 0.2);" id="electricity-selected-house" placeholder="Aggregate of all houses in the table" readonly>
+                </div>
+                <table class="table table-borderless mb-4" style="max-width: 400px;">
+                    <tbody>
+                        <tr>
+                            <td style="width: 80px; font-size: 0.875rem; color: var(--text-muted); vertical-align: middle;">Start</td>
+                            <td style="width: 200px;">
+                                <input type="date" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="electricity-start-date">
+                            </td>
+                            <td style="width: 150px;">
+                                    <input type="time" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="electricity-start-time">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="width: 80px; font-size: 0.875rem; color: var(--text-muted); vertical-align: middle;">End</td>
+                            <td style="width: 200px;">
+                                <input type="date" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="electricity-end-date">
+                            </td>
+                            <td style="width: 150px;">
+                                <input type="time" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="electricity-end-time">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-sm btn-outline-secondary" id="electricity-plot-btn">Plot</button>
+                    <div class="loader"></div>
+                    <button class="btn btn-sm btn-outline-secondary" id="electricity-now-btn">Now</button>
+                </div>
+            </div>
+            <div id="electricity-plot-container" style="display: none;">
+                <div id="electricity-plot" class="plot-div"></div>
+            </div>
+        </div>
+
+        <!-- Information Card -->
+        <div class="card" id="information-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title">Information</h5>
+                <div class="status-badges">
+                    <button class="filter-toggle" id="info-reset-btn">
+                        <span>Clear</span>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4">
+                <div class="mb-4">
+                    <label class="form-label" style="font-size: 0.875rem; color: var(--text-muted);">Selected House</label>
+                    <input type="text" class="form-control text-light border-secondary" style="background-color: rgba(56, 77, 164, 0.2);" id="info-selected-house" placeholder="Select a house in the table" readonly>
+                </div>
+                <div class="d-flex gap-2 mb-4" style="margin-bottom: 0rem !important;">
+                    <button class="btn btn-sm btn-outline-secondary" id="show-address-btn">Address</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="show-contact-btn">Contact</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="show-status-btn">Status</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="show-hardware-btn">Hardware</button>
+                </div>
+                <div id="info-details" class="details-grid" style="display: none;">
+                    <div class="detail-item" id="address-section" style="display: none;">
+                        <div class="detail-label">Address</div>
+                        <div class="detail-value" id="info-address">
+                            None
+                        </div>
+                    </div>
+                    <div class="detail-item" id="contact-section" style="display: none;">
+                        <div class="detail-label">Contact</div>
+                        <div class="detail-value" id="info-contact">
+                            None
+                        </div>
+                    </div>
+                    <div class="detail-item" id="status-section" style="display: none;">
+                        <div class="detail-label">Status</div>
+                        <div class="detail-value" id="info-status">
+                            None
+                        </div>
+                    </div>
+                    <div class="detail-item" id="hardware-section" style="display: none;">
+                        <div class="detail-label">Hardware</div>
+                        <div class="detail-value" id="info-hardware">
+                            None
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visualizer Card -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title">Visualize data</h5>
+                <div class="status-badges">
+                    <button class="fullscreen-btn" id="fullscreen-btn">
+                        <i class="bi bi-arrows-fullscreen"></i>
+                    </button>
+                    <button class="filter-toggle" id="clear-btn">
+                        <span>Clear</span>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4">
+                <div class="mb-4">
+                    <label class="form-label" style="font-size: 0.875rem; color: var(--text-muted);">Selected House</label>
+                    <input type="text" class="form-control text-light border-secondary" style="background-color: rgba(56, 77, 164, 0.2);" id="selected-house" placeholder="Select a house in the table" readonly>
+                </div>
+                <table class="table table-borderless mb-4" style="max-width: 400px;">
+                    <tbody>
+                        <tr>
+                            <td style="width: 80px; font-size: 0.875rem; color: var(--text-muted); vertical-align: middle;">Start</td>
+                            <td style="width: 200px;">
+                                <input type="date" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="start-date">
+                            </td>
+                            <td style="width: 150px;">
+                                    <input type="time" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="start-time">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="width: 80px; font-size: 0.875rem; color: var(--text-muted); vertical-align: middle;">End</td>
+                            <td style="width: 200px;">
+                                <input type="date" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="end-date">
+                            </td>
+                            <td style="width: 150px;">
+                                <input type="time" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="end-time">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-sm btn-outline-secondary" id="plot-btn">Plot</button>
+                    <div class="loader"></div>
+                    <button class="btn btn-sm btn-outline-secondary" id="now-btn">Now</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="options-btn">Options</button>
+                </div>
+            </div>
+            <div id="options-div" class="options-container">
+                <div class="options-content">
+                    <div class="options-section">
+                        <h6>Heat pump</h6>
+                        <label><input type="checkbox" name="channels" value="hp-lwt" checked>Leaving water temperature</label>
+                        <label><input type="checkbox" name="channels" value="hp-ewt" checked>Entering water temperature</label>
+                        <label><input type="checkbox" name="channels" value="hp-odu-pwr" checked>Outdoor unit power</label>
+                        <label><input type="checkbox" name="channels" value="hp-idu-pwr" checked>Indoor unit power</label>
+                        <label><input type="checkbox" name="channels" value="primary-flow" checked>Primary pump flow rate</label>
+                        <label><input type="checkbox" name="channels" value="primary-pump-pwr" checked>Primary pump power</label>
+                        <label><input type="checkbox" name="channels" value="oil-boiler-pwr" checked>Oil boiler power</label>
+                    </div>
+                    <div class="options-section">
+                        <h6>Distribution</h6>
+                        <label><input type="checkbox" name="channels" value="dist-swt" checked>Source water temperature</label>
+                        <label><input type="checkbox" name="channels" value="dist-rwt" checked>Return water temperature</label>
+                        <label><input type="checkbox" name="channels" value="dist-flow" checked>Distribution pump flow rate</label>
+                        <label><input type="checkbox" name="channels" value="dist-pump-pwr" checked>Distribution pump power</label>
+                    </div>
+                    <div class="options-section">
+                        <h6>Zones</h6>
+                        <label><input type="checkbox" name="channels" value="zone-heat-calls" checked>Heat calls</label>
+                        <label><input type="checkbox" name="channels" value="oat" checked>Outside air temperature</label>
+                    </div>
+                    <div class="options-section">
+                        <h6>Buffer</h6>
+                        <label><input type="checkbox" name="channels" value="buffer-depths" checked>Buffer depths</label>
+                        <label><input type="checkbox" name="channels" value="buffer-hot-pipe">Hot pipe</label>
+                        <label><input type="checkbox" name="channels" value="buffer-cold-pipe">Cold pipe</label>
+                    </div>
+                    <div class="options-section">
+                        <h6>Storage</h6>
+                        <label><input type="checkbox" name="channels" value="storage-depths" checked>Storage depths</label>
+                        <label><input type="checkbox" name="channels" value="store-hot-pipe">Hot pipe</label>
+                        <label><input type="checkbox" name="channels" value="store-cold-pipe">Cold pipe</label>
+                        <label><input type="checkbox" name="channels" value="store-flow" checked>Storage pump flow rate</label>
+                        <label><input type="checkbox" name="channels" value="store-pump-pwr" checked>Storage pump power</label>
+                        <label><input type="checkbox" name="channels" value="store-energy" checked>Available and required energy</label>
+                        <label><input type="checkbox" name="channels" value="thermocline">Thermocline and centroids</label>
+                    </div>
+                    <div class="options-section">
+                        <h6>Only for CSVs</h6>
+                        <label><input type="checkbox" name="channels" value="relays" checked>Relays</label>
+                        <label><input type="checkbox" name="channels" value="white-wires" checked>White wire power</label>
+                    </div>
+                    <div class="options-section">
+                        <h6>Plot settings</h6>
+                        <label><input type="checkbox" name="channels" value="show-points">Show points</label>
+                    </div>
+                    <div class="options-section">
+                        <h6>CSV settings</h6>
+                        <label><input type="checkbox" name="channels" value="all-data" checked>Export all data channels</label>
+                        <div class="mt-3">
+                            <label class="d-block mb-2">Time step (seconds):</label>
+                            <input type="number" class="form-control bg-dark text-light border-secondary" id="csv-timestep" value="1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="plot-container" style="display: none;">
+                <div id="plot1" class="plot-div"></div>
+                <div id="plot2" class="plot-div"></div>
+                <div id="plot3" class="plot-div"></div>
+                <div id="plot4" class="plot-div"></div>
+                <div id="plot5" class="plot-div"></div>
+                <div id="plot6" class="plot-div"></div>
+                <div id="plot7" class="plot-div"></div>
+                <div id="plot8" class="plot-div"></div>
+                <div id="plot9" class="plot-div"></div>
+                <div id="plot10" class="plot-div"></div>
+                <div id="plot11" class="plot-div"></div>
+                <div id="plot-png" class="plot-div"></div>
+            </div>
+        </div>
+
+
+    </div>
+    
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-links">
+                <a href="#" class="footer-link">Documentation</a>
+                <a href="https://github.com/thegridelectric" class="footer-link">GitHub</a>
+                <a href="#" class="footer-link">Contact</a>
+                <div class="theme-selector">
+                    <button class="btn btn-sm btn-outline-secondary theme-btn" data-theme="system">
+                        <i class="bi bi-display"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary theme-btn" data-theme="dark">
+                        <i class="bi bi-moon-fill"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary theme-btn" data-theme="light">
+                        <i class="bi bi-sun-fill"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="footer-copyright">
+                &copy; 2025 GridWorks. All rights reserved.
+            </div>
+        </div>
+    </footer>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Authentication functions
+        function getAuthToken() {
+            return localStorage.getItem('token');
+        }
+
+        function isAuthenticated() {
+            return !!getAuthToken();
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'login.html';
+        }
+
+        // Check authentication on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!isAuthenticated()) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Display username from token
+            const token = getAuthToken();
+            if (token) {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    const usernameDisplay = document.getElementById('username-display');
+                    if (usernameDisplay) {
+                        usernameDisplay.textContent = payload.username;
+                    }
+                } catch (e) {
+                    console.error('Error parsing token:', e);
+                }
+            }
+
+            // Fetch and display houses
+            fetchHouses();
+
+            // Setup logout button
+            const logoutButton = document.getElementById('logout-button');
+            if (logoutButton) {
+                logoutButton.addEventListener('click', logout);
+            }
+
+            // Initialize button states
+            updateInfoButtonStates();
+
+            // Add event listener for the electricity plot button
+            const electricityPlotBtn = document.getElementById('electricity-plot-btn');
+            if (electricityPlotBtn) {
+                electricityPlotBtn.addEventListener('click', fetchElectricityPlots);
+            }
+
+            // Fullscreen toggle functionality
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            const visualizerCard = document.querySelector('.card:has(#plot-container)');
+
+            fullscreenBtn.addEventListener('click', function() {
+                const wasFullscreen = visualizerCard.classList.contains('fullscreen');
+                visualizerCard.classList.toggle('fullscreen');
+                const icon = this.querySelector('i');
+                if (visualizerCard.classList.contains('fullscreen')) {
+                    icon.classList.remove('bi-arrows-fullscreen');
+                    icon.classList.add('bi-arrows-angle-contract');
+                } else {
+                    icon.classList.remove('bi-arrows-angle-contract');
+                    icon.classList.add('bi-arrows-fullscreen');
+                    if (wasFullscreen) {
+                        visualizerCard.scrollIntoView({ behavior: 'instant', block: 'start' });
+                    }
+                }
+            });
+        });
+
+        // Fetch houses from API
+        async function fetchHouses() {
+            try {
+                const token = getAuthToken();
+                
+                const response = await fetch(`${api_host}/homes`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                                
+                if (response.ok) {
+                    const houses = await response.json();
+                    displayHouses(houses);
+                } else {
+                    console.error('Failed to fetch houses:', response.status);
+                    // If unauthorized, redirect to login
+                    if (response.status === 401) {
+                        console.log('Unauthorized, redirecting to login page');
+                        window.location.href = "login.html";
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching houses:', error);
+            }
+        }
+
+        // Function to display houses in the table
+        function displayHouses(houses) {
+            const tableBody = document.getElementById('table-body');
+            if (!tableBody) {
+                console.error('Table body element not found');
+                return;
+            }
+            
+            // Clear existing rows
+            tableBody.innerHTML = '';
+            
+            if (!houses || houses.length === 0) {
+                // Show empty state
+                const emptyState = document.querySelector('.empty-state');
+                if (emptyState) {
+                    emptyState.style.display = 'block';
+                }
+                return;
+            }
+                        
+            // Hide empty state
+            const emptyState = document.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.style.display = 'none';
+            }
+            
+            // Add houses to table
+            houses.forEach(house => {
+                // Create main row
+                const mainRow = document.createElement('tr');
+                mainRow.className = 'expandable-row';
+                mainRow.setAttribute('data-home-id', house.unique_id);
+                
+                // Add cells
+                mainRow.innerHTML = `
+                    <td>${house.short_alias || 'N/A'}</td>
+                    <td>
+                        ${house.address && house.address.city ? 
+                            `${house.address.city}${house.address.state ? ', ' + house.address.state : ''}` : 
+                            'N/A'}
+                    </td>
+                    <td>
+                        ${house.status ? 
+                            `<span class="badge ${house.status === 'ok' ? 'bg-success' : house.status === 'alert' ? 'bg-danger' : 'bg-secondary'}">
+                                ${house.status}
+                            </span>` : 
+                            'N/A'}
+                    </td>
+                `;
+                
+                // Create action row
+                const actionRow = document.createElement('tr');
+                actionRow.className = 'action-row';
+                actionRow.setAttribute('data-home-id', house.unique_id);
+                actionRow.style.display = 'none';
+                
+                actionRow.innerHTML = `
+                    <td colspan="3">
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-outline-secondary map-btn">Show on map</button>
+                            <button class="btn btn-sm btn-outline-secondary visualize-btn">Visualize data</button>
+                            <button class="btn btn-sm btn-outline-secondary show-info-btn">Get information</button>
+                        </div>
+                    </td>
+                `;
+                
+                // Create details row
+                const detailsRow = document.createElement('tr');
+                detailsRow.className = 'details-row';
+                detailsRow.setAttribute('data-home-id', house.unique_id);
+                
+                // Build address table HTML
+                let addressTableHtml = '';
+                if (house.address) {
+                    addressTableHtml = '<table class="detail-table">';
+                    if (house.address.street) {
+                        addressTableHtml += `<tr><th>Street</th><td>${house.address.street}</td></tr>`;
+                    }
+                    if (house.address.city) {
+                        addressTableHtml += `<tr><th>City</th><td>${house.address.city}</td></tr>`;
+                    }
+                    if (house.address.state) {
+                        addressTableHtml += `<tr><th>State</th><td>${house.address.state}</td></tr>`;
+                    }
+                    if (house.address.zip) {
+                        addressTableHtml += `<tr><th>ZIP</th><td>${house.address.zip}</td></tr>`;
+                    }
+                    if (house.address.country) {
+                        addressTableHtml += `<tr><th>Country</th><td>${house.address.country}</td></tr>`;
+                    }
+                    if (house.address.latitude && house.address.longitude) {
+                        addressTableHtml += `<tr><th>Coordinates</th><td>${house.address.latitude}, ${house.address.longitude}</td></tr>`;
+                    }
+                    addressTableHtml += '</table>';
+                }
+                
+                // Build contact table HTML
+                let contactTableHtml = '';
+                if (house.owner_contact) {
+                    contactTableHtml = '<table class="detail-table">';
+                    if (house.owner_contact.name) {
+                        contactTableHtml += `<tr><th>Name</th><td>${house.owner_contact.name}</td></tr>`;
+                    }
+                    if (house.owner_contact.email) {
+                        contactTableHtml += `<tr><th>Email</th><td>${house.owner_contact.email}</td></tr>`;
+                    }
+                    if (house.owner_contact.phone) {
+                        contactTableHtml += `<tr><th>Phone</th><td>${house.owner_contact.phone}</td></tr>`;
+                    }
+                    contactTableHtml += '</table>';
+                }
+                
+                detailsRow.innerHTML = `
+                    <td colspan="3" class="p-0">
+                        <div class="row-details">
+                            <div class="details-grid">
+                                <div class="detail-item">
+                                    <div class="detail-label">Address</div>
+                                    <div class="detail-value">
+                                        ${addressTableHtml || 'None'}
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Contact</div>
+                                    <div class="detail-value">
+                                        ${contactTableHtml || 'None'}
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Status</div>
+                                    <div class="detail-value">
+                                        ${house.status ? 
+                                            `<span class="badge ${house.status === 'ok' ? 'bg-success' : house.status === 'alert' ? 'bg-danger' : 'bg-secondary'}">
+                                                ${house.status}
+                                            </span>` : 
+                                            'None'}
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Hardware</div>
+                                    <div class="detail-value">${house.hardware_layout || 'None'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                `;
+                
+                // Add rows to table
+                tableBody.appendChild(mainRow);
+                tableBody.appendChild(actionRow);
+                tableBody.appendChild(detailsRow);
+            });
+            
+            // Update status badges
+            updateStatusBadges(houses);
+            
+            // Add event listeners to the new rows
+            addRowEventListeners();
+            
+            // Update map markers after houses are displayed
+            // Use setTimeout to ensure the map is initialized
+            setTimeout(() => {
+                updateMapMarkers();
+                // Fetch electricity plots after table is loaded
+                fetchElectricityPlots();
+            }, 500);
+        }
+
+        // Function to update status badges
+        function updateStatusBadges(houses) {
+            if (!houses || houses.length === 0) {
+                return;
+            }
+            
+            const okCount = houses.filter(house => house.status === 'ok').length;
+            const alertCount = houses.filter(house => house.status === 'alert').length;
+                        
+            const okBadge = document.querySelector('.status-badge.ok .status-badge-count');
+            const alertBadge = document.querySelector('.status-badge.offline .status-badge-count');
+            
+            if (okBadge) okBadge.textContent = okCount;
+            if (alertBadge) alertBadge.textContent = alertCount;
+        }
+
+        // Function to add event listeners to rows
+        function addRowEventListeners() {
+            const expandableRows = document.querySelectorAll('.expandable-row');
+            
+            expandableRows.forEach(row => {
+                row.addEventListener('click', function(e) {
+                    // Prevent default behavior and stop propagation
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const homeId = this.getAttribute('data-home-id');
+                    const actionRow = document.querySelector(`.action-row[data-home-id="${homeId}"]`);
+                    const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                    const detailsContent = detailsRow.querySelector('.row-details');
+                    
+                    // Clear previous content in both cards
+                    clearPlots();
+                    document.getElementById('info-details').style.display = 'none';
+                    
+                    // Update selected house inputs
+                    const selectedHouseInput = document.getElementById('selected-house');
+                    const infoSelectedHouseInput = document.getElementById('info-selected-house');
+                    const electricitySelectedHouseInput = document.getElementById('electricity-selected-house');
+                    
+                    // Toggle expanded class on the main row
+                    const wasExpanded = this.classList.contains('expanded');
+                    this.classList.toggle('expanded');
+                    
+                    if (this.classList.contains('expanded')) {
+                        // Row was just selected
+                        selectedHouseInput.value = this.cells[0].textContent.trim();
+                        infoSelectedHouseInput.value = this.cells[0].textContent.trim();
+                        electricitySelectedHouseInput.value = this.cells[0].textContent.trim();
+                    } else {
+                        // Row was just unselected
+                        selectedHouseInput.value = '';
+                        infoSelectedHouseInput.value = '';
+                        electricitySelectedHouseInput.value = '';
+                    }
+                    
+                    // Update button states
+                    updateInfoButtonStates();
+                    
+                    // Close other expanded rows
+                    expandableRows.forEach(otherRow => {
+                        if (otherRow !== this && otherRow.classList.contains('expanded')) {
+                            const otherId = otherRow.getAttribute('data-home-id');
+                            const otherActionRow = document.querySelector(`.action-row[data-home-id="${otherId}"]`);
+                            const otherDetailsRow = document.querySelector(`.details-row[data-home-id="${otherId}"]`);
+                            const otherDetailsContent = otherDetailsRow.querySelector('.row-details');
+                            
+                            otherRow.classList.remove('expanded');
+                            otherActionRow.style.display = 'none';
+                            otherDetailsContent.classList.remove('expanded');
+                        }
+                    });
+                    
+                    // Update map focus based on row expansion state
+                    updateMapFocus(this);
+                    
+                    // Fetch electricity plots after selection change
+                    fetchElectricityPlots();
+                });
+            });
+            
+            // Add event listeners for the action buttons
+            document.querySelectorAll('.map-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const homeId = this.closest('.action-row').getAttribute('data-home-id');
+                    const row = document.querySelector(`.expandable-row[data-home-id="${homeId}"]`);
+                    
+                    // Hide the details row in the table
+                    const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                    const detailsContent = detailsRow.querySelector('.row-details');
+                    if (detailsContent) {
+                        detailsContent.classList.remove('expanded');
+                    }
+
+                    // Scroll to the Map card
+                    const mapCard = document.querySelector('.map-card');
+                    mapCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            });
+            
+            // Add other event listeners as needed...
+        }
+
+        // Replace the theme toggle functionality with this new version
+        const themeButtons = document.querySelectorAll('.theme-btn');
+        const root = document.documentElement;
+
+        // Function to set theme
+        function setTheme(theme) {
+            if (theme === 'system') {
+                const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                root.setAttribute('data-theme', systemTheme);
+            } else {
+                root.setAttribute('data-theme', theme);
+            }
+            localStorage.setItem('theme-preference', theme);
+            updateActiveButton(theme);
+        }
+
+        // Function to update active button
+        function updateActiveButton(theme) {
+            themeButtons.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-theme') === theme) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        // Initialize theme
+        const savedPreference = localStorage.getItem('theme-preference') || 'system';
+        setTheme(savedPreference);
+
+        // Add click handlers to theme buttons
+        themeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const theme = btn.getAttribute('data-theme');
+                setTheme(theme);
+            });
+        });
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            if (localStorage.getItem('theme-preference') === 'system') {
+                setTheme('system');
+            }
+        });
+
+        // Global variables for map functionality
+        let map;
+        let markers = [];
+        let bounds;
+
+        // Initialize map when the API is loaded
+        window.initMap = function() {
+            const mapElement = document.getElementById('map');
+            if (!mapElement) {
+                console.warn('Map element not found');
+                return;
+            }
+            
+            // TODO
+            // map = new google.maps.Map(mapElement, {
+            //     mapId: 'faa6e2dd4dd456ec',
+            //     disableDefaultUI: true,    // Disables ALL controls
+            //     mapTypeControl: false,
+            //     streetViewControl: false,
+            //     fullscreenControl: false,
+            //     zoomControl: false,
+            //     rotateControl: false,
+            //     scaleControl: false,
+            //     clickableIcons: false,
+            //     minZoom: 2 // Set minimum zoom level
+            // });
+
+            // // Hide loading indicator
+            // const loadingIndicator = document.querySelector('.map-loading');
+            // if (loadingIndicator) {
+            //     loadingIndicator.style.display = 'none';
+            // }
+            // updateMapMarkers();
+        };
+
+        async function updateMapMarkers() {
+            if (!map) {
+                console.warn('Map not initialized');
+                return;
+            }
+
+            // Clear existing markers
+            markers.forEach(marker => marker.map = null);
+            markers = [];
+            bounds = new google.maps.LatLngBounds();
+
+            // Get all visible rows
+            const visibleRows = Array.from(document.querySelectorAll('.expandable-row')).filter(
+                row => row.style.display !== 'none'
+            );
+
+            for (const row of visibleRows) {
+                const homeId = row.getAttribute('data-home-id');
+                const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                const addressTable = detailsRow.querySelector('.detail-table');
+                
+                if (addressTable) {
+                    const rows = addressTable.querySelectorAll('tr');
+                    let lat = null;
+                    let lng = null;
+                    
+                    rows.forEach(row => {
+                        const cells = row.querySelectorAll('th, td');
+                        if (cells[0].textContent === 'Coordinates') {
+                            const coords = cells[1].textContent.split(',').map(coord => parseFloat(coord.trim()));
+                            if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+                                lat = coords[0];
+                                lng = coords[1];
+                            }
+                        }
+                    });
+
+                    if (lat !== null && lng !== null) {
+                        const position = { lat, lng };
+                        
+                        // Create marker element
+                        const markerView = new google.maps.marker.AdvancedMarkerElement({
+                            map,
+                            position,
+                            title: row.cells[0].textContent.trim(),
+                        });
+
+                        // Create custom marker content
+                        const markerContent = document.createElement('div');
+                        markerContent.className = 'custom-marker';
+                        markerContent.style.width = '16px';
+                        markerContent.style.height = '16px';
+                        markerContent.style.borderRadius = '50%';
+                        markerContent.style.backgroundColor = row.cells[2].textContent.trim().includes('ok') ? '#28a745' : '#ff4444';
+                        markerContent.style.border = '2px solid #ffffff';
+                        markerContent.style.cursor = 'pointer';
+                        
+                        markerView.content = markerContent;
+
+                        // Add click listener to marker using gmp-click
+                        markerView.addEventListener('gmp-click', () => {
+                            const infoWindow = new google.maps.InfoWindow({
+                                content: `
+                                    <div style="padding: 8px;">
+                                        <strong>${row.cells[0].textContent.trim()}</strong><br>
+                                        ${row.cells[1].textContent.trim()}<br>
+                                        Status: ${row.cells[2].textContent.trim()}
+                                    </div>
+                                `,
+                            });
+                            infoWindow.open(map, markerView);
+                        });
+
+                        markers.push(markerView);
+                        bounds.extend(position);
+                    }
+                }
+            }
+
+            // Fit map to show all markers if there are any
+            if (markers.length > 0) {
+                // Add padding to bounds
+                const ne = bounds.getNorthEast();
+                const sw = bounds.getSouthWest();
+                const latPadding = (ne.lat() - sw.lat()) * 1.5; // 150% padding
+                const lngPadding = (ne.lng() - sw.lng()) * 1.5;
+                
+                bounds.extend(new google.maps.LatLng(ne.lat() + latPadding, ne.lng() + lngPadding));
+                bounds.extend(new google.maps.LatLng(sw.lat() - latPadding, sw.lng() - lngPadding));
+                
+                map.fitBounds(bounds);
+
+                // If there's only one marker, ensure we stay zoomed out
+                if (markers.length === 1) {
+                    // Set a minimum zoom level for single markers
+                    const listener = google.maps.event.addListener(map, 'idle', function() {
+                        if (map.getZoom() > 15) {
+                            map.setZoom(15);
+                        }
+                        google.maps.event.removeListener(listener);
+                    });
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const expandableRows = document.querySelectorAll('.expandable-row');
+            
+            // Initialize date and time fields
+            document.getElementById('start-date').value = getDefaultDate(true, false);
+            document.getElementById('start-time').value = getDefaultTime(true, false);
+            document.getElementById('end-date').value = getDefaultDate(false, false);
+            document.getElementById('end-time').value = getDefaultTime(false, false);
+            
+            // Initialize electricity card date and time fields
+            document.getElementById('electricity-start-date').value = getDefaultDate(true, true);
+            document.getElementById('electricity-start-time').value = getDefaultTime(true, true);
+            document.getElementById('electricity-end-date').value = getDefaultDate(false, true);
+            document.getElementById('electricity-end-time').value = getDefaultTime(false, true);
+            
+            // Add click event listeners to selected house inputs
+            document.getElementById('selected-house').addEventListener('click', function() {
+                const visualizerCard = document.querySelector('.card:has(#plot-container)');
+                if (visualizerCard.classList.contains('fullscreen')) {
+                    visualizerCard.classList.remove('fullscreen');
+                    const fullscreenBtn = document.getElementById('fullscreen-btn');
+                    const icon = fullscreenBtn.querySelector('i');
+                    icon.classList.remove('bi-arrows-angle-contract');
+                    icon.classList.add('bi-arrows-fullscreen');
+                }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+            
+            document.getElementById('electricity-selected-house').addEventListener('click', function() {
+                const electricityCard = document.querySelector('.card:has(#electricity-plot-container)');
+                if (electricityCard.classList.contains('fullscreen')) {
+                    electricityCard.classList.remove('fullscreen');
+                    const fullscreenBtn = document.getElementById('electricity-fullscreen-btn');
+                    const icon = fullscreenBtn.querySelector('i');
+                    icon.classList.remove('bi-arrows-angle-contract');
+                    icon.classList.add('bi-arrows-fullscreen');
+                }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+            
+            document.getElementById('info-selected-house').addEventListener('click', function() {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+            
+            // Filter toggle functionality
+            const filterToggle = document.getElementById('filter-toggle');
+            const searchContainer = document.querySelector('.search-container');
+            
+            if (filterToggle && searchContainer) {
+                filterToggle.addEventListener('click', function() {
+                    this.classList.toggle('active');
+                    
+                    // Toggle the search container's display
+                    if (searchContainer.style.display === 'flex') {
+                        searchContainer.style.display = 'none';
+                    } else {
+                        searchContainer.style.display = 'flex';
+                    }
+                });
+            }
+            
+            // Map reset button functionality
+            const mapResetBtn = document.getElementById('map-reset-btn');
+            mapResetBtn.addEventListener('click', function() {
+                // Reset map to show all visible markers without changing UI state
+                updateMapMarkers();
+            });
+            
+            // Now button functionality
+            const nowBtn = document.getElementById('now-btn');
+            nowBtn.addEventListener('click', function() {
+                setNow();
+            });
+            
+            expandableRows.forEach(row => {
+                row.addEventListener('click', function(e) {
+                    // Prevent default behavior and stop propagation
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const homeId = this.getAttribute('data-home-id');
+                    const actionRow = document.querySelector(`.action-row[data-home-id="${homeId}"]`);
+                    
+                    // Clear previous content in both cards
+                    clearPlots();
+                    document.getElementById('info-details').style.display = 'none';
+                    
+                    // Update selected house inputs
+                    const selectedHouseInput = document.getElementById('selected-house');
+                    const infoSelectedHouseInput = document.getElementById('info-selected-house');
+                    const electricitySelectedHouseInput = document.getElementById('electricity-selected-house');
+                    selectedHouseInput.value = this.cells[0].textContent.trim();
+                    infoSelectedHouseInput.value = this.cells[0].textContent.trim();
+                    electricitySelectedHouseInput.value = this.cells[0].textContent.trim();
+                    
+                    // Toggle expanded class on the main row
+                    this.classList.toggle('expanded');
+                    
+                    // Close other expanded rows
+                    expandableRows.forEach(otherRow => {
+                        if (otherRow !== this && otherRow.classList.contains('expanded')) {
+                            const otherId = otherRow.getAttribute('data-home-id');
+                            const otherActionRow = document.querySelector(`.action-row[data-home-id="${otherId}"]`);
+                            const otherDetailsRow = document.querySelector(`.details-row[data-home-id="${otherId}"]`);
+                            const otherDetailsContent = otherDetailsRow.querySelector('.row-details');
+                            
+                            otherRow.classList.remove('expanded');
+                            otherActionRow.style.display = 'none';
+                            otherDetailsContent.classList.remove('expanded');
+                        }
+                    });
+                    
+                    // Update map focus based on row expansion state
+                    updateMapFocus(this);
+                    
+                    // Fetch electricity plots after selection change
+                    fetchElectricityPlots();
+                });
+            });
+
+            // Add event listeners for the action buttons
+            document.querySelectorAll('.map-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const homeId = this.closest('.action-row').getAttribute('data-home-id');
+                    const row = document.querySelector(`.expandable-row[data-home-id="${homeId}"]`);
+                    
+                    // Hide the details row in the table
+                    const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                    const detailsContent = detailsRow.querySelector('.row-details');
+                    if (detailsContent) {
+                        detailsContent.classList.remove('expanded');
+                    }
+
+                    // Scroll to the Map card
+                    const mapCard = document.querySelector('.map-card');
+                    mapCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            });
+
+            document.querySelectorAll('.visualize-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const homeId = this.closest('.action-row').getAttribute('data-home-id');
+                    const row = document.querySelector(`.expandable-row[data-home-id="${homeId}"]`);
+                    
+                    // Update selected house input
+                    const selectedHouseInput = document.getElementById('selected-house');
+                    selectedHouseInput.value = row.cells[0].textContent.trim();
+                    
+                    // Hide the details row in the table
+                    const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                    const detailsContent = detailsRow.querySelector('.row-details');
+                    if (detailsContent) {
+                        detailsContent.classList.remove('expanded');
+                    }
+
+                    // Scroll to the Visualizer card
+                    const visualizerCard = document.querySelector('.card:nth-last-child(2)');
+                    visualizerCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            });
+
+            document.querySelectorAll('.show-info-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const homeId = this.closest('.action-row').getAttribute('data-home-id');
+                    const row = document.querySelector(`.expandable-row[data-home-id="${homeId}"]`);
+                    const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                    
+                    // Update selected house inputs
+                    const selectedHouseInput = document.getElementById('selected-house');
+                    const infoSelectedHouseInput = document.getElementById('info-selected-house');
+                    const electricitySelectedHouseInput = document.getElementById('electricity-selected-house');
+                    selectedHouseInput.value = row.cells[0].textContent.trim();
+                    infoSelectedHouseInput.value = row.cells[0].textContent.trim();
+                    electricitySelectedHouseInput.value = row.cells[0].textContent.trim();
+                    
+                    // Show information details
+                    document.getElementById('info-details').style.display = 'grid';
+                    
+                    // Update information card
+                    const addressTable = detailsRow.querySelector('.detail-table');
+                    const ownerContactTable = detailsRow.querySelector('.detail-item:nth-child(2) .detail-value');
+                    const statusBadge = detailsRow.querySelector('.detail-item:nth-child(3) .detail-value .badge');
+                    const hardwareLayout = detailsRow.querySelector('.detail-item:nth-child(4) .detail-value');
+                    
+                    // Update address
+                    const infoAddress = document.getElementById('info-address');
+                    if (addressTable) {
+                        infoAddress.innerHTML = addressTable.outerHTML;
+                        const googleMapsLink = detailsRow.querySelector('a[href*="google.com/maps"]');
+                        if (googleMapsLink) {
+                            infoAddress.appendChild(googleMapsLink.cloneNode(true));
+                        }
+                    } else {
+                        infoAddress.textContent = 'None';
+                    }
+                    
+                    // Update contact
+                    const infoContact = document.getElementById('info-contact');
+                    if (ownerContactTable) {
+                        infoContact.innerHTML = ownerContactTable.innerHTML;
+                    } else {
+                        infoContact.textContent = 'None';
+                    }
+                    
+                    // Update status
+                    const infoStatus = document.getElementById('info-status');
+                    if (statusBadge) {
+                        infoStatus.innerHTML = statusBadge.outerHTML;
+                    } else {
+                        infoStatus.textContent = 'None';
+                    }
+                    
+                    // Update hardware
+                    const infoHardware = document.getElementById('info-hardware');
+                    if (hardwareLayout) {
+                        infoHardware.textContent = hardwareLayout.textContent;
+                    } else {
+                        infoHardware.textContent = 'None';
+                    }
+
+                    // Hide the details row in the table
+                    const detailsContent = detailsRow.querySelector('.row-details');
+                    if (detailsContent) {
+                        detailsContent.classList.remove('expanded');
+                    }
+
+                    // Scroll to the Information card
+                    const infoCard = document.getElementById('information-card');
+                    infoCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            });
+            
+            // Table sorting functionality
+            const tableHeaders = document.querySelectorAll('.table th[data-sort]');
+            let currentSort = {
+                column: 'short_alias',
+                direction: 'asc'
+            };
+            
+            // Set initial sort indicator
+            document.querySelector('th[data-sort="short_alias"]').classList.add('sort-asc');
+            
+            // Initial sort by house alias
+            const tbody = document.querySelector('.table tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr.expandable-row'));
+            
+            rows.sort((a, b) => {
+                const aValue = a.cells[0].textContent.trim();
+                const bValue = b.cells[0].textContent.trim();
+                return aValue.localeCompare(bValue);
+            });
+            
+            // Reorder the rows and their corresponding detail rows
+            rows.forEach(row => {
+                const homeId = row.getAttribute('data-home-id');
+                const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                
+                tbody.appendChild(row);
+                tbody.appendChild(detailsRow);
+            });
+            
+            tableHeaders.forEach(header => {
+                header.addEventListener('click', function() {
+                    const column = this.getAttribute('data-sort');
+                    const tbody = document.querySelector('.table tbody');
+                    const rows = Array.from(tbody.querySelectorAll('tr.expandable-row'));
+                    
+                    // Toggle sort direction if clicking the same column
+                    if (currentSort.column === column) {
+                        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        currentSort.column = column;
+                        currentSort.direction = 'asc';
+                    }
+                    
+                    // Update sort indicators
+                    tableHeaders.forEach(h => {
+                        h.classList.remove('sort-asc', 'sort-desc');
+                    });
+                    this.classList.add(`sort-${currentSort.direction}`);
+                    
+                    // Sort the rows
+                    rows.sort((a, b) => {
+                        let aValue, bValue;
+                        
+                        if (column === 'short_alias') {
+                            aValue = a.cells[0].textContent.trim();
+                            bValue = b.cells[0].textContent.trim();
+                        } else if (column === 'address') {
+                            aValue = a.cells[1].textContent.trim();
+                            bValue = b.cells[1].textContent.trim();
+                        } else if (column === 'status') {
+                            aValue = a.cells[2].textContent.trim();
+                            bValue = b.cells[2].textContent.trim();
+                        }
+                        
+                        // Handle empty values
+                        if (aValue === 'N/A') aValue = '';
+                        if (bValue === 'N/A') bValue = '';
+                        
+                        // Compare values
+                        if (aValue < bValue) return currentSort.direction === 'asc' ? -1 : 1;
+                        if (aValue > bValue) return currentSort.direction === 'asc' ? 1 : -1;
+                        return 0;
+                    });
+                    
+                    // Reorder the rows and their corresponding detail rows
+                    rows.forEach(row => {
+                        const homeId = row.getAttribute('data-home-id');
+                        const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                        
+                        tbody.appendChild(row);
+                        tbody.appendChild(detailsRow);
+                    });
+                });
+            });
+            
+            // Search functionality
+            const searchInputs = {
+                alias: document.getElementById('search-alias'),
+                city: document.getElementById('search-city'),
+                status: document.getElementById('search-status')
+            };
+            
+            const clearSearchBtn = document.getElementById('clear-search');
+            const noResultsDiv = document.querySelector('.no-results');
+            const tableContainer = document.querySelector('.table-responsive');
+            
+            // Function to filter rows based on search criteria
+            function filterRows() {
+                const aliasFilter = searchInputs.alias ? searchInputs.alias.value.toLowerCase() : '';
+                const cityFilter = searchInputs.city ? searchInputs.city.value.toLowerCase() : '';
+                const statusFilter = searchInputs.status ? searchInputs.status.value.toLowerCase() : '';
+                
+                const rows = document.querySelectorAll('.expandable-row');
+                let visibleCount = 0;
+                let visibleAliases = new Set();
+                
+                // Remove any existing no-results row
+                const existingNoResults = document.querySelector('.no-results-row');
+                if (existingNoResults) {
+                    existingNoResults.remove();
+                }
+                
+                rows.forEach(row => {
+                    const alias = row.cells[0].textContent.trim().toLowerCase();
+                    const city = row.cells[1].textContent.trim().toLowerCase();
+                    const status = row.cells[2].textContent.trim().toLowerCase();
+                    
+                    const matchesAlias = alias.includes(aliasFilter);
+                    const matchesCity = city.includes(cityFilter);
+                    const matchesStatus = status.includes(statusFilter);
+                    
+                    if (matchesAlias && matchesCity && matchesStatus) {
+                        row.style.display = '';
+                        const detailsRow = document.querySelector(`.details-row[data-home-id="${row.getAttribute('data-home-id')}"]`);
+                        if (detailsRow) detailsRow.style.display = '';
+                        visibleCount++;
+                        visibleAliases.add(row.cells[0].textContent.trim());
+                    } else {
+                        row.style.display = 'none';
+                        const detailsRow = document.querySelector(`.details-row[data-home-id="${row.getAttribute('data-home-id')}"]`);
+                        if (detailsRow) detailsRow.style.display = 'none';
+                    }
+                });
+                
+                // If no results, add a no-results row
+                if (visibleCount === 0) {
+                    const noResultsRow = document.createElement('tr');
+                    noResultsRow.className = 'no-results-row';
+                    noResultsRow.innerHTML = '<td colspan="3"><span>No results found</span></td>';
+                    tableContainer.appendChild(noResultsRow);
+                }
+                
+                // Convert current visible aliases to a sorted string for comparison
+                const currentVisibleAliasesStr = Array.from(visibleAliases).sort().join(',');
+                
+                // Only fetch electricity plots if the visible houses have changed
+                if (currentVisibleAliasesStr !== window.previousVisibleAliasesStr) {
+                    window.previousVisibleAliasesStr = currentVisibleAliasesStr;
+                    fetchElectricityPlots();
+                }
+                
+                // Return the count of visible rows
+                return visibleCount;
+            }
+            
+            // Initialize the previous visible aliases string
+            window.previousVisibleAliasesStr = '';
+            
+            // Track the previous count of visible rows
+            let previousVisibleCount = -1;
+            
+            // Add event listeners to search inputs
+            Object.values(searchInputs).forEach(input => {
+                if (input) {
+                input.addEventListener('input', function() {
+                    const currentVisibleCount = filterRows();
+                    
+                    // Only update the map if the number of visible rows has changed
+                    if (currentVisibleCount !== previousVisibleCount) {
+                        updateMapMarkers();
+                        previousVisibleCount = currentVisibleCount;
+                    }
+                    
+                    // Toggle active class based on whether input has value
+                    if (this.value.trim() !== '') {
+                        this.classList.add('active');
+                    } else {
+                        this.classList.remove('active');
+                    }
+                });
+                }
+            });
+            
+            // Clear search button
+            clearSearchBtn.addEventListener('click', function() {
+                Object.values(searchInputs).forEach(input => {
+                    if (input) {
+                    input.value = '';
+                    }
+                });
+                const currentVisibleCount = filterRows();
+                updateMapMarkers();
+                previousVisibleCount = currentVisibleCount;
+            });
+            
+            // Clear filters button
+            const clearFiltersBtn = document.getElementById('clear-filters');
+            
+            if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', function() {
+                Object.values(searchInputs).forEach(input => {
+                        if (input) {
+                    input.value = '';
+                    input.classList.remove('active');
+                        }
+                });
+                const currentVisibleCount = filterRows();
+                updateMapMarkers();
+                previousVisibleCount = currentVisibleCount;
+            });
+            }
+
+            // Load Google Maps API with loading=async parameter and error handling
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBCLsGEiQzvy45h34YlwChS4-ARVn08_Io&callback=initMap&libraries=marker&v=beta&loading=async`;
+            script.async = true;
+            script.defer = true;
+            script.onerror = function() {
+                console.warn('Google Maps script failed to load. This might be due to an ad blocker.');
+            };
+            document.head.appendChild(script);
+        });
+
+        // Function to update map focus based on row expansion state
+        function updateMapFocus(row) {
+            if (!map) {
+                console.warn('Map not initialized');
+                return;
+            }
+            
+            const isExpanded = row.classList.contains('expanded');
+            
+            if (isExpanded) {
+                // Get coordinates for the expanded row
+                const homeId = row.getAttribute('data-home-id');
+                const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                const addressTable = detailsRow.querySelector('.detail-table');
+                
+                if (addressTable) {
+                    const rows = addressTable.querySelectorAll('tr');
+                    let lat = null;
+                    let lng = null;
+                    
+                    rows.forEach(row => {
+                        const cells = row.querySelectorAll('th, td');
+                        if (cells[0].textContent === 'Coordinates') {
+                            const coords = cells[1].textContent.split(',').map(coord => parseFloat(coord.trim()));
+                            if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+                                lat = coords[0];
+                                lng = coords[1];
+                            }
+                        }
+                    });
+
+                    if (lat !== null && lng !== null) {
+                        // Create a bounds object with just this location
+                        const position = new google.maps.LatLng(lat, lng);
+                        const bounds = new google.maps.LatLngBounds();
+                        bounds.extend(position);
+                        
+                        // Add padding to bounds
+                        const ne = bounds.getNorthEast();
+                        const sw = bounds.getSouthWest();
+                        const latPadding = (ne.lat() - sw.lat()) * 0.5; // 50% padding
+                        const lngPadding = (ne.lng() - sw.lng()) * 0.5;
+                        
+                        bounds.extend(new google.maps.LatLng(ne.lat() + latPadding, ne.lng() + lngPadding));
+                        bounds.extend(new google.maps.LatLng(sw.lat() - latPadding, sw.lng() - lngPadding));
+                        
+                        // Fit map to this location
+                        map.fitBounds(bounds);
+                        
+                        // Set a maximum zoom level for single location
+                        const listener = google.maps.event.addListener(map, 'idle', function() {
+                            if (map.getZoom() > 15) {
+                                map.setZoom(15);
+                            }
+                            google.maps.event.removeListener(listener);
+                        });
+                    }
+                }
+            } else {
+                // If row is collapsed, zoom out to show all visible markers
+                updateMapMarkers();
+            }
+        }
+
+        let isRunningLocally = false;
+        let api_host = isRunningLocally ? 'http://localhost:8000' : 'https://visualizer.electricity.works';
+
+        function getDefaultDate(start, electricity_use) {
+            const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+            if (electricity_use) {
+                if (start) { 
+                    nyDate.setDate(nyDate.getDate() - 1);
+                    nyDate.setHours(0, 0, 0, 0);
+                } else {
+                    nyDate.setMinutes(nyDate.getMinutes() + 1);  
+                } 
+            } else {
+                if (start) { 
+                    nyDate.setDate(nyDate.getDate() - 1);
+                    nyDate.setHours(20, 0, 0, 0);
+                } else {
+                    nyDate.setMinutes(nyDate.getMinutes() + 1);  
+                } 
+            }
+            const year = nyDate.getFullYear();
+            const month = String(nyDate.getMonth() + 1).padStart(2, '0');
+            const day = String(nyDate.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function getDefaultTime(start, electricity_use) {
+            const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+            if (electricity_use) {
+                if (start) { 
+                    nyDate.setDate(nyDate.getDate() - 1);
+                    nyDate.setHours(0, 0, 0, 0);
+                } else {
+                    nyDate.setMinutes(nyDate.getMinutes() + 1);  
+                }
+            } else {
+                if (start) { 
+                    nyDate.setDate(nyDate.getDate() - 1);
+                    nyDate.setHours(20, 0, 0, 0);
+                } else {
+                    nyDate.setMinutes(nyDate.getMinutes() + 1);  
+                }  
+            }
+            const hours = String(nyDate.getHours()).padStart(2, '0');
+            const minutes = String(nyDate.getMinutes()).padStart(2, '0');
+
+            return `${hours}:${minutes}`;
+        }
+
+        function setNow() {
+            const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+            nyDate.setMinutes(nyDate.getMinutes() + 1);
+            document.getElementById('end-date').value = nyDate.toISOString().split('T')[0];
+            document.getElementById('end-time').value = nyDate.toTimeString().split(' ')[0].substring(0, 5);
+        }
+
+        function clearPlots() {
+            const plotDivs = [
+                document.getElementById('plot1'),
+                document.getElementById('plot2'),
+                document.getElementById('plot3'),
+                document.getElementById('plot4'),
+                document.getElementById('plot5'),
+                document.getElementById('plot6'),
+                document.getElementById('plot7'),
+                document.getElementById('plot8'),
+                document.getElementById('plot9'),
+                document.getElementById('plot10'),
+                document.getElementById('plot11'),
+                document.getElementById('plot-png')
+            ];
+            plotDivs.forEach(div => {
+                while (div.firstChild) {
+                    div.removeChild(div.firstChild);
+                }
+            });
+            const plotContainer = document.getElementById('plot-container');
+            plotContainer.style.display = 'none';
+        }
+
+        function disableButton(buttonId) {
+            const button = document.getElementById(buttonId);
+            button.disabled = true;
+            button.style.opacity = '0.5';
+        }
+
+        function enableButton(buttonId) {
+            const button = document.getElementById(buttonId);
+            button.disabled = false;
+            button.style.opacity = '1';
+        }
+
+        // Add event listener for the plot button
+        document.getElementById('plot-btn').addEventListener('click', getData);
+
+        // Options functionality
+        const optionsBtn = document.getElementById('options-btn');
+        const optionsDiv = document.getElementById('options-div');
+        const closeOptionsBtn = document.getElementById('close-options-button');
+
+        // Initialize options div display state
+        optionsDiv.style.display = 'none';
+
+        function toggleOptions() {
+            optionsDiv.style.display = optionsDiv.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        optionsBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleOptions();
+        });
+
+        if (closeOptionsBtn) {
+            closeOptionsBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleOptions();
+            });
+        }
+
+        // Close options when clicking outside
+        optionsDiv.addEventListener('click', function(e) {
+            if (e.target === optionsDiv) {
+                toggleOptions();
+            }
+        });
+
+        // Update getData function to use selected channels
+        async function getData(event) {
+            event.preventDefault();
+            const houseAlias = document.getElementById('selected-house').value;
+            
+            // Check if a house is selected
+            if (!houseAlias || houseAlias.trim() === '') {
+                return;
+            }
+            
+            const startDate = document.getElementById('start-date').value;
+            const startTime = document.getElementById('start-time').value;
+            const endDate = document.getElementById('end-date').value;
+            const endTime = document.getElementById('end-time').value;
+
+            const startDateTime = luxon.DateTime.fromFormat(`${startDate} ${startTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
+            const endDateTime = luxon.DateTime.fromFormat(`${endDate} ${endTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
+            
+            const startUnixMilliseconds = startDateTime.toUTC().toMillis();
+            const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+
+            const selectedChannels = Array.from(document.querySelectorAll('input[name="channels"]:checked'))
+                .map(checkbox => checkbox.value);
+
+            await fetchPlots(houseAlias, startUnixMilliseconds, endUnixMilliseconds, selectedChannels);
+        }
+
+        // Update fetchPlots function to show/hide loader
+        async function fetchPlots(houseAlias, startMs, endMs, selectedChannels) {
+            const plotBtn = document.getElementById('plot-btn');
+            
+            plotBtn.disabled = true;
+            plotBtn.style.opacity = '0.5';
+            
+            try {
+                // Check if we're in dark mode
+                const isDarkMode = root.getAttribute('data-theme') === 'dark' || 
+                    (root.getAttribute('data-theme') === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+                const response = await fetch(`${api_host}/plots`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    },
+                    body: JSON.stringify({
+                        house_alias: houseAlias,
+                        password: '',
+                        start_ms: startMs,
+                        end_ms: endMs,
+                        selected_channels: selectedChannels,
+                        confirm_with_user: false,
+                        darkmode: isDarkMode
+                    })
+                });
+
+                const contentType = response.headers.get("Content-Type");
+                if (contentType && contentType.includes("application/json")) {
+                    const data = await response.json();
+                    if ('success' in data && data.success === false) {
+                        console.error('Error:', data.message);
+                    }
+                } else {
+                    const blob = await response.blob();
+                    const zip = await JSZip.loadAsync(blob);
+                    clearPlots();
+                    
+                    const plotContainer = document.getElementById('plot-container');
+                    plotContainer.style.display = 'block';
+                    
+                    let iframeCount = 0;
+                    const plotDivs = [
+                        document.getElementById('plot1'),
+                        document.getElementById('plot2'),
+                        document.getElementById('plot3'),
+                        document.getElementById('plot4'),
+                        document.getElementById('plot5'),
+                        document.getElementById('plot6'),
+                        document.getElementById('plot7'),
+                        document.getElementById('plot8'),
+                        document.getElementById('plot9'),
+                        document.getElementById('plot10'),
+                        document.getElementById('plot11'),
+                        document.getElementById('plot-png')
+                    ];
+
+                    for (const filename of Object.keys(zip.files)) {
+                        const fileData = await zip.files[filename].async('blob');
+                        if (filename.endsWith('.html')) {
+                            const blob = new Blob([await zip.files[filename].async('text')], { type: 'text/html' });
+                            const htmlUrl = URL.createObjectURL(blob);
+                            const iframe = document.createElement('iframe');
+                            iframe.src = htmlUrl;
+                            iframe.style.width = window.innerWidth < 650 ? '100%' : '97.5%';
+                            iframe.style.height = '375px';
+                            iframe.style.maxWidth = '1500px';
+                            iframe.style.border = 'none';
+                            
+                            const currentDiv = plotDivs[iframeCount % plotDivs.length];
+                            currentDiv.appendChild(iframe);
+                            iframeCount++;
+                        } else if (filename.endsWith('.png')) {
+                            const imgUrl = URL.createObjectURL(fileData);
+                            const img = document.createElement('img');
+                            img.src = imgUrl;
+                            img.alt = 'Plot Image';
+                            document.getElementById('plot-png').appendChild(img);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error getting plots:', error);
+            } finally {
+                plotBtn.disabled = false;
+                plotBtn.style.opacity = '1';
+            }
+        }
+
+        // Function to update button states based on house selection
+        function updateInfoButtonStates() {
+            const houseAlias = document.getElementById('info-selected-house').value;
+            const buttons = [
+                document.getElementById('show-address-btn'),
+                document.getElementById('show-contact-btn'),
+                document.getElementById('show-status-btn'),
+                document.getElementById('show-hardware-btn')
+            ];
+            
+            const hasSelectedHouse = houseAlias && houseAlias.trim() !== '';
+            
+            buttons.forEach(button => {
+                if (button) {
+                    button.disabled = !hasSelectedHouse;
+                    button.style.opacity = hasSelectedHouse ? '1' : '0.5';
+                }
+            });
+        }
+
+        // Add event listener for the info reset button
+        const infoResetBtn = document.getElementById('info-reset-btn');
+        infoResetBtn.addEventListener('click', function() {
+            document.getElementById('info-details').style.display = 'none';
+            // Clear the selected house input
+            document.getElementById('info-selected-house').value = '';
+            // Update button states
+            updateInfoButtonStates();
+        });
+
+        // Add event listener for the get info button
+        document.getElementById('show-address-btn').addEventListener('click', function() {
+            const houseAlias = document.getElementById('info-selected-house').value;
+            if (!houseAlias) {
+                return; // No house selected
+            }
+            
+            // Find the row with this house alias
+            const rows = document.querySelectorAll('.expandable-row');
+            let targetRow = null;
+            
+            for (const row of rows) {
+                if (row.cells[0].textContent.trim() === houseAlias) {
+                    targetRow = row;
+                    break;
+                }
+            }
+            
+            if (targetRow) {
+                const homeId = targetRow.getAttribute('data-home-id');
+                const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                const addressSection = document.getElementById('address-section');
+                
+                // Check if address section is already visible
+                if (addressSection.style.display === 'block') {
+                    // If visible, hide it and hide the container if no other sections are visible
+                    addressSection.style.display = 'none';
+                    if (!document.querySelector('.detail-item[style*="display: block"]')) {
+                        document.getElementById('info-details').style.display = 'none';
+                    }
+                } else {
+                    // Hide all sections first
+                    document.querySelectorAll('.detail-item').forEach(item => {
+                        item.style.display = 'none';
+                    });
+                    
+                    // Show the address section
+                    addressSection.style.display = 'block';
+                    document.getElementById('info-details').style.display = 'grid';
+                    
+                    // Update address
+                    const addressTable = detailsRow.querySelector('.detail-table');
+                    const infoAddress = document.getElementById('info-address');
+                    if (addressTable) {
+                        infoAddress.innerHTML = addressTable.outerHTML;
+                        const googleMapsLink = detailsRow.querySelector('a[href*="google.com/maps"]');
+                        if (googleMapsLink) {
+                            infoAddress.appendChild(googleMapsLink.cloneNode(true));
+                        }
+                    } else {
+                        infoAddress.textContent = 'None';
+                    }
+                }
+            }
+        });
+
+        document.getElementById('show-contact-btn').addEventListener('click', function() {
+            const houseAlias = document.getElementById('info-selected-house').value;
+            if (!houseAlias) {
+                return; // No house selected
+            }
+            
+            // Find the row with this house alias
+            const rows = document.querySelectorAll('.expandable-row');
+            let targetRow = null;
+            
+            for (const row of rows) {
+                if (row.cells[0].textContent.trim() === houseAlias) {
+                    targetRow = row;
+                    break;
+                }
+            }
+            
+            if (targetRow) {
+                const homeId = targetRow.getAttribute('data-home-id');
+                const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                const contactSection = document.getElementById('contact-section');
+                
+                // Check if contact section is already visible
+                if (contactSection.style.display === 'block') {
+                    // If visible, hide it and hide the container if no other sections are visible
+                    contactSection.style.display = 'none';
+                    if (!document.querySelector('.detail-item[style*="display: block"]')) {
+                        document.getElementById('info-details').style.display = 'none';
+                    }
+                } else {
+                    // Hide all sections first
+                    document.querySelectorAll('.detail-item').forEach(item => {
+                        item.style.display = 'none';
+                    });
+                    
+                    // Show the contact section
+                    contactSection.style.display = 'block';
+                    document.getElementById('info-details').style.display = 'grid';
+                    
+                    // Update contact
+                    const ownerContactTable = detailsRow.querySelector('.detail-item:nth-child(2) .detail-value');
+                    const infoContact = document.getElementById('info-contact');
+                    if (ownerContactTable) {
+                        infoContact.innerHTML = ownerContactTable.innerHTML;
+                    } else {
+                        infoContact.textContent = 'None';
+                    }
+                }
+            }
+        });
+
+        document.getElementById('show-status-btn').addEventListener('click', function() {
+            const houseAlias = document.getElementById('info-selected-house').value;
+            if (!houseAlias) {
+                return; // No house selected
+            }
+            
+            // Find the row with this house alias
+            const rows = document.querySelectorAll('.expandable-row');
+            let targetRow = null;
+            
+            for (const row of rows) {
+                if (row.cells[0].textContent.trim() === houseAlias) {
+                    targetRow = row;
+                    break;
+                }
+            }
+            
+            if (targetRow) {
+                const homeId = targetRow.getAttribute('data-home-id');
+                const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                const statusSection = document.getElementById('status-section');
+                
+                // Check if status section is already visible
+                if (statusSection.style.display === 'block') {
+                    // If visible, hide it and hide the container if no other sections are visible
+                    statusSection.style.display = 'none';
+                    if (!document.querySelector('.detail-item[style*="display: block"]')) {
+                        document.getElementById('info-details').style.display = 'none';
+                    }
+                } else {
+                    // Hide all sections first
+                    document.querySelectorAll('.detail-item').forEach(item => {
+                        item.style.display = 'none';
+                    });
+                    
+                    // Show the status section
+                    statusSection.style.display = 'block';
+                    document.getElementById('info-details').style.display = 'grid';
+                    
+                    // Update status
+                    const statusBadge = detailsRow.querySelector('.detail-item:nth-child(3) .detail-value .badge');
+                    const infoStatus = document.getElementById('info-status');
+                    if (statusBadge) {
+                        infoStatus.innerHTML = statusBadge.outerHTML;
+                    } else {
+                        infoStatus.textContent = 'None';
+                    }
+                }
+            }
+        });
+
+        document.getElementById('show-hardware-btn').addEventListener('click', function() {
+            const houseAlias = document.getElementById('info-selected-house').value;
+            if (!houseAlias) {
+                return; // No house selected
+            }
+            
+            // Find the row with this house alias
+            const rows = document.querySelectorAll('.expandable-row');
+            let targetRow = null;
+            
+            for (const row of rows) {
+                if (row.cells[0].textContent.trim() === houseAlias) {
+                    targetRow = row;
+                    break;
+                }
+            }
+            
+            if (targetRow) {
+                const homeId = targetRow.getAttribute('data-home-id');
+                const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                const hardwareSection = document.getElementById('hardware-section');
+                
+                // Check if hardware section is already visible
+                if (hardwareSection.style.display === 'block') {
+                    // If visible, hide it and hide the container if no other sections are visible
+                    hardwareSection.style.display = 'none';
+                    if (!document.querySelector('.detail-item[style*="display: block"]')) {
+                        document.getElementById('info-details').style.display = 'none';
+                    }
+                } else {
+                    // Hide all sections first
+                    document.querySelectorAll('.detail-item').forEach(item => {
+                        item.style.display = 'none';
+                    });
+                    
+                    // Show the hardware section
+                    hardwareSection.style.display = 'block';
+                    document.getElementById('info-details').style.display = 'grid';
+                    
+                    // Update hardware
+                    const hardwareLayout = detailsRow.querySelector('.detail-item:nth-child(4) .detail-value');
+                    const infoHardware = document.getElementById('info-hardware');
+                    if (hardwareLayout) {
+                        infoHardware.textContent = hardwareLayout.textContent;
+                    } else {
+                        infoHardware.textContent = 'None';
+                    }
+                }
+            }
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', function() {
+            clearPlots();
+        });
+
+        async function login(username, password) {
+            const response = await fetch(`${api_host}/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'username': username,
+                    'password': password,
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                // Store the token
+                localStorage.setItem('token', data.access_token);
+                return true;
+            }
+            return false;
+        }
+
+        // Electricity card fullscreen functionality
+        const electricityFullscreenBtn = document.getElementById('electricity-fullscreen-btn');
+        const electricityCard = document.querySelector('.card:has(#electricity-plot-container)');
+
+        electricityFullscreenBtn.addEventListener('click', function() {
+            const wasFullscreen = electricityCard.classList.contains('fullscreen');
+            electricityCard.classList.toggle('fullscreen');
+            const icon = this.querySelector('i');
+            if (electricityCard.classList.contains('fullscreen')) {
+                icon.classList.remove('bi-arrows-fullscreen');
+                icon.classList.add('bi-arrows-angle-contract');
+            } else {
+                icon.classList.remove('bi-arrows-angle-contract');
+                icon.classList.add('bi-arrows-fullscreen');
+                if (wasFullscreen) {
+                    electricityCard.scrollIntoView({ behavior: 'instant', block: 'start' });
+                }
+            }
+        });
+
+        // Electricity card clear button functionality
+        document.getElementById('electricity-clear-btn').addEventListener('click', function() {
+            clearElectricityPlots();
+        });
+
+        // Electricity card now button functionality
+        document.getElementById('electricity-now-btn').addEventListener('click', function() {
+            setElectricityNow();
+        });
+
+        // Function to clear electricity plots
+        function clearElectricityPlots() {
+            const plotDiv = document.getElementById('electricity-plot');
+            while (plotDiv.firstChild) {
+                plotDiv.removeChild(plotDiv.firstChild);
+            }
+            const plotContainer = document.getElementById('electricity-plot-container');
+            plotContainer.style.display = 'none';
+        }
+
+        // Function to set now for electricity card
+        function setElectricityNow() {
+            const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+            nyDate.setMinutes(nyDate.getMinutes() + 1);
+            document.getElementById('electricity-end-date').value = nyDate.toISOString().split('T')[0];
+            document.getElementById('electricity-end-time').value = nyDate.toTimeString().split(' ')[0].substring(0, 5);
+        }
+
+        // Function to get selected house aliases
+        function getSelectedHouseAliases() {
+            const selectedHouseInput = document.getElementById('electricity-selected-house');
+            const selectedHouse = selectedHouseInput.value.trim();
+            
+            // If a house is selected, return just that house
+            if (selectedHouse && selectedHouse !== 'Aggregate of all houses in the table') {
+                return [selectedHouse];
+            }
+            
+            // Otherwise, get all visible houses from the table
+            const visibleRows = Array.from(document.querySelectorAll('.expandable-row'))
+                .filter(row => row.style.display !== 'none');
+            
+            return visibleRows.map(row => row.cells[0].textContent.trim());
+        }
+
+        // Function to fetch electricity use plots
+        async function fetchElectricityPlots() {
+            const plotBtn = document.getElementById('electricity-plot-btn');
+            
+            plotBtn.disabled = true;
+            plotBtn.style.opacity = '0.5';
+            
+            const startDate = document.getElementById('electricity-start-date').value;
+            const startTime = document.getElementById('electricity-start-time').value;
+            const endDate = document.getElementById('electricity-end-date').value;
+            const endTime = document.getElementById('electricity-end-time').value;
+
+            const startDateTime = luxon.DateTime.fromFormat(`${startDate} ${startTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
+            const endDateTime = luxon.DateTime.fromFormat(`${endDate} ${endTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
+            
+            const startUnixMilliseconds = startDateTime.toUTC().toMillis();
+            const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+            
+            try {
+                // Check if we're in dark mode
+                const isDarkMode = root.getAttribute('data-theme') === 'dark' || 
+                    (root.getAttribute('data-theme') === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+                const selectedAliases = getSelectedHouseAliases();
+                console.log(selectedAliases)
+                
+                const response = await fetch(`${api_host}/electricity-use`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    },
+                    body: JSON.stringify({
+                        selected_short_aliases: selectedAliases,
+                        darkmode: isDarkMode,
+                        start_ms: startUnixMilliseconds,
+                        end_ms: endUnixMilliseconds
+                    })
+                });
+
+                const contentType = response.headers.get("Content-Type");
+                if (contentType && contentType.includes("application/json")) {
+                    const data = await response.json();
+                    if ('success' in data && data.success === false) {
+                        console.error('Error:', data.message);
+                        clearElectricityPlots();
+                        const plotContainer = document.getElementById('electricity-plot-container');
+                        const plotDiv = document.getElementById('electricity-plot');
+                        plotContainer.style.display = 'block';
+                        plotDiv.innerHTML = '<div style="color: var(--danger-color); text-align: center; padding: 2rem; font-size: 0.875rem;">Could not find data for the selected house(s) during this period.</div>';
+                    }
+                } else {
+                    const blob = await response.blob();
+                    const zip = await JSZip.loadAsync(blob);
+                    clearElectricityPlots();
+                    
+                    const plotContainer = document.getElementById('electricity-plot-container');
+                    plotContainer.style.display = 'block';
+                    
+                    const plotDiv = document.getElementById('electricity-plot');
+
+                    let hasPlots = false;
+                    for (const filename of Object.keys(zip.files)) {
+                        const fileData = await zip.files[filename].async('blob');
+                        if (filename.endsWith('.html')) {
+                            hasPlots = true;
+                            const blob = new Blob([await zip.files[filename].async('text')], { type: 'text/html' });
+                            const htmlUrl = URL.createObjectURL(blob);
+                            const iframe = document.createElement('iframe');
+                            iframe.src = htmlUrl;
+                            iframe.style.width = window.innerWidth < 650 ? '100%' : '97.5%';
+                            iframe.style.height = '375px';
+                            iframe.style.maxWidth = '1500px';
+                            iframe.style.border = 'none';
+                            plotDiv.appendChild(iframe);
+                        }
+                    }
+
+                    if (!hasPlots) {
+                        plotDiv.innerHTML = '<div style="color: var(--danger-color); text-align: center; padding: 2rem; font-size: 0.875rem;">Could not find data for this house and time frame</div>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error getting electricity plots:', error);
+                clearElectricityPlots();
+                const plotContainer = document.getElementById('electricity-plot-container');
+                const plotDiv = document.getElementById('electricity-plot');
+                plotContainer.style.display = 'block';
+                plotDiv.innerHTML = '<div style="color: var(--danger-color); text-align: center; padding: 2rem; font-size: 0.875rem;">Could not find data for this house and time frame</div>';
+            } finally {
+                plotBtn.disabled = false;
+                plotBtn.style.opacity = '1';
+            }
+        }
+
+        // Add event listener for the electricity plot button
+        document.getElementById('electricity-plot-btn').addEventListener('click', fetchElectricityPlots);
+    </script>
+</body>
+</html> 
