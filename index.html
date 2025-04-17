@@ -883,12 +883,12 @@
         /* Loader styling */
         .loader {
             display: none;
-            width: 16px;
-            height: 16px;
-            border: 2px solid var(--text-muted);
+            width: 20px;
+            height: 20px;
+            border: 4px solid var(--text-muted);
             border-radius: 50%;
             border-top-color: transparent;
-            animation: spin 1s linear infinite;
+            animation: spin 0.75s linear infinite;
         }
 
         @keyframes spin {
@@ -1167,7 +1167,6 @@
                 </table>
                 <div class="d-flex gap-2 align-items-center">
                     <button class="btn btn-sm btn-outline-secondary" id="electricity-plot-btn">Plot</button>
-                    <div class="loader"></div>
                     <button class="btn btn-sm btn-outline-secondary" id="electricity-now-btn">Now</button>
                 </div>
             </div>
@@ -1231,6 +1230,7 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title">Visualize data</h5>
                 <div class="status-badges">
+                    <div class="loader" style="display: none;"></div>
                     <button class="fullscreen-btn" id="fullscreen-btn">
                         <i class="bi bi-arrows-fullscreen"></i>
                     </button>
@@ -1268,7 +1268,8 @@
                 </table>
                 <div class="d-flex gap-2 align-items-center">
                     <button class="btn btn-sm btn-outline-secondary" id="plot-btn">Plot</button>
-                    <div class="loader"></div>
+                    <button class="btn btn-sm btn-outline-secondary" id="csv-btn">CSV</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="flo-btn">FLO</button>
                     <button class="btn btn-sm btn-outline-secondary" id="now-btn">Now</button>
                     <button class="btn btn-sm btn-outline-secondary" id="options-btn">Options</button>
                 </div>
@@ -1809,25 +1810,25 @@
             }
             
             // TODO
-            map = new google.maps.Map(mapElement, {
-                mapId: 'faa6e2dd4dd456ec',
-                disableDefaultUI: true,
-                mapTypeControl: false,
-                streetViewControl: false,
-                fullscreenControl: false,
-                zoomControl: false,
-                rotateControl: false,
-                scaleControl: false,
-                clickableIcons: false,
-                minZoom: 2
-            });
+            // map = new google.maps.Map(mapElement, {
+            //     mapId: 'faa6e2dd4dd456ec',
+            //     disableDefaultUI: true,
+            //     mapTypeControl: false,
+            //     streetViewControl: false,
+            //     fullscreenControl: false,
+            //     zoomControl: false,
+            //     rotateControl: false,
+            //     scaleControl: false,
+            //     clickableIcons: false,
+            //     minZoom: 2
+            // });
 
-            // Hide loading indicator
-            const loadingIndicator = document.querySelector('.map-loading');
-            if (loadingIndicator) {
-                loadingIndicator.style.display = 'none';
-            }
-            updateMapMarkers();
+            // // Hide loading indicator
+            // const loadingIndicator = document.querySelector('.map-loading');
+            // if (loadingIndicator) {
+            //     loadingIndicator.style.display = 'none';
+            // }
+            // updateMapMarkers();
         };
 
         async function updateMapMarkers() {
@@ -2541,16 +2542,176 @@
             const button = document.getElementById(buttonId);
             button.disabled = true;
             button.style.opacity = '0.5';
+            const loader = document.querySelector('.card:has(#plot-container) .card-header .loader');
+            if (loader) {
+                loader.style.display = 'inline-block';
+            }
         }
 
         function enableButton(buttonId) {
             const button = document.getElementById(buttonId);
             button.disabled = false;
             button.style.opacity = '1';
+            const loader = document.querySelector('.card:has(#plot-container) .card-header .loader');
+            if (loader) {
+                loader.style.display = 'none';
+            }
         }
 
         // Add event listener for the plot button
         document.getElementById('plot-btn').addEventListener('click', getData);
+
+        // Add event listener for the CSV button
+        document.getElementById('csv-btn').addEventListener('click', exportCSV);
+
+        // Add event listener for the FLO button
+        document.getElementById('flo-btn').addEventListener('click', downloadFLO);
+
+        // Function to export CSV
+        async function exportCSV(event) {
+            event.preventDefault();
+            const houseAlias = document.getElementById('selected-house').value;
+            
+            // Check if a house is selected
+            if (!houseAlias || houseAlias.trim() === '') {
+                return;
+            }
+            
+            const startDate = document.getElementById('start-date').value;
+            const startTime = document.getElementById('start-time').value;
+            const endDate = document.getElementById('end-date').value;
+            const endTime = document.getElementById('end-time').value;
+
+            const startDateTime = luxon.DateTime.fromFormat(`${startDate} ${startTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
+            const endDateTime = luxon.DateTime.fromFormat(`${endDate} ${endTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
+            
+            const startUnixMilliseconds = startDateTime.toUTC().toMillis();
+            const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+
+            const selectedChannels = Array.from(document.querySelectorAll('input[name="channels"]:checked'))
+                .map(checkbox => checkbox.value);
+            const timestep = document.getElementById('csv-timestep').value;
+
+            disableButton('csv-btn');
+
+            try {
+                const response = await fetch(`${api_host}/csv`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    },
+                    body: JSON.stringify({
+                        house_alias: houseAlias,
+                        password: '',
+                        start_ms: startUnixMilliseconds,
+                        end_ms: endUnixMilliseconds,
+                        selected_channels: selectedChannels,
+                        timestep: timestep,
+                        confirm_with_user: false
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const contentType = response.headers.get("Content-Type");
+                if (contentType && contentType.includes("application/json")) {
+                    const data = await response.json();
+                    if ('success' in data && data.success === false) {
+                        if (data.confirm_with_user) {
+                            const userChoice = confirm(data.message);
+                            if (userChoice) {
+                                await exportCSV(event);
+                            }
+                        } else {
+                            console.error('Error:', data.message);
+                        }
+                    }
+                } else {
+                    const startDate = new Date(startUnixMilliseconds);
+                    const formattedStartDate = startDate.toISOString().slice(0, 16).replace('T', '-');
+                    const endDate = new Date(endUnixMilliseconds);
+                    const formattedEndDate = endDate.toISOString().slice(0, 16).replace('T', '-');
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${houseAlias}_${timestep}s_${formattedStartDate}-${formattedEndDate}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                }
+            } catch (error) {
+                console.error('Error getting CSV:', error);
+            } finally {
+                enableButton('csv-btn');
+            }
+        }
+
+        // Function to download FLO
+        async function downloadFLO(event) {
+            event.preventDefault();
+            const houseAlias = document.getElementById('selected-house').value;
+            
+            // Check if a house is selected
+            if (!houseAlias || houseAlias.trim() === '') {
+                return;
+            }
+            
+            const endDate = document.getElementById('end-date').value;
+            const endTime = document.getElementById('end-time').value;
+
+            const endDateTime = luxon.DateTime.fromFormat(`${endDate} ${endTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
+            const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+
+            disableButton('flo-btn');
+
+            try {
+                const response = await fetch(`${api_host}/flo`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    },
+                    body: JSON.stringify({
+                        house_alias: houseAlias,
+                        password: '',
+                        time_ms: endUnixMilliseconds
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const blob = await response.blob();
+                const link = document.createElement('a');
+                const url = window.URL.createObjectURL(blob);
+                link.href = url;
+                const endDateFile = new Date(endUnixMilliseconds);
+                const newYorkDate = endDateFile.toLocaleString('en-US', { 
+                    timeZone: 'America/New_York', 
+                    hour12: false, 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric', 
+                    hour: 'numeric', 
+                })
+                .replace(/,/g, '')
+                .replace(/\s/g, '_')
+                .toLowerCase();
+                link.download = `flo_${houseAlias}_${newYorkDate}.xlsx`;
+                link.click();
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Error getting FLO excel file:', error);
+            } finally {
+                enableButton('flo-btn');
+            }
+        }
 
         // Options functionality
         const optionsBtn = document.getElementById('options-btn');
@@ -2609,7 +2770,9 @@
             const selectedChannels = Array.from(document.querySelectorAll('input[name="channels"]:checked'))
                 .map(checkbox => checkbox.value);
 
+            disableButton('plot-btn');
             await fetchPlots(houseAlias, startUnixMilliseconds, endUnixMilliseconds, selectedChannels);
+            enableButton('plot-btn');
         }
 
         // Update fetchPlots function to show/hide loader
