@@ -15,3 +15,5 @@ wheels/
 
 # CSV data
 *energy_data*
+
+add_house.py
