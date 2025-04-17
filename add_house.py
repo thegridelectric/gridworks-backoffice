@@ -27,13 +27,13 @@ session = Session()
 beech = House(
     short_alias="beech",
     address={
-        "street": "45 Somerset St",
+        "street": "35 Somerset St",
         "city": "Millinocket",
         "state": "ME",
         "zip": "04462",
         "country": "USA",
-        "latitude": 45.65032,
-        "longitude": -68.71284
+        "latitude": 45.65015,
+        "longitude": -68.71265
     },
     owner_contact={
         "name": "Paul Moscone",
@@ -90,13 +90,13 @@ fir = House(
 maple = House(
     short_alias="maple",
     address={
-        "street": "123 Main St",
+        "street": "326 Medway Rd",
         "city": "Millinocket",
         "state": "ME",
-        "zip": "12345",
+        "zip": "04462",
         "country": "USA",
-        "latitude": 45.6387,
-        "longitude": -68.6719
+        "latitude": 45.64393,
+        "longitude": -68.68977
     },
     owner_contact={
         "name": "John Doe",

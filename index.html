@@ -531,6 +531,14 @@
         .footer-links {
             display: flex;
             gap: 1.5rem;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .footer-links {
+                flex-direction: column;
+                align-items: left;
+            }
         }
         
         .footer-link {
@@ -1392,6 +1400,29 @@
             window.location.href = 'login.html';
         }
 
+        // Function to fetch user info
+        async function fetchUserInfo() {
+            try {
+                const response = await fetch(`${api_host}/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const userData = await response.json();
+                    const usernameDisplay = document.getElementById('username-display');
+                    if (usernameDisplay) {
+                        usernameDisplay.textContent = userData.username;
+                    }
+                } else {
+                    console.error('Failed to fetch user info:', response.status);
+                }
+            } catch (error) {
+                console.error('Error fetching user info:', error);
+            }
+        }
+
         // Check authentication on page load
         document.addEventListener('DOMContentLoaded', function() {
             if (!isAuthenticated()) {
@@ -1399,19 +1430,8 @@
                 return;
             }
 
-            // Display username from token
-            const token = getAuthToken();
-            if (token) {
-                try {
-                    const payload = JSON.parse(atob(token.split('.')[1]));
-                    const usernameDisplay = document.getElementById('username-display');
-                    if (usernameDisplay) {
-                        usernameDisplay.textContent = payload.username;
-                    }
-                } catch (e) {
-                    console.error('Error parsing token:', e);
-                }
-            }
+            // Fetch user info
+            fetchUserInfo();
 
             // Fetch and display houses
             fetchHouses();
@@ -1810,25 +1830,25 @@
             }
             
             // TODO
-            map = new google.maps.Map(mapElement, {
-                mapId: 'faa6e2dd4dd456ec',
-                disableDefaultUI: true,
-                mapTypeControl: false,
-                streetViewControl: false,
-                fullscreenControl: false,
-                zoomControl: false,
-                rotateControl: false,
-                scaleControl: false,
-                clickableIcons: false,
-                minZoom: 2
-            });
+            // map = new google.maps.Map(mapElement, {
+            //     mapId: 'faa6e2dd4dd456ec',
+            //     disableDefaultUI: true,
+            //     mapTypeControl: false,
+            //     streetViewControl: false,
+            //     fullscreenControl: false,
+            //     zoomControl: false,
+            //     rotateControl: false,
+            //     scaleControl: false,
+            //     clickableIcons: false,
+            //     minZoom: 2
+            // });
 
-            // Hide loading indicator
-            const loadingIndicator = document.querySelector('.map-loading');
-            if (loadingIndicator) {
-                loadingIndicator.style.display = 'none';
-            }
-            updateMapMarkers();
+            // // Hide loading indicator
+            // const loadingIndicator = document.querySelector('.map-loading');
+            // if (loadingIndicator) {
+            //     loadingIndicator.style.display = 'none';
+            // }
+            // updateMapMarkers();
         };
 
         async function updateMapMarkers() {
