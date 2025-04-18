@@ -1833,25 +1833,25 @@
             }
             
             // TODO
-            // map = new google.maps.Map(mapElement, {
-            //     mapId: 'faa6e2dd4dd456ec',
-            //     disableDefaultUI: true,
-            //     mapTypeControl: false,
-            //     streetViewControl: false,
-            //     fullscreenControl: false,
-            //     zoomControl: false,
-            //     rotateControl: false,
-            //     scaleControl: false,
-            //     clickableIcons: false,
-            //     minZoom: 2
-            // });
+            map = new google.maps.Map(mapElement, {
+                mapId: 'faa6e2dd4dd456ec',
+                disableDefaultUI: true,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: false,
+                zoomControl: false,
+                rotateControl: false,
+                scaleControl: false,
+                clickableIcons: false,
+                minZoom: 2
+            });
 
-            // // Hide loading indicator
-            // const loadingIndicator = document.querySelector('.map-loading');
-            // if (loadingIndicator) {
-            //     loadingIndicator.style.display = 'none';
-            // }
-            // updateMapMarkers();
+            // Hide loading indicator
+            const loadingIndicator = document.querySelector('.map-loading');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+            updateMapMarkers();
         };
 
         async function updateMapMarkers() {
