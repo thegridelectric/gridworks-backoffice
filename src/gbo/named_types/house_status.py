@@ -1,11 +1,12 @@
 from pydantic import BaseModel
+from typing import Optional
 
 class HouseStatus(BaseModel):
     status: str
-    message: str
-    acked: str
-    acked_by: str
-    acked_at: str
+    message: Optional[str] = None
+    acked: Optional[bool] = None
+    acked_by: Optional[str] = None
+    acked_at: Optional[str] = None
 
     def to_dict(self):
         return {
@@ -19,4 +20,3 @@ class HouseStatus(BaseModel):
     @classmethod
     def from_dict(cls, data):
         return cls(**data)
-    
