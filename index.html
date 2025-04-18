@@ -2174,7 +2174,7 @@
                         const house = window.houses.find(h => String(h.unique_id) === String(homeId));
                         infoStatus.innerHTML = `
                             ${statusBadge.outerHTML}
-                            ${house?.status?.message ? `<div class="mt-2" style="color: var(--text-muted); font-size: 0.875rem; padding-top: 1rem;">${house.status.message}</div>` : ''}
+                            ${house?.status?.message ? `<div class="mt-2" style="color: var(--text-muted); font-size: 0.875rem; padding-top: 1rem;">Alert:${house.status.message}</div>` : ''}
                             ${house?.status?.message ? `<button class="btn btn-sm btn-outline-secondary mt-2" onclick="reactToAlert('${homeId}', 'ok')">Close alert</button>` : ''}
                         `;
                     } else {
@@ -3094,7 +3094,7 @@
                         
                         infoStatus.innerHTML = `
                             ${statusBadge.outerHTML}
-                            ${house?.status?.message ? `<div class="mt-2" style="color: var(--text-muted); font-size: 0.875rem; padding-top: 1rem;">${house.status.message}</div>` : ''}
+                            ${house?.status?.message ? `<div class="mt-2" style="color: var(--text-muted); font-size: 0.875rem; padding-top: 1rem;">Alert: ${house.status.message}</div>` : ''}
                             ${house?.status?.message ? `<button class="btn btn-sm btn-outline-secondary mt-2" onclick="reactToAlert('${homeId}', 'ok')">Close alert</button>` : ''}
                         `;
                     } else {
