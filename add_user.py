@@ -1,10 +1,31 @@
-from archive.auth_server import Session, users, get_password_hash, metadata, engine_gbo
 from sqlalchemy import insert
+from sqlalchemy import Table, create_engine, MetaData
+from sqlalchemy.orm import declarative_base, sessionmaker
+from passlib.context import CryptContext
+import dotenv
+
+engine_gbo = create_engine(dotenv.get("GBO_DB_URL"))
+Base = declarative_base()
+metadata = MetaData()
+
+users = Table('users', metadata, autoload_with=engine_gbo)
+
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=12,
+    bcrypt__ident="2b"
+)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+Session = sessionmaker(bind=engine_gbo)
 
 def create_user():
     # Drop and recreate the users table
-    metadata.drop_all(engine_gbo, tables=[users])
-    metadata.create_all(engine_gbo, tables=[users])
+    # metadata.drop_all(engine_gbo, tables=[users])
+    # metadata.create_all(engine_gbo, tables=[users])
     
     session = Session()
     
