@@ -1833,25 +1833,25 @@
             }
             
             // TODO
-            map = new google.maps.Map(mapElement, {
-                mapId: 'faa6e2dd4dd456ec',
-                disableDefaultUI: true,
-                mapTypeControl: false,
-                streetViewControl: false,
-                fullscreenControl: false,
-                zoomControl: false,
-                rotateControl: false,
-                scaleControl: false,
-                clickableIcons: false,
-                minZoom: 2
-            });
+            // map = new google.maps.Map(mapElement, {
+            //     mapId: 'faa6e2dd4dd456ec',
+            //     disableDefaultUI: true,
+            //     mapTypeControl: false,
+            //     streetViewControl: false,
+            //     fullscreenControl: false,
+            //     zoomControl: false,
+            //     rotateControl: false,
+            //     scaleControl: false,
+            //     clickableIcons: false,
+            //     minZoom: 2
+            // });
 
-            // Hide loading indicator
-            const loadingIndicator = document.querySelector('.map-loading');
-            if (loadingIndicator) {
-                loadingIndicator.style.display = 'none';
-            }
-            updateMapMarkers();
+            // // Hide loading indicator
+            // const loadingIndicator = document.querySelector('.map-loading');
+            // if (loadingIndicator) {
+            //     loadingIndicator.style.display = 'none';
+            // }
+            // updateMapMarkers();
         };
 
         async function updateMapMarkers() {
@@ -2174,7 +2174,8 @@
                         const house = window.houses.find(h => String(h.unique_id) === String(homeId));
                         infoStatus.innerHTML = `
                             ${statusBadge.outerHTML}
-                            ${house?.status?.message ? `<div class="mt-2" style="color: var(--text-muted); font-size: 0.875rem;">${house.status.message}</div>` : ''}
+                            ${house?.status?.message ? `<div class="mt-2" style="color: var(--text-muted); font-size: 0.875rem; padding-top: 1rem;">${house.status.message}</div>` : ''}
+                            ${house?.status?.message ? `<button class="btn btn-sm btn-outline-secondary mt-2" onclick="reactToAlert('${homeId}', 'ok')">Close alert</button>` : ''}
                         `;
                     } else {
                         infoStatus.textContent = 'None';
@@ -2500,7 +2501,7 @@
             }
         }
 
-        let isRunningLocally = false;
+        let isRunningLocally = true;
         let api_host = isRunningLocally ? 'http://localhost:8000' : 'https://visualizer.electricity.works';
 
         function getDefaultDate(start, electricity_use) {
@@ -3093,7 +3094,8 @@
                         
                         infoStatus.innerHTML = `
                             ${statusBadge.outerHTML}
-                            ${house?.status?.message ? `<div class="mt-2" style="color: var(--text-muted); font-size: 0.875rem;">${house.status.message}</div>` : ''}
+                            ${house?.status?.message ? `<div class="mt-2" style="color: var(--text-muted); font-size: 0.875rem; padding-top: 1rem;">${house.status.message}</div>` : ''}
+                            ${house?.status?.message ? `<button class="btn btn-sm btn-outline-secondary mt-2" onclick="reactToAlert('${homeId}', 'ok')">Close alert</button>` : ''}
                         `;
                     } else {
                         infoStatus.textContent = 'None';
@@ -3401,6 +3403,47 @@
 
         // Add event listener for the electricity CSV button
         document.getElementById('electricity-csv-btn').addEventListener('click', exportElectricityCSV);
+
+        // Function to acknowledge alert
+        async function reactToAlert(homeId, new_status) {
+            try {
+                const house = window.houses.find(h => String(h.unique_id) === String(homeId));
+                if (!house) {
+                    console.error('House not found');
+                    return;
+                }
+
+                // Disable all "Close alert" buttons
+                document.querySelectorAll('button[onclick^="reactToAlert"]').forEach(button => {
+                    button.disabled = true;
+                    button.style.opacity = '0.5';
+                });
+
+                const response = await fetch(`${api_host}/alert-reaction`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ 
+                        house_alias: house.short_alias,
+                        new_status: new_status
+                    })
+                });
+                
+                if (!response.ok) {
+                    console.error('Failed to acknowledge alert');
+                } else {
+                    // Scroll to top and reload after 1.5 seconds
+                    window.scrollTo(0, 0);
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                }
+            } catch (error) {
+                console.error('Error acknowledging alert:', error);
+            }
+        }
     </script>
 </body>
 </html> 
