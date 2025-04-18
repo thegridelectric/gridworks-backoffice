@@ -1542,8 +1542,9 @@
                     </td>
                     <td>
                         ${house.status ? 
-                            `<span class="badge ${house.status === 'ok' ? 'bg-success' : house.status === 'alert' ? 'bg-danger' : 'bg-secondary'}">
-                                ${house.status}
+                            `<span class="badge ${house.status.status === 'ok' ? 'bg-success' : house.status.status === 'alert' ? 'bg-danger' : 'bg-secondary'}">
+                                ${house.status.status}
+                                ${house.status.message && house.status.status !== 'alert' ? `<br><small>${house.status.message}</small>` : ''}
                             </span>` : 
                             'N/A'}
                     </td>
@@ -1631,8 +1632,9 @@
                                     <div class="detail-label">Status</div>
                                     <div class="detail-value">
                                         ${house.status ? 
-                                            `<span class="badge ${house.status === 'ok' ? 'bg-success' : house.status === 'alert' ? 'bg-danger' : 'bg-secondary'}">
-                                                ${house.status}
+                                            `<span class="badge ${house.status.status === 'ok' ? 'bg-success' : house.status.status === 'alert' ? 'bg-danger' : 'bg-secondary'}">
+                                                ${house.status.status}
+                                                ${house.status.message && house.status.status !== 'alert' ? `<br><small>${house.status.message}</small>` : ''}
                                             </span>` : 
                                             'None'}
                                     </div>
@@ -1673,8 +1675,8 @@
                 return;
             }
             
-            const okCount = houses.filter(house => house.status === 'ok').length;
-            const alertCount = houses.filter(house => house.status === 'alert').length;
+            const okCount = houses.filter(house => house.status && house.status.status === 'ok').length;
+            const alertCount = houses.filter(house => house.status && house.status.status === 'alert').length;
                         
             const okBadge = document.querySelector('.status-badge.ok .status-badge-count');
             const alertBadge = document.querySelector('.status-badge.offline .status-badge-count');
@@ -1904,7 +1906,7 @@
                         markerContent.style.width = '16px';
                         markerContent.style.height = '16px';
                         markerContent.style.borderRadius = '50%';
-                        markerContent.style.backgroundColor = row.cells[2].textContent.trim().includes('ok') ? '#28a745' : '#ff4444';
+                        markerContent.style.backgroundColor = row.cells[2].querySelector('.badge').classList.contains('bg-success') ? '#28a745' : '#ff4444';
                         markerContent.style.border = '2px solid #ffffff';
                         markerContent.style.cursor = 'pointer';
                         
