@@ -2403,15 +2403,28 @@
             });
             }
 
-            // Load Google Maps API with loading=async parameter and error handling
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBCLsGEiQzvy45h34YlwChS4-ARVn08_Io&callback=initMap&libraries=marker&v=beta&loading=async`;
-            script.async = true;
-            script.defer = true;
-            script.onerror = function() {
-                console.warn('Google Maps script failed to load. This might be due to an ad blocker.');
-            };
-            document.head.appendChild(script);
+            fetch(`${api_host}/google-maps-api-key`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${getAuthToken()}`
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                let google_maps_api_key = data.api_key;
+                // Load Google Maps API with loading=async parameter and error handling
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${google_maps_api_key}&callback=initMap&libraries=marker&v=beta&loading=async`;
+                script.async = true;
+                script.defer = true;
+                script.onerror = function() {
+                    console.warn('Google Maps script failed to load. This might be due to an ad blocker.');
+                };
+                document.head.appendChild(script);
+            })
+            .catch(error => {
+                console.error('Failed to fetch Google Maps API key:', error);
+            });
         });
 
         // Function to update map focus based on row expansion state
@@ -2478,7 +2491,7 @@
             }
         }
 
-        let isRunningLocally = false;
+        let isRunningLocally = true;
         let api_host = isRunningLocally ? 'http://localhost:8000' : 'https://visualizer.electricity.works';
 
         function getDefaultDate(start, electricity_use) {
