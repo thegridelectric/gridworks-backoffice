@@ -1,9 +1,9 @@
-from gjk.named_types.layout_lite import LayoutLite
-from gbo.named_types.home_address import HomeAddress
-from gbo.named_types.home_contact import HomeContact
+from gbo.named_types.house_address import HouseAddress
+from gbo.named_types.house_contact import HouseContact
+from gbo.named_types.house_status import HouseStatus
 
 __all__ = [
-    "LayoutLite",
-    "HomeAddress",
-    "HomeContact",
+    "HouseAddress",
+    "HouseContact",
+    "HouseStatus",
 ]
