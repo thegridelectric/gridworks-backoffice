@@ -1482,9 +1482,10 @@
                         'Authorization': `Bearer ${token}`
                     }
                 });
-                                
+                
                 if (response.ok) {
                     const houses = await response.json();
+                    window.houses = houses; // Store houses data globally
                     displayHouses(houses);
                 } else {
                     console.error('Failed to fetch houses:', response.status);
@@ -2167,8 +2168,14 @@
                     
                     // Update status
                     const infoStatus = document.getElementById('info-status');
+                    
                     if (statusBadge) {
-                        infoStatus.innerHTML = statusBadge.outerHTML;
+                        const homeId = targetRow.getAttribute('data-home-id');
+                        const house = window.houses.find(h => String(h.unique_id) === String(homeId));
+                        infoStatus.innerHTML = `
+                            ${statusBadge.outerHTML}
+                            ${house?.status?.message ? `<div class="mt-2" style="color: var(--text-muted); font-size: 0.875rem;">${house.status.message}</div>` : ''}
+                        `;
                     } else {
                         infoStatus.textContent = 'None';
                     }
@@ -3081,7 +3088,13 @@
                     const statusBadge = detailsRow.querySelector('.detail-item:nth-child(3) .detail-value .badge');
                     const infoStatus = document.getElementById('info-status');
                     if (statusBadge) {
-                        infoStatus.innerHTML = statusBadge.outerHTML;
+                        const homeId = targetRow.getAttribute('data-home-id');
+                        const house = window.houses.find(h => String(h.unique_id) === String(homeId));
+                        
+                        infoStatus.innerHTML = `
+                            ${statusBadge.outerHTML}
+                            ${house?.status?.message ? `<div class="mt-2" style="color: var(--text-muted); font-size: 0.875rem;">${house.status.message}</div>` : ''}
+                        `;
                     } else {
                         infoStatus.textContent = 'None';
                     }
@@ -3254,7 +3267,7 @@
                     (root.getAttribute('data-theme') === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
                 const selectedAliases = getSelectedHouseAliases();
-                console.log(selectedAliases)
+                // console.log(selectedAliases)
                 
                 const response = await fetch(`${api_host}/electricity-use`, {
                     method: 'POST',
