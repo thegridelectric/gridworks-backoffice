@@ -14,6 +14,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 dotenv.load_dotenv()
 
+engine_gbo = create_engine(os.getenv("GBO_DB_URL"))
 Base = declarative_base()
 
 class HourlyElectricity(Base):
@@ -27,14 +28,15 @@ class HourlyElectricity(Base):
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
     )
 
+# Now create/drop tables after the model is defined
+Base.metadata.drop_all(engine_gbo)
+Base.metadata.create_all(engine_gbo)
+
 class EnergyDataset():
     def __init__(self, house_alias, start_ms, end_ms, timezone):
         engine = create_engine(os.getenv("GJK_DB_URL"))
         Session = sessionmaker(bind=engine)
         self.session = Session()
-        engine_gbo = create_engine(os.getenv("GBO_DB_URL"))
-        Base.metadata.drop_all(engine_gbo)
-        Base.metadata.create_all(engine_gbo)
         SessionGbo = sessionmaker(bind=engine_gbo)
         self.session_gbo = SessionGbo()
         self.house_alias = house_alias
