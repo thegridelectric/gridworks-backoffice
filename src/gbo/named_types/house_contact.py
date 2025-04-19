@@ -1,13 +1,16 @@
 from pydantic import BaseModel
+from typing import Optional
 
 class HouseContact(BaseModel ):
-    name: str
-    phone: str
-    email: str
+    first_name: str
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
     
     def to_dict(self):
         return {
-            "name": self.name,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
             "phone": self.phone,
             "email": self.email
         }

@@ -600,7 +600,7 @@
         }
         
         .detail-item {
-            margin-bottom: 0.5rem;
+            margin-bottom: -0.25rem;
         }
         
         .detail-item.full-width {
@@ -1212,7 +1212,6 @@
                         </div>
                     </div>
                     <div class="detail-item" id="contact-section" style="display: none;">
-                        <div class="detail-label">Contact</div>
                         <div class="detail-value" id="info-contact">
                             None
                         </div>
@@ -1599,19 +1598,38 @@
                 
                 // Build contact table HTML
                 let contactTableHtml = '';
-                if (house.owner_contact) {
-                    contactTableHtml = '<table class="detail-table">';
-                    if (house.owner_contact.name) {
-                        contactTableHtml += `<tr><th>Name</th><td>${house.owner_contact.name}</td></tr>`;
+                if (house.primary_contact) {
+                    contactTableHtml = '<div class="contact-section"><div class="detail-label">Primary Contact</div><table class="detail-table">';
+                    if (house.primary_contact.first_name) {
+                        contactTableHtml += `<tr><th>First name</th><td>${house.primary_contact.first_name}</td></tr>`;
                     }
-                    if (house.owner_contact.email) {
-                        contactTableHtml += `<tr><th>Email</th><td>${house.owner_contact.email}</td></tr>`;
+                    if (house.primary_contact.last_name) {
+                        contactTableHtml += `<tr><th>Last name</th><td>${house.primary_contact.last_name}</td></tr>`;
                     }
-                    if (house.owner_contact.phone) {
-                        contactTableHtml += `<tr><th>Phone</th><td>${house.owner_contact.phone}</td></tr>`;
+                    if (house.primary_contact.email) {
+                        contactTableHtml += `<tr><th>Email</th><td>${house.primary_contact.email}</td></tr>`;
                     }
-                    contactTableHtml += '</table>';
+                    if (house.primary_contact.phone) {
+                        contactTableHtml += `<tr><th>Phone</th><td>${house.primary_contact.phone}</td></tr>`;
+                    }
+                    contactTableHtml += '</table></div>';
                 }
+                if (house.secondary_contact) {
+                    contactTableHtml += '<div class="contact-section"><div class="detail-label" style="margin-top: 2rem">Secondary Contact</div><table class="detail-table">';
+                    if (house.secondary_contact.first_name) {
+                        contactTableHtml += `<tr><th>First name</th><td>${house.secondary_contact.first_name}</td></tr>`;
+                    }
+                    if (house.secondary_contact.last_name) {
+                        contactTableHtml += `<tr><th>Last name</th><td>${house.secondary_contact.last_name}</td></tr>`;
+                    }
+                    if (house.secondary_contact.email) {
+                        contactTableHtml += `<tr><th>Email</th><td>${house.secondary_contact.email}</td></tr>`;
+                    }
+                    if (house.secondary_contact.phone) {
+                        contactTableHtml += `<tr><th>Phone</th><td>${house.secondary_contact.phone}</td></tr>`;
+                    }
+                    contactTableHtml += '</table></div>';
+                }   
                 
                 detailsRow.innerHTML = `
                     <td colspan="3" class="p-0">
@@ -2161,8 +2179,15 @@
                     // Update contact
                     const infoContact = document.getElementById('info-contact');
                     if (ownerContactTable) {
-                        infoContact.innerHTML = ownerContactTable.innerHTML;
+                        // Get all contact sections from the details row
+                        const contactSections = detailsRow.querySelectorAll('.detail-item:nth-child(2) .detail-value .contact-section');
+                        let contactHtml = '';
+                        contactSections.forEach(section => {
+                            contactHtml += section.outerHTML;
+                        });
+                        infoContact.innerHTML = contactHtml || 'None';
                     } else {
+                        console.log('No contact table found in details row');
                         infoContact.textContent = 'None';
                     }
                     
@@ -3038,8 +3063,15 @@
                     const ownerContactTable = detailsRow.querySelector('.detail-item:nth-child(2) .detail-value');
                     const infoContact = document.getElementById('info-contact');
                     if (ownerContactTable) {
-                        infoContact.innerHTML = ownerContactTable.innerHTML;
+                        // Get all contact sections from the details row
+                        const contactSections = detailsRow.querySelectorAll('.detail-item:nth-child(2) .detail-value .contact-section');
+                        let contactHtml = '';
+                        contactSections.forEach(section => {
+                            contactHtml += section.outerHTML;
+                        });
+                        infoContact.innerHTML = contactHtml || 'None';
                     } else {
+                        console.log('No contact table found in details row');
                         infoContact.textContent = 'None';
                     }
                 }
