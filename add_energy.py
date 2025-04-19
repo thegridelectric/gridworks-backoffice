@@ -33,8 +33,8 @@ class EnergyDataset():
         Session = sessionmaker(bind=engine)
         self.session = Session()
         engine_gbo = create_engine(os.getenv("GBO_DB_URL"))
-        # Base.metadata.drop_all(engine_gbo)
-        # Base.metadata.create_all(engine_gbo)
+        Base.metadata.drop_all(engine_gbo)
+        Base.metadata.create_all(engine_gbo)
         SessionGbo = sessionmaker(bind=engine_gbo)
         self.session_gbo = SessionGbo()
         self.house_alias = house_alias
@@ -210,39 +210,14 @@ def generate(house_alias, start_year, start_month, start_day, end_year, end_mont
     s.generate_dataset()
 
 if __name__ == '__main__':
-    # generate(
-    #     house_alias='beech', 
-    #     start_year=2025, 
-    #     start_month=4, 
-    #     start_day=15,
-    #     end_year=2025,
-    #     end_month=5,
-    #     end_day=31
-    # )
-    # generate(
-    #     house_alias='oak', 
-    #     start_year=2025, 
-    #     start_month=4, 
-    #     start_day=15,
-    #     end_year=2025,
-    #     end_month=5,
-    #     end_day=31
-    # )
-    generate(
-        house_alias='fir', 
-        start_year=2025, 
-        start_month=4, 
-        start_day=15,
-        end_year=2025,
-        end_month=5,
-        end_day=31
-    )
-    # generate(
-    #     house_alias='maple', 
-    #     start_year=2025, 
-    #     start_month=4, 
-    #     start_day=15,
-    #     end_year=2025,
-    #     end_month=5,
-    #     end_day=31
-    # )
+    houses_to_generate = ['beech', 'oak', 'fir', 'maple', 'elm']
+    for house in houses_to_generate:
+        generate(
+            house_alias=house, 
+            start_year=2024, 
+            start_month=12, 
+            start_day=1,
+            end_year=2025,
+            end_month=5,
+            end_day=31
+        )
