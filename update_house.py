@@ -16,6 +16,7 @@ class House(Base):
     unique_id = Column(Integer, primary_key=True)
     g_node_alias = Column(String, nullable=False)
     status = Column(JSON, nullable=False)
+    scada_git_commit = Column(String, nullable=True)
 
 def update_house(short_alias, new_house_data):
     

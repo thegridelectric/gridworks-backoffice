@@ -411,17 +411,22 @@
         
         .table-responsive > .table > thead > tr > th:first-child,
         .table-responsive > .table > tbody > tr > td:first-child {
-            width: 35%;
+            width: 25%;
         }
         
         .table-responsive > .table > thead > tr > th:nth-child(2),
         .table-responsive > .table > tbody > tr > td:nth-child(2) {
-            width: 35%;
+            width: 25%;
         }
         
-        .table-responsive > .table > thead > tr > th:last-child,
-        .table-responsive > .table > tbody > tr > td:last-child {
-            width: 30%;
+        .table-responsive > .table > thead > tr > th:nth-child(3),
+        .table-responsive > .table > tbody > tr > td:nth-child(3) {
+            width: 25%;
+        }
+        
+        .table-responsive > .table > thead > tr > th:nth-child(4),
+        .table-responsive > .table > tbody > tr > td:nth-child(4) {
+            width: 25%;
         }
         
         .table-responsive > .table > tbody > tr.expandable-row {
@@ -1048,6 +1053,9 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title">Houses</h5>
                 <div class="status-badges">
+                    <button class="btn btn-sm btn-outline-secondary" id="update-scada-btn">
+                        <span>Pull</span>
+                    </button>
                     <button class="filter-toggle" id="filter-toggle">
                         <span>Filter</span>
                     </button>
@@ -1091,6 +1099,7 @@
                         <tr>
                             <th data-sort="short_alias">Alias</th>
                             <th data-sort="address">Location</th>
+                            <th data-sort="commit">Commit</th>
                             <th data-sort="status">Status</th>
                         </tr>
                     </thead>
@@ -1100,14 +1109,11 @@
                 </table>
             </div>
             <div class="empty-state" style="display: none;">
-                <i class="bi bi-house"></i>
                 <h3>No homes found</h3>
                 <p>There are no homes in the database yet.</p>
-                <button class="btn btn-primary">Add Home</button>
             </div>
             
             <div class="no-results" style="display: none;">
-                <i class="bi bi-search"></i>
                 <h3>No results found</h3>
                 <button class="btn btn-primary" id="clear-search">Clear Search</button>
             </div>
@@ -1450,6 +1456,12 @@
                 electricityPlotBtn.addEventListener('click', fetchElectricityPlots);
             }
 
+            // Add event listener for the update SCADA button
+            const updateScadaBtn = document.getElementById('update-scada-btn');
+            if (updateScadaBtn) {
+                updateScadaBtn.addEventListener('click', updateScadaCode);
+            }
+
             // Fullscreen toggle functionality
             const fullscreenBtn = document.getElementById('fullscreen-btn');
             const visualizerCard = document.querySelector('.card:has(#plot-container)');
@@ -1540,6 +1552,7 @@
                             `${house.address.city}${house.address.state ? ', ' + house.address.state : ''}` : 
                             'N/A'}
                     </td>
+                    <td>${house.scada_git_commit || 'N/A'}</td>
                     <td>
                         ${house.status ? 
                             `<span class="badge ${house.status.status === 'ok' ? 'bg-success' : house.status.status === 'alert' ? 'bg-danger' : 'bg-secondary'}">
@@ -1557,7 +1570,7 @@
                 actionRow.style.display = 'none';
                 
                 actionRow.innerHTML = `
-                    <td colspan="3">
+                    <td colspan="4">
                         <div class="action-buttons">
                             <button class="btn btn-sm btn-outline-secondary map-btn">Show on map</button>
                             <button class="btn btn-sm btn-outline-secondary visualize-btn">Visualize data</button>
@@ -1669,6 +1682,25 @@
                 
                 // Add rows to table
                 tableBody.appendChild(mainRow);
+                tableBody.appendChild(actionRow);
+                tableBody.appendChild(detailsRow);
+            });
+            
+            // Initial sort by house alias
+            const rows = Array.from(tableBody.querySelectorAll('tr.expandable-row'));
+            rows.sort((a, b) => {
+                const aValue = a.cells[0].textContent.trim();
+                const bValue = b.cells[0].textContent.trim();
+                return aValue.localeCompare(bValue);
+            });
+            
+            // Reorder the rows and their corresponding detail rows
+            rows.forEach(row => {
+                const homeId = row.getAttribute('data-home-id');
+                const actionRow = document.querySelector(`.action-row[data-home-id="${homeId}"]`);
+                const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                
+                tableBody.appendChild(row);
                 tableBody.appendChild(actionRow);
                 tableBody.appendChild(detailsRow);
             });
@@ -1851,25 +1883,25 @@
             }
             
             // TODO
-            map = new google.maps.Map(mapElement, {
-                mapId: 'faa6e2dd4dd456ec',
-                disableDefaultUI: true,
-                mapTypeControl: false,
-                streetViewControl: false,
-                fullscreenControl: false,
-                zoomControl: false,
-                rotateControl: false,
-                scaleControl: false,
-                clickableIcons: false,
-                minZoom: 2
-            });
+            // map = new google.maps.Map(mapElement, {
+            //     mapId: 'faa6e2dd4dd456ec',
+            //     disableDefaultUI: true,
+            //     mapTypeControl: false,
+            //     streetViewControl: false,
+            //     fullscreenControl: false,
+            //     zoomControl: false,
+            //     rotateControl: false,
+            //     scaleControl: false,
+            //     clickableIcons: false,
+            //     minZoom: 2
+            // });
 
-            // Hide loading indicator
-            const loadingIndicator = document.querySelector('.map-loading');
-            if (loadingIndicator) {
-                loadingIndicator.style.display = 'none';
-            }
-            updateMapMarkers();
+            // // Hide loading indicator
+            // const loadingIndicator = document.querySelector('.map-loading');
+            // if (loadingIndicator) {
+            //     loadingIndicator.style.display = 'none';
+            // }
+            // updateMapMarkers();
         };
 
         async function updateMapMarkers() {
@@ -2285,9 +2317,12 @@
                         } else if (column === 'address') {
                             aValue = a.cells[1].textContent.trim();
                             bValue = b.cells[1].textContent.trim();
-                        } else if (column === 'status') {
+                        } else if (column === 'commit') {
                             aValue = a.cells[2].textContent.trim();
                             bValue = b.cells[2].textContent.trim();
+                        } else if (column === 'status') {
+                            aValue = a.cells[3].textContent.trim();
+                            bValue = b.cells[3].textContent.trim();
                         }
                         
                         // Handle empty values
@@ -2341,7 +2376,7 @@
                 rows.forEach(row => {
                     const alias = row.cells[0].textContent.trim().toLowerCase();
                     const city = row.cells[1].textContent.trim().toLowerCase();
-                    const status = row.cells[2].textContent.trim().toLowerCase();
+                    const status = row.cells[3].textContent.trim().toLowerCase();
                     
                     const matchesAlias = alias.includes(aliasFilter);
                     const matchesCity = city.includes(cityFilter);
@@ -3474,6 +3509,49 @@
                 }
             } catch (error) {
                 console.error('Error acknowledging alert:', error);
+            }
+        }
+
+        // Function to update SCADA code for selected houses
+        async function updateScadaCode() {
+            const selectedAliases = getSelectedHouseAliases();
+            const updateScadaBtn = document.getElementById('update-scada-btn');
+            
+            if (selectedAliases.length === 0) {
+                alert('Please select at least one house to update SCADA code.');
+                return;
+            }
+
+            // Disable button and show loading state
+            updateScadaBtn.disabled = true;
+            updateScadaBtn.style.opacity = '0.5';
+            updateScadaBtn.innerHTML = '<span>Pulling...</span>';
+
+            try {
+                const response = await fetch(`${api_host}/update-scada-code`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    },
+                    body: JSON.stringify({
+                        selected_short_aliases: selectedAliases
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to update SCADA code');
+                }
+
+                // Reload the page to show updated data
+                window.location.reload();
+            } catch (error) {
+                console.error('Error updating SCADA code:', error);
+                alert('Failed to update SCADA code. Please try again.');
+                // Re-enable button and restore original state
+                updateScadaBtn.disabled = false;
+                updateScadaBtn.style.opacity = '1';
+                updateScadaBtn.innerHTML = '<span>Pull</span>';
             }
         }
     </script>
