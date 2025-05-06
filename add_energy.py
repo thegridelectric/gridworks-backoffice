@@ -33,7 +33,7 @@ class HourlyElectricity(Base):
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
     )
 
-# Now create/drop tables after the model is defined
+# Drop existing tables
 # Base.metadata.drop_all(engine_gbo)
 # Base.metadata.create_all(engine_gbo)
 # if os.path.exists(f"energy_data_beech.csv"):
@@ -354,7 +354,7 @@ def generate(house_alias, start_year, start_month, start_day, end_year, end_mont
     s.generate_dataset()
 
 if __name__ == '__main__':
-    houses_to_generate = ['beech']
+    houses_to_generate = ['oak', 'fir', 'maple', 'elm']
     for house in houses_to_generate:
         generate(
             house_alias=house, 
