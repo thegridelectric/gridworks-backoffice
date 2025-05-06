@@ -28,16 +28,18 @@ class HourlyElectricity(Base):
     storage_avg_temp_end_f = Column(Float, nullable=True)
     buffer_avg_temp_start_f = Column(Float, nullable=True)
     buffer_avg_temp_end_f = Column(Float, nullable=True)
+    relay_3_pulled_fraction = Column(Float, nullable=True)
+    store_energy_change_kWh = Column(Float, nullable=True)
     
     __table_args__ = (
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
     )
 
 # Drop existing tables
-# Base.metadata.drop_all(engine_gbo)
-# Base.metadata.create_all(engine_gbo)
-# if os.path.exists(f"energy_data_beech.csv"):
-#     os.remove(f"energy_data_beech.csv")
+Base.metadata.drop_all(engine_gbo)
+Base.metadata.create_all(engine_gbo)
+if os.path.exists(f"energy_data_beech.csv"):
+    os.remove(f"energy_data_beech.csv")
 
 class EnergyDataset():
     def __init__(self, house_alias, start_ms, end_ms, timezone):
@@ -61,6 +63,8 @@ class EnergyDataset():
             'storage_avg_temp_end_f': [],
             'buffer_avg_temp_start_f': [],
             'buffer_avg_temp_end_f': [],
+            'relay_3_pulled_fraction': [],
+            'store_energy_change_kWh': [],
         }
 
     def find_first_date(self):
@@ -156,12 +160,16 @@ class EnergyDataset():
                 channels[channel]['times'] = list(sorted_times)
 
             # Heat pump
-            hp_channels = ['hp-idu-pwr', 'hp-odu-pwr', 'hp-lwt', 'hp-ewt', 'primary-flow']
             hp_critical_channels = ['hp-idu-pwr', 'hp-odu-pwr']
             missing_channels = [c for c in hp_critical_channels if c not in channels]
             if missing_channels: 
                 print(f"Missing critical HP data channels: {missing_channels}")
                 continue
+
+            additional_channels = [
+                'hp-idu-pwr', 'hp-odu-pwr', 'hp-lwt', 'hp-ewt', 'primary-flow', 
+                'store-flow', 'store-hot-pipe', 'store-cold-pipe', 'charge-discharge-relay3'
+                ]
 
             timestep_seconds = 1
             num_points = int((hour_end_ms - hour_start_ms) / (timestep_seconds * 1000) + 1)
@@ -171,7 +179,7 @@ class EnergyDataset():
             csv_times_dt = [x.tz_convert(self.timezone_str).replace(tzinfo=None) for x in csv_times_dt]
 
             csv_values = {}
-            for channel in hp_channels:
+            for channel in additional_channels:
                 if channel not in channels or not channels[channel]['times']:
                     print(f"Missing channel data: {channel}")
                     continue
@@ -205,7 +213,8 @@ class EnergyDataset():
             df = pd.DataFrame(csv_values)
             df['hp_power'] = df['hp-idu-pwr'] + df['hp-odu-pwr']
             hp_elec_in = round(float(np.mean(df['hp_power'])/1000),2)
-            if not [c for c in hp_channels if c not in csv_values]:
+            if not [c for c in additional_channels if c not in csv_values]:
+                # HP heat out
                 df['lift_C'] = df['hp-lwt'] - df['hp-ewt']
                 df['lift_C'] = [x/1000 if x>0 else 0 for x in list(df['lift_C'])]
                 df['flow_kgs'] = df['primary-flow'] / 100 / 60 * 3.78541 
@@ -215,8 +224,33 @@ class EnergyDataset():
                 hp_heat_out = round(list(df['cumulative_heat_kWh'])[-1] - list(df['cumulative_heat_kWh'])[0],2)
                 if np.isnan(hp_heat_out):
                     hp_heat_out = 0
+
+                # Relay 3 pulled fraction
+                df['relay3_cumulative'] = df['charge-discharge-relay3'].cumsum()
+                relay3_pulled_fraction = round(list(df['relay3_cumulative'])[-1] / len(df['relay3_cumulative']), 2)
+                
+                # Store energy change
+                df['store_lift_C'] = np.where(
+                    df['charge-discharge-relay3'] == 0,
+                    df['store-hot-pipe'] - df['store-cold-pipe'],
+                    df['store-cold-pipe'] - df['store-hot-pipe']
+                )
+                df['store_lift_C'] = df['store_lift_C']/1000
+                df['store_flow_kgs'] = np.where(
+                    df['charge-discharge-relay3'] == 0,
+                    df['store-flow'] / 100 / 60 * 3.78541,
+                    df['primary-flow'] / 100 / 60 * 3.78541
+                )
+                df['store_heat_power_kW'] = [m*4187*lift/1000 for lift, m in zip(df['store_lift_C'], df['store_flow_kgs'])]
+                df['store_cumulative_heat_kWh'] = df['store_heat_power_kW'].cumsum()
+                df['store_cumulative_heat_kWh'] = df['store_cumulative_heat_kWh'] / 3600 * timestep_seconds
+                print(df[['store_lift_C', 'charge-discharge-relay3', 'store_flow_kgs', 'flow_kgs', 'store_heat_power_kW', 'store_cumulative_heat_kWh']])
+                store_heat_in = -round(list(df['store_cumulative_heat_kWh'])[-1] - list(df['store_cumulative_heat_kWh'])[0],2)
+
             else:
                 hp_heat_out = 0 if hp_elec_in < 0.5 else None
+                store_heat_in = None
+                relay3_pulled_fraction = None
 
             # Buffer
             buffer_channels = [x for x in channels if 'buffer' in x and 'depth' in x and 'micro' not in x]
@@ -274,7 +308,7 @@ class EnergyDataset():
                 average_store_temp_start = self.to_fahrenheit(sum(hour_start_values)/len(hour_start_values))
                 average_store_temp_end = self.to_fahrenheit(sum(hour_end_values)/len(hour_end_values))
 
-            print(f"{self.unix_ms_to_date(hour_start_ms)} - HP: {hp_elec_in} kWh_e, {hp_heat_out} kWh_th")
+            print(f"{self.unix_ms_to_date(hour_start_ms)} - HP: {hp_elec_in} kWh_e, {hp_heat_out} kWh_th, start {average_store_temp_start} F, end {average_store_temp_end} F")
 
             row = [
                 reports[0].from_alias, 
@@ -285,7 +319,9 @@ class EnergyDataset():
                 average_store_temp_start, 
                 average_store_temp_end, 
                 average_buffer_temp_start, 
-                average_buffer_temp_end
+                average_buffer_temp_end,
+                relay3_pulled_fraction,
+                store_heat_in,
             ]
             row = [x if x is not None else np.nan for x in row]
             formatted_data.loc[len(formatted_data)] = row 
@@ -300,6 +336,8 @@ class EnergyDataset():
                 storage_avg_temp_end_f=average_store_temp_end,
                 buffer_avg_temp_start_f=average_buffer_temp_start,
                 buffer_avg_temp_end_f=average_buffer_temp_end,
+                relay_3_pulled_fraction=relay3_pulled_fraction,
+                store_energy_change_kWh=store_heat_in,
             )
             rows.append(row)
         
@@ -354,12 +392,12 @@ def generate(house_alias, start_year, start_month, start_day, end_year, end_mont
     s.generate_dataset()
 
 if __name__ == '__main__':
-    houses_to_generate = ['oak', 'fir', 'maple', 'elm']
+    houses_to_generate = ['beech', 'oak', 'fir', 'maple', 'elm']
     for house in houses_to_generate:
         generate(
             house_alias=house, 
-            start_year=2024, 
-            start_month=9, 
+            start_year=2025, 
+            start_month=1, 
             start_day=1,
             end_year=2025,
             end_month=5,
