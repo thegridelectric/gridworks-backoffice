@@ -170,6 +170,8 @@ class EnergyDataset():
                 'hp-idu-pwr', 'hp-odu-pwr', 'hp-lwt', 'hp-ewt', 'primary-flow', 
                 'store-flow', 'store-hot-pipe', 'store-cold-pipe', 'charge-discharge-relay3'
                 ]
+            hp_additional_channels = [x for x in additional_channels if 'hp' in x or 'primary' in x]
+            store_additional_channels = [x for x in additional_channels if 'flow' in x or 'charge' in x]
 
             timestep_seconds = 1
             num_points = int((hour_end_ms - hour_start_ms) / (timestep_seconds * 1000) + 1)
@@ -213,7 +215,7 @@ class EnergyDataset():
             df = pd.DataFrame(csv_values)
             df['hp_power'] = df['hp-idu-pwr'] + df['hp-odu-pwr']
             hp_elec_in = round(float(np.mean(df['hp_power'])/1000),2)
-            if not [c for c in additional_channels if c not in csv_values]:
+            if not [c for c in hp_additional_channels if c not in csv_values]:
                 # HP heat out
                 df['lift_C'] = df['hp-lwt'] - df['hp-ewt']
                 df['lift_C'] = [x/1000 if x>0 else 0 for x in list(df['lift_C'])]
@@ -224,11 +226,13 @@ class EnergyDataset():
                 hp_heat_out = round(list(df['cumulative_heat_kWh'])[-1] - list(df['cumulative_heat_kWh'])[0],2)
                 if np.isnan(hp_heat_out):
                     hp_heat_out = 0
+            else:
+                hp_heat_out = 0 if hp_elec_in < 0.5 else None
 
+            if not [c for c in store_additional_channels if c not in csv_values]:
                 # Relay 3 pulled fraction
                 df['relay3_cumulative'] = df['charge-discharge-relay3'].cumsum()
                 relay3_pulled_fraction = round(list(df['relay3_cumulative'])[-1] / len(df['relay3_cumulative']), 2)
-                
                 # Store energy change
                 df['store_lift_C'] = np.where(
                     df['charge-discharge-relay3'] == 0,
@@ -245,9 +249,7 @@ class EnergyDataset():
                 df['store_cumulative_heat_kWh'] = df['store_heat_power_kW'].cumsum()
                 df['store_cumulative_heat_kWh'] = df['store_cumulative_heat_kWh'] / 3600 * timestep_seconds
                 store_heat_in = -round(list(df['store_cumulative_heat_kWh'])[-1] - list(df['store_cumulative_heat_kWh'])[0],2)
-
             else:
-                hp_heat_out = 0 if hp_elec_in < 0.5 else None
                 store_heat_in = None
                 relay3_pulled_fraction = None
 
