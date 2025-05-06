@@ -36,7 +36,8 @@ class HourlyElectricity(Base):
 # Now create/drop tables after the model is defined
 Base.metadata.drop_all(engine_gbo)
 Base.metadata.create_all(engine_gbo)
-os.remove(f"energy_data_beech.csv")
+if os.path.exists(f"energy_data_beech.csv"):
+    os.remove(f"energy_data_beech.csv")
 
 class EnergyDataset():
     def __init__(self, house_alias, start_ms, end_ms, timezone):
@@ -215,7 +216,7 @@ class EnergyDataset():
                 if np.isnan(hp_heat_out):
                     hp_heat_out = 0
             else:
-                hp_heat_out = None
+                hp_heat_out = 0 if hp_elec_in < 0.5 else None
 
             # Buffer
             buffer_channels = [x for x in channels if 'buffer' in x and 'depth' in x and 'micro' not in x]
