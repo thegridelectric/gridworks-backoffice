@@ -2,7 +2,7 @@ import os
 import time
 import dotenv
 import pendulum
-from sqlalchemy import create_engine, asc
+from sqlalchemy import create_engine, asc, or_
 from sqlalchemy.orm import sessionmaker
 from gjk.models import MessageSql
 from typing import List
@@ -29,8 +29,8 @@ class HourlyElectricity(Base):
     )
 
 # Now create/drop tables after the model is defined
-Base.metadata.drop_all(engine_gbo)
-Base.metadata.create_all(engine_gbo)
+# Base.metadata.drop_all(engine_gbo)
+# Base.metadata.create_all(engine_gbo)
 
 class EnergyDataset():
     def __init__(self, house_alias, start_ms, end_ms, timezone):
@@ -50,6 +50,20 @@ class EnergyDataset():
             'hour_start_ms': [],
             'kwh': [],
         }
+        self.find_first_date()
+
+    def find_first_date(self):
+        first_report: List[MessageSql] = self.session.query(MessageSql).filter(
+            MessageSql.from_alias.like(f'%{self.house_alias}%'),
+            or_(
+                MessageSql.message_type_name == "batched.readings",
+                MessageSql.message_type_name == "report"
+            ),
+            MessageSql.message_persisted_ms >= self.start_ms,
+            MessageSql.message_persisted_ms <= self.end_ms,
+        ).order_by(asc(MessageSql.message_persisted_ms)).first()
+        self.start_ms = first_report.message_persisted_ms
+        print(f"Data for {self.house_alias} starts at {self.unix_ms_to_date(self.start_ms)}")
 
     def generate_dataset(self):
         print("Generating dataset...")
@@ -57,42 +71,48 @@ class EnergyDataset():
         if os.path.exists(self.dataset_file):
             print(f"Found existing dataset: {self.dataset_file}")
             df = pd.read_csv(self.dataset_file)
-            existing_dataset_dates = list(df['hour_start_ms'])
-        day_start_ms = int(pendulum.from_timestamp(self.start_ms/1000, tz=self.timezone_str).replace(hour=0, minute=0).timestamp()*1000)
-        day_end_ms = day_start_ms + (23*60+7)*60*1000
-        for day in range(200):
-            if day_start_ms > self.end_ms or day_start_ms/1000 > time.time():
-                if day_start_ms > self.end_ms:
-                    print("day start ms is greater than end ms")
-                print("\nDone.")
-                return
-            if day_start_ms in existing_dataset_dates and day_start_ms+(23*60)*60*1000 in existing_dataset_dates:
-                print(f"\nAlready in dataset: {self.unix_ms_to_date(day_start_ms)}")
-            else:
-                self.add_data(day_start_ms, day_end_ms)
-            day_start_ms += 24*3600*1000
-            day_end_ms += 24*3600*1000
+            existing_dataset_dates = [int(x) for x in list(df['hour_start_ms'])]
 
-    def add_data(self, start_ms, end_ms):
-        print(f"\nProcessing reports from: {self.unix_ms_to_date(start_ms)}")
+        # Add data in batches of BATCH_SIZE hours
+        BATCH_SIZE = 500
+        batch_start_ms = int(pendulum.from_timestamp(self.start_ms/1000, tz=self.timezone_str).replace(hour=0, minute=0, microsecond=0).timestamp()*1000)
+        batch_end_ms = batch_start_ms + BATCH_SIZE*3600*1000
+        today_ms = int(time.time()*1000)
+        
+        while batch_start_ms < min(self.end_ms, today_ms):
+            if existing_dataset_dates and int(batch_end_ms-3600*1000) <= max(existing_dataset_dates):
+                print("Batch is already in data")
+            else:
+                self.add_data(batch_start_ms, batch_end_ms)
+            batch_start_ms += BATCH_SIZE*3600*1000
+            batch_end_ms += BATCH_SIZE*3600*1000
+
+    def add_data(self, batch_start_ms, batch_end_ms):
+        st = time.time()
+        print(f"\nGathering reports from: {self.unix_ms_to_date(batch_start_ms)} to {self.unix_ms_to_date(batch_end_ms)}...")
+        
         reports: List[MessageSql] = self.session.query(MessageSql).filter(
             MessageSql.from_alias.like(f'%{self.house_alias}%'),
-            MessageSql.message_type_name == "report",
-            MessageSql.message_persisted_ms >= start_ms,
-            MessageSql.message_persisted_ms <= end_ms,
+            or_(
+                MessageSql.message_type_name == "batched.readings",
+                MessageSql.message_type_name == "report"
+            ),
+            MessageSql.message_persisted_ms >= batch_start_ms - 7*60*1000,
+            MessageSql.message_persisted_ms <= batch_end_ms + 7*60*1000,
         ).order_by(asc(MessageSql.message_persisted_ms)).all()
         
-        print(f"Found {len(reports)} reports in database")
+        print(f"Found {len(reports)} reports in database in {int(time.time()-st)} seconds")
+        st = time.time()
         if not reports:
             return
         
         formatted_data = pd.DataFrame(self.data_format)
         rows = []
 
-        hour_start_ms = int(start_ms) - 3600*1000
-        hour_end_ms = int(start_ms)
+        hour_start_ms = int(batch_start_ms) - 3600*1000
+        hour_end_ms = int(batch_start_ms)
 
-        while hour_end_ms <= end_ms:
+        while hour_end_ms < batch_end_ms:
             hour_start_ms += 3600*1000
             hour_end_ms += 3600*1000
 
@@ -104,12 +124,18 @@ class EnergyDataset():
                 and m.message_persisted_ms <= hour_end_ms + 7*60*1000
                 ]:
                 for channel in message.payload['ChannelReadingList']:
-                    channel_name = channel['ChannelName']
+                    if message.message_type_name == 'report':
+                        channel_name = channel['ChannelName']
+                    elif message.message_type_name == 'batched.readings':
+                        for dc in message.payload['DataChannelList']:
+                            if dc['Id'] == channel['ChannelId']:
+                                channel_name = dc['Name']
                     if channel_name not in channels:
                         channels[channel_name] = {'times': [], 'values': []}
                     channels[channel_name]['times'].extend(channel['ScadaReadTimeUnixMsList'])
                     channels[channel_name]['values'].extend(channel['ValueList'])
             if not channels:
+                print(f"No channels found in reports")
                 continue
             for channel in channels.keys():
                 sorted_times_values = sorted(zip(channels[channel]['times'], channels[channel]['values']))
@@ -121,7 +147,7 @@ class EnergyDataset():
             hp_channels = ['hp-idu-pwr', 'hp-odu-pwr']
             missing_channels = [c for c in hp_channels if c not in channels]
             if missing_channels: 
-                print(missing_channels)
+                print(f"Missing channels: {missing_channels}")
                 continue
 
             timestep_seconds = 1
@@ -133,23 +159,41 @@ class EnergyDataset():
 
             csv_values = {}
             for channel in hp_channels:
+                if not channels[channel]['times']:
+                    print(f"Missing channel data: {channel}")
+                    continue
                 channels[channel]['times'] = pd.to_datetime(channels[channel]['times'], unit='ms', utc=True)
                 channels[channel]['times'] = [x.tz_convert(self.timezone_str) for x in channels[channel]['times']]
                 channels[channel]['times'] = [x.replace(tzinfo=None) for x in channels[channel]['times']]
                 
-                merged = pd.merge_asof(
-                    pd.DataFrame({'times': csv_times_dt}),
-                    pd.DataFrame(channels[channel]),
-                    on='times',
-                    direction='backward')
-                csv_values[channel] = list(merged['values'])
+                try:
+                    merged = pd.merge_asof(
+                        pd.DataFrame({'times': csv_times_dt}),
+                        pd.DataFrame(channels[channel]),
+                        on='times',
+                        direction='backward'
+                    )
+                    csv_values[channel] = list(merged['values'])
+
+                except Exception as e:
+                    print(f"Error merging: {e}")
+                    if sorted(csv_times_dt) != csv_times_dt:
+                        print(f"\ncsv_times_dt: {csv_times_dt}\n")
+                    elif sorted(channels[channel]['times']) != channels[channel]['times']:
+                        print(f"\nchannels[channel]['times']: {channels[channel]['times']}\n")
+                    merged = pd.merge_asof(
+                        pd.DataFrame({'times': csv_times_dt}).sort_values('times'),
+                        pd.DataFrame(channels[channel]).sort_values('times'),
+                        on='times',
+                        direction='backward'
+                    )
+                    csv_values[channel] = list(merged['values'])
 
             df = pd.DataFrame(csv_values)
             df['hp_power'] = df['hp-idu-pwr'] + df['hp-odu-pwr']
             hp_elec_in = round(float(np.mean(df['hp_power'])/1000),2)
 
-            hour = str(len(formatted_data)) if len(formatted_data)>9 else '0'+str(len(formatted_data))
-            print(f"{hour}:00 - HP: {hp_elec_in} kWh_e")
+            print(f"{self.unix_ms_to_date(hour_start_ms)} - HP: {hp_elec_in} kWh_e")
 
             row = [reports[0].from_alias, self.house_alias, hour_start_ms, hp_elec_in]
             formatted_data.loc[len(formatted_data)] = row 
@@ -165,7 +209,7 @@ class EnergyDataset():
         try:
             self.session_gbo.add_all(rows)
             self.session_gbo.commit()
-            print(f"Successfully inserted {len(rows)} new rows")
+            print(f"Successfully inserted {len(rows)} new rows in {int(time.time()-st)} seconds")
         except Exception as e:
             if 'hour_house_unique' in str(e) or "hourly_electricity_pkey" in str(e):  # Check if it's our unique constraint violation
                 print("Some rows already exist in the database, filtering them out...")
@@ -191,6 +235,7 @@ class EnergyDataset():
                 self.session_gbo.rollback()
                 raise Exception(f"Unexpected error: {e}")
 
+        formatted_data['datetime_str'] = formatted_data['hour_start_ms'].apply(self.unix_ms_to_date)
         formatted_data.to_csv(
             self.dataset_file, 
             mode='a' if os.path.exists(self.dataset_file) else 'w',
@@ -199,7 +244,7 @@ class EnergyDataset():
         )
 
     def unix_ms_to_date(self, time_ms):
-        return str(pendulum.from_timestamp(time_ms/1000, tz=self.timezone_str).format('YYYY-MM-DD'))
+        return str(pendulum.from_timestamp(time_ms/1000, tz=self.timezone_str).format('YYYY-MM-DD HH:mm'))
     
     def to_fahrenheit(self, t):
         return round(t*9/5+32,1)
@@ -212,12 +257,12 @@ def generate(house_alias, start_year, start_month, start_day, end_year, end_mont
     s.generate_dataset()
 
 if __name__ == '__main__':
-    houses_to_generate = ['beech', 'oak', 'fir', 'maple', 'elm']
+    houses_to_generate = ['beech']
     for house in houses_to_generate:
         generate(
             house_alias=house, 
             start_year=2024, 
-            start_month=12, 
+            start_month=9, 
             start_day=1,
             end_year=2025,
             end_month=5,
