@@ -90,7 +90,7 @@ class EnergyDataset():
             existing_dataset_dates = [int(x) for x in list(df['hour_start_ms'])]
 
         # Add data in batches of BATCH_SIZE hours
-        BATCH_SIZE = 500
+        BATCH_SIZE = 100
         batch_start_ms = int(pendulum.from_timestamp(self.start_ms/1000, tz=self.timezone_str).replace(hour=0, minute=0, microsecond=0).timestamp()*1000)
         batch_end_ms = batch_start_ms + BATCH_SIZE*3600*1000
         today_ms = int(time.time()*1000)
@@ -396,8 +396,8 @@ if __name__ == '__main__':
     for house in houses_to_generate:
         generate(
             house_alias=house, 
-            start_year=2025, 
-            start_month=1, 
+            start_year=2024, 
+            start_month=9, 
             start_day=1,
             end_year=2025,
             end_month=5,
