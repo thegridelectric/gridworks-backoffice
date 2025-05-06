@@ -37,10 +37,18 @@ class HourlyElectricity(Base):
     )
 
 # Drop existing tables
-Base.metadata.drop_all(engine_gbo)
-Base.metadata.create_all(engine_gbo)
-if os.path.exists(f"energy_data_beech.csv"):
-    os.remove(f"energy_data_beech.csv")
+# Base.metadata.drop_all(engine_gbo)
+# Base.metadata.create_all(engine_gbo)
+# if os.path.exists(f"energy_data_beech.csv"):
+#     os.remove(f"energy_data_beech.csv")
+
+# SessionGbo = sessionmaker(bind=engine_gbo)
+# session = SessionGbo()
+# session.query(HourlyElectricity).filter(HourlyElectricity.short_alias == "fir").delete()
+# session.commit()
+# session.close()
+# if os.path.exists(f"energy_data_fir.csv"):
+#     os.remove(f"energy_data_fir.csv")
 
 class EnergyDataset():
     def __init__(self, house_alias, start_ms, end_ms, timezone):
@@ -92,7 +100,7 @@ class EnergyDataset():
             existing_dataset_dates = [int(x) for x in list(df['hour_start_ms'])]
 
         # Add data in batches of BATCH_SIZE hours
-        BATCH_SIZE = 100
+        BATCH_SIZE = 500
         batch_start_ms = int(pendulum.from_timestamp(self.start_ms/1000, tz=self.timezone_str).replace(hour=0, minute=0, microsecond=0).timestamp()*1000)
         batch_end_ms = batch_start_ms + BATCH_SIZE*3600*1000
         today_ms = int(time.time()*1000)
@@ -173,7 +181,7 @@ class EnergyDataset():
                 'store-flow', 'store-hot-pipe', 'store-cold-pipe', 'charge-discharge-relay3'
                 ]
             hp_additional_channels = [x for x in additional_channels if 'hp' in x or 'primary' in x]
-            store_additional_channels = [x for x in additional_channels if 'flow' in x or 'charge' in x]
+            store_additional_channels = [x for x in additional_channels if 'flow' in x or 'store' in x or 'charge' in x]
 
             timestep_seconds = 1
             num_points = int((hour_end_ms - hour_start_ms) / (timestep_seconds * 1000) + 1)
@@ -401,7 +409,7 @@ def generate(house_alias, start_year, start_month, start_day, end_year, end_mont
     s.generate_dataset()
 
 if __name__ == '__main__':
-    houses_to_generate = ['beech', 'oak', 'fir', 'maple', 'elm']
+    houses_to_generate = ['fir', 'maple', 'elm']
     for house in houses_to_generate:
         generate(
             house_alias=house, 
