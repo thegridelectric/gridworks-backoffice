@@ -244,7 +244,6 @@ class EnergyDataset():
                 df['store_heat_power_kW'] = [m*4187*lift/1000 for lift, m in zip(df['store_lift_C'], df['store_flow_kgs'])]
                 df['store_cumulative_heat_kWh'] = df['store_heat_power_kW'].cumsum()
                 df['store_cumulative_heat_kWh'] = df['store_cumulative_heat_kWh'] / 3600 * timestep_seconds
-                print(df[['store_lift_C', 'charge-discharge-relay3', 'store_flow_kgs', 'flow_kgs', 'store_heat_power_kW', 'store_cumulative_heat_kWh']])
                 store_heat_in = -round(list(df['store_cumulative_heat_kWh'])[-1] - list(df['store_cumulative_heat_kWh'])[0],2)
 
             else:
@@ -308,7 +307,7 @@ class EnergyDataset():
                 average_store_temp_start = self.to_fahrenheit(sum(hour_start_values)/len(hour_start_values))
                 average_store_temp_end = self.to_fahrenheit(sum(hour_end_values)/len(hour_end_values))
 
-            print(f"{self.unix_ms_to_date(hour_start_ms)} - HP: {hp_elec_in} kWh_e, {hp_heat_out} kWh_th, start {average_store_temp_start} F, end {average_store_temp_end} F")
+            print(f"{self.unix_ms_to_date(hour_start_ms)} - HP: {hp_elec_in} kWh_e, {hp_heat_out} kWh_th")
 
             row = [
                 reports[0].from_alias, 
