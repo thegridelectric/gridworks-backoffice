@@ -23,14 +23,20 @@ class HourlyElectricity(Base):
     short_alias = Column(String, nullable=False)
     hour_start_s = Column(BigInteger, nullable=False, primary_key=True)
     kwh = Column(Float, nullable=False)
+    hp_kwh_th = Column(Float, nullable=True)
+    storage_avg_temp_start_f = Column(Float, nullable=True)
+    storage_avg_temp_end_f = Column(Float, nullable=True)
+    buffer_avg_temp_start_f = Column(Float, nullable=True)
+    buffer_avg_temp_end_f = Column(Float, nullable=True)
     
     __table_args__ = (
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
     )
 
 # Now create/drop tables after the model is defined
-# Base.metadata.drop_all(engine_gbo)
-# Base.metadata.create_all(engine_gbo)
+Base.metadata.drop_all(engine_gbo)
+Base.metadata.create_all(engine_gbo)
+os.remove(f"energy_data_beech.csv")
 
 class EnergyDataset():
     def __init__(self, house_alias, start_ms, end_ms, timezone):
@@ -49,8 +55,12 @@ class EnergyDataset():
             'short_alias': [],
             'hour_start_ms': [],
             'kwh': [],
+            'hp_kwh_th': [],
+            'storage_avg_temp_start_f': [],
+            'storage_avg_temp_end_f': [],
+            'buffer_avg_temp_start_f': [],
+            'buffer_avg_temp_end_f': [],
         }
-        self.find_first_date()
 
     def find_first_date(self):
         first_report: List[MessageSql] = self.session.query(MessageSql).filter(
@@ -66,7 +76,8 @@ class EnergyDataset():
         print(f"Data for {self.house_alias} starts at {self.unix_ms_to_date(self.start_ms)}")
 
     def generate_dataset(self):
-        print("Generating dataset...")
+        print("\nGenerating dataset...")
+        self.find_first_date()
         existing_dataset_dates = []
         if os.path.exists(self.dataset_file):
             print(f"Found existing dataset: {self.dataset_file}")
@@ -74,7 +85,7 @@ class EnergyDataset():
             existing_dataset_dates = [int(x) for x in list(df['hour_start_ms'])]
 
         # Add data in batches of BATCH_SIZE hours
-        BATCH_SIZE = 500
+        BATCH_SIZE = 200
         batch_start_ms = int(pendulum.from_timestamp(self.start_ms/1000, tz=self.timezone_str).replace(hour=0, minute=0, microsecond=0).timestamp()*1000)
         batch_end_ms = batch_start_ms + BATCH_SIZE*3600*1000
         today_ms = int(time.time()*1000)
@@ -143,11 +154,12 @@ class EnergyDataset():
                 channels[channel]['values'] = list(sorted_values)
                 channels[channel]['times'] = list(sorted_times)
 
-            # HP heat out, electricity in, cop
-            hp_channels = ['hp-idu-pwr', 'hp-odu-pwr']
-            missing_channels = [c for c in hp_channels if c not in channels]
+            # Heat pump
+            hp_channels = ['hp-idu-pwr', 'hp-odu-pwr', 'hp-lwt', 'hp-ewt', 'primary-flow']
+            hp_critical_channels = ['hp-idu-pwr', 'hp-odu-pwr']
+            missing_channels = [c for c in hp_critical_channels if c not in channels]
             if missing_channels: 
-                print(f"Missing channels: {missing_channels}")
+                print(f"Missing critical HP data channels: {missing_channels}")
                 continue
 
             timestep_seconds = 1
@@ -159,7 +171,7 @@ class EnergyDataset():
 
             csv_values = {}
             for channel in hp_channels:
-                if not channels[channel]['times']:
+                if channel not in channels or not channels[channel]['times']:
                     print(f"Missing channel data: {channel}")
                     continue
                 channels[channel]['times'] = pd.to_datetime(channels[channel]['times'], unit='ms', utc=True)
@@ -169,7 +181,7 @@ class EnergyDataset():
                 try:
                     merged = pd.merge_asof(
                         pd.DataFrame({'times': csv_times_dt}),
-                        pd.DataFrame(channels[channel]),
+                        pd.DataFrame(channels[channel]).ffill(),
                         on='times',
                         direction='backward'
                     )
@@ -192,17 +204,101 @@ class EnergyDataset():
             df = pd.DataFrame(csv_values)
             df['hp_power'] = df['hp-idu-pwr'] + df['hp-odu-pwr']
             hp_elec_in = round(float(np.mean(df['hp_power'])/1000),2)
+            if not [c for c in hp_channels if c not in csv_values]:
+                df['lift_C'] = df['hp-lwt'] - df['hp-ewt']
+                df['lift_C'] = [x/1000 if x>0 else 0 for x in list(df['lift_C'])]
+                df['flow_kgs'] = df['primary-flow'] / 100 / 60 * 3.78541 
+                df['heat_power_kW'] = [m*4187*lift/1000 for lift, m in zip(df['lift_C'], df['flow_kgs'])]
+                df['cumulative_heat_kWh'] = df['heat_power_kW'].cumsum()
+                df['cumulative_heat_kWh'] = df['cumulative_heat_kWh'] / 3600 * timestep_seconds
+                hp_heat_out = round(list(df['cumulative_heat_kWh'])[-1] - list(df['cumulative_heat_kWh'])[0],2)
+                if np.isnan(hp_heat_out):
+                    hp_heat_out = 0
+            else:
+                hp_heat_out = None
 
-            print(f"{self.unix_ms_to_date(hour_start_ms)} - HP: {hp_elec_in} kWh_e")
+            # Buffer
+            buffer_channels = [x for x in channels if 'buffer' in x and 'depth' in x and 'micro' not in x]
+            hour_start_times, hour_start_values = [], []
+            hour_end_times, hour_end_values = [], []
 
-            row = [reports[0].from_alias, self.house_alias, hour_start_ms, hp_elec_in]
+            for channel in buffer_channels:
+                sorted_times_values = sorted(zip(channels[channel]['times'], channels[channel]['values']))
+                sorted_times, sorted_values = zip(*sorted_times_values)
+                channels[channel]['times'] = list(sorted_times)      
+                channels[channel]['values'] = list(sorted_values)
+
+                times_from_start = [abs(time-hour_start_ms) for time in channels[channel]['times']]
+                closest_index = times_from_start.index(min(times_from_start))
+                hour_start_times.append(channels[channel]['times'][closest_index])
+                hour_start_values.append(channels[channel]['values'][closest_index]/1000)
+
+                times_from_end = [abs(time-hour_end_ms) for time in channels[channel]['times']]
+                closest_index = times_from_end.index(min(times_from_end))
+                hour_end_times.append(channels[channel]['times'][closest_index])
+                hour_end_values.append(channels[channel]['values'][closest_index]/1000)
+
+            if not hour_start_values or not hour_end_values or hour_end_times[-1] - hour_start_times[-1] < 45*60*1000:
+                average_buffer_temp_start = None
+                average_buffer_temp_end = None
+            else:
+                average_buffer_temp_start = self.to_fahrenheit(sum(hour_start_values)/len(hour_start_values))
+                average_buffer_temp_end = self.to_fahrenheit(sum(hour_end_values)/len(hour_end_values))
+
+            # Storage
+            storage_channels = [x for x in channels if 'tank' in x and 'depth' in x and 'micro' not in x]
+            hour_start_times, hour_start_values = [], []
+            hour_end_times, hour_end_values = [], []
+
+            for channel in storage_channels:
+                sorted_times_values = sorted(zip(channels[channel]['times'], channels[channel]['values']))
+                sorted_times, sorted_values = zip(*sorted_times_values)
+                channels[channel]['times'] = list(sorted_times)      
+                channels[channel]['values'] = list(sorted_values)
+
+                times_from_start = [abs(time-hour_start_ms) for time in channels[channel]['times']]
+                closest_index = times_from_start.index(min(times_from_start))
+                hour_start_times.append(channels[channel]['times'][closest_index])
+                hour_start_values.append(channels[channel]['values'][closest_index]/1000)
+
+                times_from_end = [abs(time-hour_end_ms) for time in channels[channel]['times']]
+                closest_index = times_from_end.index(min(times_from_end))
+                hour_end_times.append(channels[channel]['times'][closest_index])
+                hour_end_values.append(channels[channel]['values'][closest_index]/1000)
+
+            if not hour_start_values or not hour_end_values or hour_end_times[-1] - hour_start_times[-1] < 45*60*1000:
+                average_store_temp_start = None
+                average_store_temp_end = None
+            else:
+                average_store_temp_start = self.to_fahrenheit(sum(hour_start_values)/len(hour_start_values))
+                average_store_temp_end = self.to_fahrenheit(sum(hour_end_values)/len(hour_end_values))
+
+            print(f"{self.unix_ms_to_date(hour_start_ms)} - HP: {hp_elec_in} kWh_e, {hp_heat_out} kWh_th")
+
+            row = [
+                reports[0].from_alias, 
+                self.house_alias, 
+                hour_start_ms, 
+                hp_elec_in, 
+                hp_heat_out, 
+                average_store_temp_start, 
+                average_store_temp_end, 
+                average_buffer_temp_start, 
+                average_buffer_temp_end
+            ]
+            row = [x if x is not None else np.nan for x in row]
             formatted_data.loc[len(formatted_data)] = row 
 
             row = HourlyElectricity(
                 g_node_alias=reports[0].from_alias,
                 short_alias=self.house_alias,
                 hour_start_s=int(hour_start_ms/1000),
-                kwh=hp_elec_in
+                kwh=hp_elec_in,
+                hp_kwh_th=hp_heat_out,
+                storage_avg_temp_start_f=average_store_temp_start,
+                storage_avg_temp_end_f=average_store_temp_end,
+                buffer_avg_temp_start_f=average_buffer_temp_start,
+                buffer_avg_temp_end_f=average_buffer_temp_end,
             )
             rows.append(row)
         
