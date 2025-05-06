@@ -29,8 +29,9 @@ class HourlyElectricity(Base):
     buffer_avg_temp_start_f = Column(Float, nullable=True)
     buffer_avg_temp_end_f = Column(Float, nullable=True)
     relay_3_pulled_fraction = Column(Float, nullable=True)
-    store_energy_change_kWh = Column(Float, nullable=True)
-    
+    store_energy_in_flow_kwh = Column(Float, nullable=True)
+    store_energy_in_avg_temp_kwh = Column(Float, nullable=True)
+
     __table_args__ = (
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
     )
@@ -64,7 +65,8 @@ class EnergyDataset():
             'buffer_avg_temp_start_f': [],
             'buffer_avg_temp_end_f': [],
             'relay_3_pulled_fraction': [],
-            'store_energy_change_kWh': [],
+            'store_energy_in_flow_kwh': [],
+            'store_energy_in_avg_temp_kwh': [],
         }
 
     def find_first_date(self):
@@ -248,9 +250,9 @@ class EnergyDataset():
                 df['store_heat_power_kW'] = [m*4187*lift/1000 for lift, m in zip(df['store_lift_C'], df['store_flow_kgs'])]
                 df['store_cumulative_heat_kWh'] = df['store_heat_power_kW'].cumsum()
                 df['store_cumulative_heat_kWh'] = df['store_cumulative_heat_kWh'] / 3600 * timestep_seconds
-                store_heat_in = -round(list(df['store_cumulative_heat_kWh'])[-1] - list(df['store_cumulative_heat_kWh'])[0],2)
+                store_heat_in_flow = -round(list(df['store_cumulative_heat_kWh'])[-1] - list(df['store_cumulative_heat_kWh'])[0],2)
             else:
-                store_heat_in = None
+                store_heat_in_flow = None
                 relay3_pulled_fraction = None
 
             # Buffer
@@ -305,9 +307,13 @@ class EnergyDataset():
             if not hour_start_values or not hour_end_values or hour_end_times[-1] - hour_start_times[-1] < 45*60*1000:
                 average_store_temp_start = None
                 average_store_temp_end = None
+                store_energy_in_avg_temp_kwh = None
             else:
-                average_store_temp_start = self.to_fahrenheit(sum(hour_start_values)/len(hour_start_values))
-                average_store_temp_end = self.to_fahrenheit(sum(hour_end_values)/len(hour_end_values))
+                avg_store_temp_start = sum(hour_start_values)/len(hour_start_values)
+                avg_store_temp_end = sum(hour_end_values)/len(hour_end_values)
+                average_store_temp_start = self.to_fahrenheit(avg_store_temp_start)
+                average_store_temp_end = self.to_fahrenheit(avg_store_temp_end)
+                store_energy_in_avg_temp_kwh = round(3*120*3.785*4.187/3600*(avg_store_temp_end-avg_store_temp_start),2)
 
             print(f"{self.unix_ms_to_date(hour_start_ms)} - HP: {hp_elec_in} kWh_e, {hp_heat_out} kWh_th")
 
@@ -322,7 +328,8 @@ class EnergyDataset():
                 average_buffer_temp_start, 
                 average_buffer_temp_end,
                 relay3_pulled_fraction,
-                store_heat_in,
+                store_heat_in_flow,
+                store_energy_in_avg_temp_kwh
             ]
             row = [x if x is not None else np.nan for x in row]
             formatted_data.loc[len(formatted_data)] = row 
@@ -338,7 +345,8 @@ class EnergyDataset():
                 buffer_avg_temp_start_f=average_buffer_temp_start,
                 buffer_avg_temp_end_f=average_buffer_temp_end,
                 relay_3_pulled_fraction=relay3_pulled_fraction,
-                store_energy_change_kWh=store_heat_in,
+                store_energy_in_flow_kwh=store_heat_in_flow,
+                store_energy_in_avg_temp_kwh=store_energy_in_avg_temp_kwh,
             )
             rows.append(row)
         
