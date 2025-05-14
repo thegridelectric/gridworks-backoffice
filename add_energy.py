@@ -302,6 +302,9 @@ class EnergyDataset():
             if not [c for c in hp_critical_channels if c not in csv_values]:
                 df['hp_power'] = df['hp-idu-pwr'] + df['hp-odu-pwr']
                 hp_elec_in = round(float(np.mean(df['hp_power'])/1000),2)
+            else:
+                print(f"Missing critical channels: {hp_critical_channels}")
+                continue
             if not [c for c in hp_required_channels if c not in csv_values]:
                 df['lift_C'] = df['hp-lwt'] - df['hp-ewt']
                 df['lift_C'] = df['lift_C']/1000
