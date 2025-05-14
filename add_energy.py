@@ -22,16 +22,44 @@ class HourlyElectricity(Base):
     g_node_alias = Column(String, nullable=False, primary_key=True)
     short_alias = Column(String, nullable=False)
     hour_start_s = Column(BigInteger, nullable=False, primary_key=True)
-    kwh = Column(Float, nullable=False)
-    hp_kwh_th = Column(Float, nullable=True)
-    storage_avg_temp_start_f = Column(Float, nullable=True)
-    storage_avg_temp_end_f = Column(Float, nullable=True)
-    buffer_avg_temp_start_f = Column(Float, nullable=True)
-    buffer_avg_temp_end_f = Column(Float, nullable=True)
-    relay_3_pulled_fraction = Column(Float, nullable=True)
-    store_energy_in_flow_kwh = Column(Float, nullable=True)
-    store_energy_in_avg_temp_kwh = Column(Float, nullable=True)
 
+    hp_kwh_el = Column(Float, nullable=False)
+    hp_kwh_th = Column(Float, nullable=True)
+    dist_kwh = Column(Float, nullable=True)
+    store_change_kwh = Column(Float, nullable=True)
+
+    hp_avg_lwt = Column(Float, nullable=True)
+    hp_avg_ewt = Column(Float, nullable=True)
+    dist_avg_swt = Column(Float, nullable=True)
+    dist_avg_rwt = Column(Float, nullable=True)
+
+    buffer_depth1_start = Column(Float, nullable=True)
+    buffer_depth2_start = Column(Float, nullable=True)
+    buffer_depth3_start = Column(Float, nullable=True)
+    buffer_depth4_start = Column(Float, nullable=True)
+    tank1_depth1_start = Column(Float, nullable=True)
+    tank1_depth2_start = Column(Float, nullable=True)
+    tank1_depth3_start = Column(Float, nullable=True)
+    tank1_depth4_start = Column(Float, nullable=True)
+    tank2_depth1_start = Column(Float, nullable=True)
+    tank2_depth2_start = Column(Float, nullable=True)
+    tank2_depth3_start = Column(Float, nullable=True)
+    tank2_depth4_start = Column(Float, nullable=True)
+    tank3_depth1_start = Column(Float, nullable=True)
+    tank3_depth2_start = Column(Float, nullable=True)
+    tank3_depth3_start = Column(Float, nullable=True)
+    tank3_depth4_start = Column(Float, nullable=True)
+
+    relay_3_pulled_fraction = Column(Float, nullable=True)
+    relay_5_pulled_fraction = Column(Float, nullable=True)
+    relay_6_pulled_fraction = Column(Float, nullable=True)
+    relay_9_pulled_fraction = Column(Float, nullable=True)
+
+    zone1_heatcall_fraction = Column(Float, nullable=True)
+    zone2_heatcall_fraction = Column(Float, nullable=True)
+    zone3_heatcall_fraction = Column(Float, nullable=True)
+    zone4_heatcall_fraction = Column(Float, nullable=True)
+    
     __table_args__ = (
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
     )
@@ -62,19 +90,47 @@ class EnergyDataset():
         self.start_ms = start_ms
         self.end_ms = end_ms
         self.timezone_str = timezone
+        whitewire_threshold_watts = {'beech': 100, 'elm': 0.9, 'default': 20}
+        if self.house_alias in whitewire_threshold_watts:
+            self.whitewire_threshold = whitewire_threshold_watts[self.house_alias]
+        else:
+            self.whitewire_threshold = whitewire_threshold_watts['default']
         self.data_format = {
             'g_node_alias': [],
             'short_alias': [],
             'hour_start_ms': [],
-            'kwh': [],
+            'hp_kwh_el': [],
             'hp_kwh_th': [],
-            'storage_avg_temp_start_f': [],
-            'storage_avg_temp_end_f': [],
-            'buffer_avg_temp_start_f': [],
-            'buffer_avg_temp_end_f': [],
+            'dist_kwh': [],
+            'store_change_kwh': [],
+            'hp_avg_lwt': [],
+            'hp_avg_ewt': [],
+            'dist_avg_swt': [],
+            'dist_avg_rwt': [],
+            'buffer_depth1_start': [],
+            'buffer_depth2_start': [],
+            'buffer_depth3_start': [],
+            'buffer_depth4_start': [],
+            'tank1_depth1_start': [],
+            'tank1_depth2_start': [],
+            'tank1_depth3_start': [],
+            'tank1_depth4_start': [],
+            'tank2_depth1_start': [],
+            'tank2_depth2_start': [],
+            'tank2_depth3_start': [],
+            'tank2_depth4_start': [],
+            'tank3_depth1_start': [],
+            'tank3_depth2_start': [],
+            'tank3_depth3_start': [],
+            'tank3_depth4_start': [],
             'relay_3_pulled_fraction': [],
-            'store_energy_in_flow_kwh': [],
-            'store_energy_in_avg_temp_kwh': [],
+            'relay_5_pulled_fraction': [],
+            'relay_6_pulled_fraction': [],
+            'relay_9_pulled_fraction': [],
+            'zone1_heatcall_fraction': [],
+            'zone2_heatcall_fraction': [],
+            'zone3_heatcall_fraction': [],
+            'zone4_heatcall_fraction': [],
         }
 
     def find_first_date(self):
@@ -100,7 +156,7 @@ class EnergyDataset():
             existing_dataset_dates = [int(x) for x in list(df['hour_start_ms'])]
 
         # Add data in batches of BATCH_SIZE hours
-        BATCH_SIZE = 500
+        BATCH_SIZE = 100
         batch_start_ms = int(pendulum.from_timestamp(self.start_ms/1000, tz=self.timezone_str).replace(hour=0, minute=0, microsecond=0).timestamp()*1000)
         batch_end_ms = batch_start_ms + BATCH_SIZE*3600*1000
         today_ms = int(time.time()*1000)
@@ -142,6 +198,7 @@ class EnergyDataset():
             hour_start_ms += 3600*1000
             hour_end_ms += 3600*1000
 
+            # Sort data by channels
             channels = {}
             for message in [
                 m for m in reports
@@ -169,19 +226,19 @@ class EnergyDataset():
                 channels[channel]['values'] = list(sorted_values)
                 channels[channel]['times'] = list(sorted_times)
 
-            # Heat pump
-            hp_critical_channels = ['hp-idu-pwr', 'hp-odu-pwr']
-            missing_channels = [c for c in hp_critical_channels if c not in channels]
-            if missing_channels: 
-                print(f"Missing critical HP data channels: {missing_channels}")
-                continue
-
-            additional_channels = [
+            # Get synchronous data for required data channels
+            required_channels = [
                 'hp-idu-pwr', 'hp-odu-pwr', 'hp-lwt', 'hp-ewt', 'primary-flow', 
-                'store-flow', 'store-hot-pipe', 'store-cold-pipe', 'charge-discharge-relay3'
-                ]
-            hp_additional_channels = [x for x in additional_channels if 'hp' in x or 'primary' in x]
-            store_additional_channels = [x for x in additional_channels if 'flow' in x or 'store' in x or 'charge' in x]
+                'store-flow', 'store-hot-pipe', 'store-cold-pipe', 
+                'charge-discharge-relay3', 'hp-failsafe-relay5', 'hp-scada-ops-relay6', 'store-pump-failsafe-relay9',
+                'dist-swt', 'dist-rwt', 'dist-flow'
+            ] + [
+                x for x in channels if 'zone' in x and 'whitewire' in x
+            ]
+            hp_critical_channels = ['hp-idu-pwr', 'hp-odu-pwr']
+            hp_required_channels = [x for x in required_channels if 'hp' in x or 'primary' in x]
+            store_required_channels = [x for x in required_channels if 'flow' in x or 'store' in x or 'relay3' in x]
+            dist_required_channels = [x for x in required_channels if 'dist' in x]
 
             timestep_seconds = 1
             num_points = int((hour_end_ms - hour_start_ms) / (timestep_seconds * 1000) + 1)
@@ -191,7 +248,7 @@ class EnergyDataset():
             csv_times_dt = [x.tz_convert(self.timezone_str).replace(tzinfo=None) for x in csv_times_dt]
 
             csv_values = {}
-            for channel in additional_channels:
+            for channel in required_channels:
                 if channel not in channels or not channels[channel]['times']:
                     print(f"Missing channel data: {channel}")
                     continue
@@ -222,13 +279,32 @@ class EnergyDataset():
                     )
                     csv_values[channel] = list(merged['values'])
 
+            # Calculations from synchronous data
             df = pd.DataFrame(csv_values)
-            df['hp_power'] = df['hp-idu-pwr'] + df['hp-odu-pwr']
-            hp_elec_in = round(float(np.mean(df['hp_power'])/1000),2)
-            if not [c for c in hp_additional_channels if c not in csv_values]:
-                # HP heat out
+            hp_elec_in = None
+            hp_heat_out = None
+            dist_kwh = None
+            store_change_kwh = None
+            hp_avg_lwt = None
+            hp_avg_ewt = None
+            dist_avg_swt = None
+            dist_avg_rwt = None
+            relay3_pulled_fraction = None
+            relay5_pulled_fraction = None
+            relay6_pulled_fraction = None
+            relay9_pulled_fraction = None
+            zone1_heatcall_fraction = None
+            zone2_heatcall_fraction = None
+            zone3_heatcall_fraction = None
+            zone4_heatcall_fraction = None
+
+            # Heat pump energy
+            if not [c for c in hp_critical_channels if c not in csv_values]:
+                df['hp_power'] = df['hp-idu-pwr'] + df['hp-odu-pwr']
+                hp_elec_in = round(float(np.mean(df['hp_power'])/1000),2)
+            if not [c for c in hp_required_channels if c not in csv_values]:
                 df['lift_C'] = df['hp-lwt'] - df['hp-ewt']
-                df['lift_C'] = [x/1000 if x>0 else 0 for x in list(df['lift_C'])]
+                df['lift_C'] = df['lift_C']/1000
                 df['flow_kgs'] = df['primary-flow'] / 100 / 60 * 3.78541 
                 df['heat_power_kW'] = [m*4187*lift/1000 for lift, m in zip(df['lift_C'], df['flow_kgs'])]
                 df['cumulative_heat_kWh'] = df['heat_power_kW'].cumsum()
@@ -236,14 +312,23 @@ class EnergyDataset():
                 hp_heat_out = round(list(df['cumulative_heat_kWh'])[-1] - list(df['cumulative_heat_kWh'])[0],2)
                 if np.isnan(hp_heat_out):
                     hp_heat_out = 0
-            else:
-                hp_heat_out = 0 if hp_elec_in < 0.5 else None
+                hp_avg_lwt = self.to_fahrenheit(float(np.mean(df['hp-lwt'])/1000))
+                hp_avg_ewt = self.to_fahrenheit(float(np.mean(df['hp-ewt'])/1000))
 
-            if not [c for c in store_additional_channels if c not in csv_values]:
-                # Relay 3 pulled fraction
-                df['relay3_cumulative'] = df['charge-discharge-relay3'].cumsum()
-                relay3_pulled_fraction = round(list(df['relay3_cumulative'])[-1] / len(df['relay3_cumulative']), 2)
-                # Store energy change
+            # Distribution energy
+            if not [c for c in dist_required_channels if c not in csv_values]:
+                df['dist_flow_kgs'] = df['dist-flow'] / 100 / 60 * 3.78541
+                df['dist_lift_C'] = df['dist-swt'] - df['dist-rwt']
+                df['dist_lift_C'] = df['dist_lift_C']/1000
+                df['dist_heat_power_kW'] = [m*4187*lift/1000 for lift, m in zip(df['dist_lift_C'], df['dist_flow_kgs'])]
+                df['dist_cumulative_heat_kWh'] = df['dist_heat_power_kW'].cumsum()
+                df['dist_cumulative_heat_kWh'] = df['dist_cumulative_heat_kWh'] / 3600 * timestep_seconds
+                dist_kwh = round(list(df['dist_cumulative_heat_kWh'])[-1] - list(df['dist_cumulative_heat_kWh'])[0],2)   
+                dist_avg_swt = self.to_fahrenheit(float(np.mean(df['dist-swt'])/1000))
+                dist_avg_rwt = self.to_fahrenheit(float(np.mean(df['dist-rwt'])/1000))
+
+            # Storage energy
+            if not [c for c in store_required_channels if c not in csv_values]:
                 df['store_lift_C'] = np.where(
                     df['charge-discharge-relay3'] == 0,
                     df['store-hot-pipe'] - df['store-cold-pipe'],
@@ -258,70 +343,104 @@ class EnergyDataset():
                 df['store_heat_power_kW'] = [m*4187*lift/1000 for lift, m in zip(df['store_lift_C'], df['store_flow_kgs'])]
                 df['store_cumulative_heat_kWh'] = df['store_heat_power_kW'].cumsum()
                 df['store_cumulative_heat_kWh'] = df['store_cumulative_heat_kWh'] / 3600 * timestep_seconds
-                store_heat_in_flow = -round(list(df['store_cumulative_heat_kWh'])[-1] - list(df['store_cumulative_heat_kWh'])[0],2)
-            else:
-                store_heat_in_flow = None
-                relay3_pulled_fraction = None
+                store_change_kwh = -round(list(df['store_cumulative_heat_kWh'])[-1] - list(df['store_cumulative_heat_kWh'])[0],2)
 
-            # Buffer
-            buffer_channels = [x for x in channels if 'buffer' in x and 'depth' in x and 'micro' not in x]
-            hour_start_times, hour_start_values = [], []
-            hour_end_times, hour_end_values = [], []
+                # Pipe energy
+                df['pipe_lift_C'] = np.where(
+                    df['charge-discharge-relay3'] == 0,
+                    0,
+                    (df['hp-lwt']-df['store-hot-pipe']) + (df['store-cold-pipe']-df['hp-ewt'])
+                )
+                df['pipe_lift_C'] = df['pipe_lift_C']/1000
+                df['pipe_flow_kgs'] = np.where(
+                    df['charge-discharge-relay3'] == 0,
+                    df['store-flow'] / 100 / 60 * 3.78541,
+                    df['primary-flow'] / 100 / 60 * 3.78541
+                )
+                df['pipe_heat_power_kW'] = [m*4187*lift/1000 for lift, m in zip(df['pipe_lift_C'], df['pipe_flow_kgs'])]
+                df['pipe_cumulative_heat_kWh'] = df['pipe_heat_power_kW'].cumsum()
+                df['pipe_cumulative_heat_kWh'] = df['pipe_cumulative_heat_kWh'] / 3600 * timestep_seconds
 
-            for channel in buffer_channels:
-                sorted_times_values = sorted(zip(channels[channel]['times'], channels[channel]['values']))
-                sorted_times, sorted_values = zip(*sorted_times_values)
-                channels[channel]['times'] = list(sorted_times)      
-                channels[channel]['values'] = list(sorted_values)
-
+            # Buffer temperatures
+            buffer_channels = ['buffer-depth1', 'buffer-depth2', 'buffer-depth3', 'buffer-depth4']
+            buffer_temps = {x: None for x in buffer_channels}
+            for channel in [x for x in buffer_channels if x in channels]:
                 times_from_start = [abs(time-hour_start_ms) for time in channels[channel]['times']]
                 closest_index = times_from_start.index(min(times_from_start))
-                hour_start_times.append(channels[channel]['times'][closest_index])
-                hour_start_values.append(channels[channel]['values'][closest_index]/1000)
+                buffer_temps[channel] = self.to_fahrenheit(channels[channel]['values'][closest_index]/1000)
 
-                times_from_end = [abs(time-hour_end_ms) for time in channels[channel]['times']]
-                closest_index = times_from_end.index(min(times_from_end))
-                hour_end_times.append(channels[channel]['times'][closest_index])
-                hour_end_values.append(channels[channel]['values'][closest_index]/1000)
-
-            if not hour_start_values or not hour_end_values or hour_end_times[-1] - hour_start_times[-1] < 45*60*1000:
-                average_buffer_temp_start = None
-                average_buffer_temp_end = None
-            else:
-                average_buffer_temp_start = self.to_fahrenheit(sum(hour_start_values)/len(hour_start_values))
-                average_buffer_temp_end = self.to_fahrenheit(sum(hour_end_values)/len(hour_end_values))
-
-            # Storage
-            storage_channels = [x for x in channels if 'tank' in x and 'depth' in x and 'micro' not in x]
-            hour_start_times, hour_start_values = [], []
-            hour_end_times, hour_end_values = [], []
-
-            for channel in storage_channels:
-                sorted_times_values = sorted(zip(channels[channel]['times'], channels[channel]['values']))
-                sorted_times, sorted_values = zip(*sorted_times_values)
-                channels[channel]['times'] = list(sorted_times)      
-                channels[channel]['values'] = list(sorted_values)
-
+            # Storage temperatures
+            storage_channels = [
+                'tank1-depth1', 'tank1-depth2', 'tank1-depth3', 'tank1-depth4', 
+                'tank2-depth1', 'tank2-depth2', 'tank2-depth3', 'tank2-depth4', 
+                'tank3-depth1', 'tank3-depth2', 'tank3-depth3', 'tank3-depth4'
+            ]
+            storage_temps = {x: None for x in storage_channels}
+            for channel in [x for x in storage_channels if x in channels]:
                 times_from_start = [abs(time-hour_start_ms) for time in channels[channel]['times']]
                 closest_index = times_from_start.index(min(times_from_start))
-                hour_start_times.append(channels[channel]['times'][closest_index])
-                hour_start_values.append(channels[channel]['values'][closest_index]/1000)
+                storage_temps[channel] = self.to_fahrenheit(channels[channel]['values'][closest_index]/1000)
 
-                times_from_end = [abs(time-hour_end_ms) for time in channels[channel]['times']]
-                closest_index = times_from_end.index(min(times_from_end))
-                hour_end_times.append(channels[channel]['times'][closest_index])
-                hour_end_values.append(channels[channel]['values'][closest_index]/1000)
+            # Relays
+            if [c for c in csv_values if 'relay3' in c]:
+                df['relay3_cumulative'] = df['charge-discharge-relay3'].cumsum()
+                relay3_pulled_fraction = round(list(df['relay3_cumulative'])[-1] / len(df['relay3_cumulative']), 2)
+            if [c for c in csv_values if 'relay5' in c]:
+                df['relay5_cumulative'] = df['hp-failsafe-relay5'].cumsum()
+                relay5_pulled_fraction = round(list(df['relay5_cumulative'])[-1] / len(df['relay5_cumulative']), 2)
+            if [c for c in csv_values if 'relay6' in c]:
+                df['relay6_cumulative'] = df['hp-scada-ops-relay6'].cumsum()
+                relay6_pulled_fraction = round(list(df['relay6_cumulative'])[-1] / len(df['relay6_cumulative']), 2)
+            if [c for c in csv_values if 'relay9' in c]:
+                df['relay9_cumulative'] = df['store-pump-failsafe-relay9'].cumsum()
+                relay9_pulled_fraction = round(list(df['relay9_cumulative'])[-1] / len(df['relay9_cumulative']), 2)
 
-            if not hour_start_values or not hour_end_values or hour_end_times[-1] - hour_start_times[-1] < 45*60*1000:
-                average_store_temp_start = None
-                average_store_temp_end = None
-                store_energy_in_avg_temp_kwh = None
-            else:
-                avg_store_temp_start = sum(hour_start_values)/len(hour_start_values)
-                avg_store_temp_end = sum(hour_end_values)/len(hour_end_values)
-                average_store_temp_start = self.to_fahrenheit(avg_store_temp_start)
-                average_store_temp_end = self.to_fahrenheit(avg_store_temp_end)
-                store_energy_in_avg_temp_kwh = round(3*120*3.785*4.187/3600*(avg_store_temp_end-avg_store_temp_start),2)
+            # Zones
+            whitewire_channels = [c for c in csv_values if 'whitewire' in c]
+            if [c for c in whitewire_channels if 'zone1' in c]:
+                zone1_ch = [c for c in whitewire_channels if 'zone1' in c][0]
+                df[zone1_ch] = [int(abs(x)>self.whitewire_threshold) for x in df[zone1_ch]]
+                df['zone1_cumulative'] = df[zone1_ch].cumsum()
+                zone1_heatcall_fraction = round(list(df['zone1_cumulative'])[-1] / len(df['zone1_cumulative']), 2)
+            if [c for c in whitewire_channels if 'zone2' in c]:
+                zone2_ch = [c for c in whitewire_channels if 'zone2' in c][0]
+                df[zone2_ch] = [int(abs(x)>self.whitewire_threshold) for x in df[zone2_ch]]
+                df['zone2_cumulative'] = df[zone2_ch].cumsum()
+                zone2_heatcall_fraction = round(list(df['zone2_cumulative'])[-1] / len(df['zone2_cumulative']), 2)
+            if [c for c in whitewire_channels if 'zone3' in c]:
+                zone3_ch = [c for c in whitewire_channels if 'zone3' in c][0]
+                df[zone3_ch] = [int(abs(x)>self.whitewire_threshold) for x in df[zone3_ch]]
+                df['zone3_cumulative'] = df[zone3_ch].cumsum()
+                zone3_heatcall_fraction = round(list(df['zone3_cumulative'])[-1] / len(df['zone3_cumulative']), 2)
+            if [c for c in whitewire_channels if 'zone4' in c]:
+                zone4_ch = [c for c in whitewire_channels if 'zone4' in c][0]
+                df[zone4_ch] = [int(abs(x)>self.whitewire_threshold) for x in df[zone4_ch]]
+                df['zone4_cumulative'] = df[zone4_ch].cumsum()
+                zone4_heatcall_fraction = round(list(df['zone4_cumulative'])[-1] / len(df['zone4_cumulative']), 2)
+
+            # Cumulative energy balance
+            # if relay3_pulled_fraction > 0.96:
+            #     import matplotlib.pyplot as plt
+            #     plt.plot(df['hp-lwt'].apply(lambda x: self.to_fahrenheit(x/1000)), label='HP LWT', color='tab:red')
+            #     plt.plot(df['store-hot-pipe'].apply(lambda x: self.to_fahrenheit(x/1000)), label='Store hot pipe', color='tab:red', linestyle='--')
+            #     plt.plot(df['hp-ewt'].apply(lambda x: self.to_fahrenheit(x/1000)), label='HP EWT', color='tab:blue')
+            #     plt.plot(df['store-cold-pipe'].apply(lambda x: self.to_fahrenheit(x/1000)), label='Store cold pipe', color='tab:blue', linestyle='--')
+            #     plt.legend()
+            #     plt.show()
+            #     plt.plot(df['lift_C']*9/5, label='HP lift', color='tab:blue')
+            #     plt.plot(-df['store_lift_C']*9/5, label='Store lift', color='tab:orange')
+            #     plt.plot(df['pipe_lift_C']*9/5, label='Pipe lift', color='tab:green')
+            #     plt.legend()
+            #     plt.show()
+            #     plt.plot(df['cumulative_heat_kWh'], label='Heat Pump', color='tab:blue', alpha=0.7)
+            #     plt.plot(-df['store_cumulative_heat_kWh'], label='Storage', color='tab:orange', alpha=0.7)
+            #     plt.plot(df['pipe_cumulative_heat_kWh'], label='Pipe (HP->Storage)', color='tab:green', alpha=0.7)
+            #     df['total'] = -df['store_cumulative_heat_kWh'] + df['pipe_cumulative_heat_kWh']
+            #     plt.plot(df['total'], label='Storage + Pipe', color='tab:red', alpha=0.4, linestyle='dashed', linewidth=5)
+            #     plt.xlabel("Time since hour start (seconds)")
+            #     plt.ylabel("Cumulative heat [kWh]")
+            #     plt.legend()
+            #     plt.show()
 
             print(f"{self.unix_ms_to_date(hour_start_ms)} - HP: {hp_elec_in} kWh_e, {hp_heat_out} kWh_th")
 
@@ -330,14 +449,37 @@ class EnergyDataset():
                 self.house_alias, 
                 hour_start_ms, 
                 hp_elec_in, 
-                hp_heat_out, 
-                average_store_temp_start, 
-                average_store_temp_end, 
-                average_buffer_temp_start, 
-                average_buffer_temp_end,
+                hp_heat_out,
+                dist_kwh,
+                store_change_kwh, 
+                hp_avg_lwt,
+                hp_avg_ewt,
+                dist_avg_swt,
+                dist_avg_rwt,
+                buffer_temps['buffer-depth1'],
+                buffer_temps['buffer-depth2'],
+                buffer_temps['buffer-depth3'],
+                buffer_temps['buffer-depth4'],
+                storage_temps['tank1-depth1'],
+                storage_temps['tank1-depth2'],
+                storage_temps['tank1-depth3'],
+                storage_temps['tank1-depth4'],
+                storage_temps['tank2-depth1'],
+                storage_temps['tank2-depth2'],
+                storage_temps['tank2-depth3'],
+                storage_temps['tank2-depth4'],
+                storage_temps['tank3-depth1'],
+                storage_temps['tank3-depth2'],
+                storage_temps['tank3-depth3'],
+                storage_temps['tank3-depth4'],
                 relay3_pulled_fraction,
-                store_heat_in_flow,
-                store_energy_in_avg_temp_kwh
+                relay5_pulled_fraction,
+                relay6_pulled_fraction,
+                relay9_pulled_fraction,
+                zone1_heatcall_fraction,
+                zone2_heatcall_fraction,
+                zone3_heatcall_fraction,
+                zone4_heatcall_fraction,
             ]
             row = [x if x is not None else np.nan for x in row]
             formatted_data.loc[len(formatted_data)] = row 
@@ -346,15 +488,38 @@ class EnergyDataset():
                 g_node_alias=reports[0].from_alias,
                 short_alias=self.house_alias,
                 hour_start_s=int(hour_start_ms/1000),
-                kwh=hp_elec_in,
+                hp_kwh_el=hp_elec_in,
                 hp_kwh_th=hp_heat_out,
-                storage_avg_temp_start_f=average_store_temp_start,
-                storage_avg_temp_end_f=average_store_temp_end,
-                buffer_avg_temp_start_f=average_buffer_temp_start,
-                buffer_avg_temp_end_f=average_buffer_temp_end,
+                dist_kwh=dist_kwh,
+                store_change_kwh=store_change_kwh,
+                hp_avg_lwt=hp_avg_lwt,
+                hp_avg_ewt=hp_avg_ewt,
+                dist_avg_swt=dist_avg_swt,
+                dist_avg_rwt=dist_avg_rwt,
+                buffer_depth1_start=buffer_temps['buffer-depth1'],
+                buffer_depth2_start=buffer_temps['buffer-depth2'],
+                buffer_depth3_start=buffer_temps['buffer-depth3'],
+                buffer_depth4_start=buffer_temps['buffer-depth4'],
+                tank1_depth1_start=storage_temps['tank1-depth1'],
+                tank1_depth2_start=storage_temps['tank1-depth2'],
+                tank1_depth3_start=storage_temps['tank1-depth3'],
+                tank1_depth4_start=storage_temps['tank1-depth4'],
+                tank2_depth1_start=storage_temps['tank2-depth1'],
+                tank2_depth2_start=storage_temps['tank2-depth2'],
+                tank2_depth3_start=storage_temps['tank2-depth3'],
+                tank2_depth4_start=storage_temps['tank2-depth4'],
+                tank3_depth1_start=storage_temps['tank3-depth1'],
+                tank3_depth2_start=storage_temps['tank3-depth2'],
+                tank3_depth3_start=storage_temps['tank3-depth3'],
+                tank3_depth4_start=storage_temps['tank3-depth4'],
                 relay_3_pulled_fraction=relay3_pulled_fraction,
-                store_energy_in_flow_kwh=store_heat_in_flow,
-                store_energy_in_avg_temp_kwh=store_energy_in_avg_temp_kwh,
+                relay_5_pulled_fraction=relay5_pulled_fraction,
+                relay_6_pulled_fraction=relay6_pulled_fraction,
+                relay_9_pulled_fraction=relay9_pulled_fraction,
+                zone1_heatcall_fraction=zone1_heatcall_fraction,
+                zone2_heatcall_fraction=zone2_heatcall_fraction,
+                zone3_heatcall_fraction=zone3_heatcall_fraction,
+                zone4_heatcall_fraction=zone4_heatcall_fraction,
             )
             rows.append(row)
         
@@ -409,7 +574,7 @@ def generate(house_alias, start_year, start_month, start_day, end_year, end_mont
     s.generate_dataset()
 
 if __name__ == '__main__':
-    houses_to_generate = ['fir', 'maple', 'elm']
+    houses_to_generate = ['beech']#, 'oak', 'fir', 'maple', 'elm']
     for house in houses_to_generate:
         generate(
             house_alias=house, 
