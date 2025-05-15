@@ -318,11 +318,12 @@ class EnergyDataset():
                     last_non_nan_cumulative_heat = non_nan_cumulative_heat[-1]
                     hp_heat_out = round(last_non_nan_cumulative_heat - first_non_nan_cumulative_heat,2)
                 else:
+                    print("There are no non-NaN cumulative heat values")
                     hp_heat_out = None
                 hp_avg_lwt = self.to_fahrenheit(float(np.mean(df['hp-lwt'])/1000))
                 hp_avg_ewt = self.to_fahrenheit(float(np.mean(df['hp-ewt'])/1000))
             else:
-                print(f"Missing HP required channels: {hp_required_channels}")
+                print(f"Missing HP required channels: {[c for c in hp_required_channels if c not in csv_values]}")
 
             # Distribution energy
             if not [c for c in dist_required_channels if c not in csv_values]:
