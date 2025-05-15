@@ -312,11 +312,17 @@ class EnergyDataset():
                 df['heat_power_kW'] = [m*4187*lift/1000 for lift, m in zip(df['lift_C'], df['flow_kgs'])]
                 df['cumulative_heat_kWh'] = df['heat_power_kW'].cumsum()
                 df['cumulative_heat_kWh'] = df['cumulative_heat_kWh'] / 3600 * timestep_seconds
-                hp_heat_out = round(list(df['cumulative_heat_kWh'])[-1] - list(df['cumulative_heat_kWh'])[0],2)
-                if np.isnan(hp_heat_out):
-                    hp_heat_out = 0
+                non_nan_cumulative_heat = [x for x in df['cumulative_heat_kWh'] if not np.isnan(x)]
+                if non_nan_cumulative_heat:
+                    first_non_nan_cumulative_heat = non_nan_cumulative_heat[0]
+                    last_non_nan_cumulative_heat = non_nan_cumulative_heat[-1]
+                    hp_heat_out = round(last_non_nan_cumulative_heat - first_non_nan_cumulative_heat,2)
+                else:
+                    hp_heat_out = None
                 hp_avg_lwt = self.to_fahrenheit(float(np.mean(df['hp-lwt'])/1000))
                 hp_avg_ewt = self.to_fahrenheit(float(np.mean(df['hp-ewt'])/1000))
+            else:
+                print(f"Missing HP required channels: {hp_required_channels}")
 
             # Distribution energy
             if not [c for c in dist_required_channels if c not in csv_values]:
