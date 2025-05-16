@@ -167,7 +167,7 @@ class EnergyDataset():
             existing_dataset_dates = [int(x) for x in list(df['hour_start_ms'])]
 
         # Add data in batches of BATCH_SIZE hours
-        BATCH_SIZE = 50
+        BATCH_SIZE = 20
         batch_start_ms = int(pendulum.from_timestamp(self.start_ms/1000, tz=self.timezone_str).replace(hour=0, minute=0, microsecond=0).timestamp()*1000)
         batch_end_ms = batch_start_ms + BATCH_SIZE*3600*1000
         today_ms = int(time.time()*1000)
@@ -356,13 +356,18 @@ class EnergyDataset():
                                 pump_about_to_be_turned_off = True
 
                             # Update last correct GPM                            
-                            if pump_on and value_gpm > self.primary_pump_gpm-1:
-                                last_correct_gpm = value_gpm
-                            elif (pump_on and (value_gpm < self.primary_pump_gpm-1 or np.isnan(value_gpm)) 
-                                  and not pump_just_turned_on and not pump_about_to_be_turned_off):
-                                value_gpm = last_correct_gpm
-                            elif not pump_on and np.isnan(value_gpm):
-                                value_gpm = 0
+                            if not np.isnan(value_gpm):
+                                if pump_on and value_gpm > self.primary_pump_gpm-1:
+                                    last_correct_gpm = value_gpm
+                                elif (pump_on and value_gpm < self.primary_pump_gpm-1 
+                                    and not pump_just_turned_on and not pump_about_to_be_turned_off):
+                                    value_gpm = last_correct_gpm
+                            else:
+                                if pump_on and not pump_just_turned_on and not pump_about_to_be_turned_off:
+                                    value_gpm = last_correct_gpm
+                                else:
+                                    value_gpm = 0
+
                             primary_flow_processed.append(value_gpm*100)
                 
                     df['primary-flow-processed'] = primary_flow_processed
@@ -415,7 +420,7 @@ class EnergyDataset():
 
             # Storage energy
             if (not [c for c in store_required_channels if c not in csv_values]
-                or ('store-pump-pwr' in csv_values and not [c for c in store_required_channels if c not in csv_values and 'store-flow' not in c])):
+                or ('store-pump-pwr' in csv_values and not [c for c in store_required_channels if c not in csv_values and 'store-flow' not in c and 'primary-flow' not in c])):
 
                 if 'store-pump-pwr' in csv_values and hour_end_ms < pendulum.datetime(2025,1,1,tz=self.timezone_str).timestamp()*1000:
                     store_flow_processed = []
@@ -431,7 +436,7 @@ class EnergyDataset():
                                 value_gpm = 0
                             store_flow_processed.append(value_gpm*100)
                     
-                    # Process primary flow
+                    # Process store flow
                     else:
                         last_pump_off_ms = None
                         for i in range(len(df)):
@@ -454,30 +459,32 @@ class EnergyDataset():
                                 pump_about_to_be_turned_off = True
 
                             # Update last correct GPM                            
-                            if pump_on and value_gpm > self.store_pump_gpm-1:
-                                last_correct_gpm = value_gpm
-                            elif (pump_on and (value_gpm < self.store_pump_gpm-1 or np.isnan(value_gpm)) 
-                                  and not pump_just_turned_on and not pump_about_to_be_turned_off):
-                                value_gpm = last_correct_gpm
-                            elif not pump_on and np.isnan(value_gpm):
-                                value_gpm = 0
-                            store_flow_processed.append(value_gpm*100)
+                            if not np.isnan(value_gpm):
+                                if pump_on and value_gpm > self.store_pump_gpm-1:
+                                    last_correct_gpm = value_gpm
+                                elif (pump_on and value_gpm < self.store_pump_gpm-1 
+                                    and not pump_just_turned_on and not pump_about_to_be_turned_off):
+                                    value_gpm = last_correct_gpm
+                            else:
+                                if pump_on and not pump_just_turned_on and not pump_about_to_be_turned_off:
+                                    value_gpm = last_correct_gpm
+                                else:
+                                    value_gpm = 0
                 
                     df['store-flow-processed'] = store_flow_processed
 
-                    # if max(df['store-pump-pwr']) > 5:
-                    #     fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                    #     if 'store-flow' in csv_values:
-                    #         ax.plot(df['store-flow'], label='store-flow', color='purple', alpha=0.5, linestyle='--')
-                    #     ax.plot(df['store-flow-processed'], label='store-flow-processed', color='red', alpha=0.5)
-                    #     ax2 = ax.twinx()    
-                    #     ax2.plot(df['store-pump-pwr'], label='store-pump-pwr', color='pink', alpha=0.6, linestyle='--')
-                    #     ax.set_ylim(-50, 1000)
-                    #     ax2.set_ylim(-5, 100)
-                    #     ax.legend()
-                    #     ax2.legend()
-                    #     plt.title(f"{self.unix_ms_to_date(hour_start_ms)}")
-                    #     plt.show()
+                    # fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+                    # if 'store-flow' in csv_values:
+                    #     ax.plot(df['store-flow'], label='store-flow', color='purple', alpha=0.5, linestyle='--')
+                    # ax.plot(df['store-flow-processed'], label='store-flow-processed', color='red', alpha=0.5)
+                    # ax2 = ax.twinx()    
+                    # ax2.plot(df['store-pump-pwr'], label='store-pump-pwr', color='pink', alpha=0.6, linestyle='--')
+                    # ax.set_ylim(-50, 1000)
+                    # ax2.set_ylim(-5, 100)
+                    # ax.legend()
+                    # ax2.legend()
+                    # plt.title(f"{self.unix_ms_to_date(hour_start_ms)}")
+                    # plt.show()
 
                     df['store-flow'] = df['store-flow-processed']
 
@@ -512,6 +519,9 @@ class EnergyDataset():
                 df['pipe_heat_power_kW'] = [m*4187*lift/1000 for lift, m in zip(df['pipe_lift_C'], df['pipe_flow_kgs'])]
                 df['pipe_cumulative_heat_kWh'] = df['pipe_heat_power_kW'].cumsum()
                 df['pipe_cumulative_heat_kWh'] = df['pipe_cumulative_heat_kWh'] / 3600 * timestep_seconds
+            else:
+                print(f"Missing store required channels: {[c for c in store_required_channels if c not in csv_values]}")
+                print(f"Missing store pump power: {'store-pump-pwr' not in csv_values}")
 
             # Buffer temperatures
             buffer_channels = ['buffer-depth1', 'buffer-depth2', 'buffer-depth3', 'buffer-depth4']
