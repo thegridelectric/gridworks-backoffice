@@ -11,6 +11,7 @@ import numpy as np
 import os
 from sqlalchemy import create_engine, Column, Integer, String, Float, BigInteger, UniqueConstraint
 from sqlalchemy.orm import declarative_base, sessionmaker
+import matplotlib.pyplot as plt
 
 dotenv.load_dotenv()
 
@@ -95,6 +96,11 @@ class EnergyDataset():
             self.whitewire_threshold = whitewire_threshold_watts[self.house_alias]
         else:
             self.whitewire_threshold = whitewire_threshold_watts['default']
+        primary_pump_gpm = {'beech': 5.5, 'default': 5}
+        if self.house_alias in primary_pump_gpm:
+            self.primary_pump_gpm = primary_pump_gpm[self.house_alias]
+        else:
+            self.primary_pump_gpm = primary_pump_gpm['default']
         self.data_format = {
             'g_node_alias': [],
             'short_alias': [],
@@ -228,7 +234,7 @@ class EnergyDataset():
 
             # Get synchronous data for required data channels
             required_channels = [
-                'hp-idu-pwr', 'hp-odu-pwr', 'hp-lwt', 'hp-ewt', 'primary-flow', 
+                'hp-idu-pwr', 'hp-odu-pwr', 'hp-lwt', 'hp-ewt', 'primary-flow', 'primary-pump-pwr',
                 'store-flow', 'store-hot-pipe', 'store-cold-pipe', 
                 'charge-discharge-relay3', 'hp-failsafe-relay5', 'hp-scada-ops-relay6', 'store-pump-failsafe-relay9',
                 'dist-swt', 'dist-rwt', 'dist-flow'
@@ -236,7 +242,7 @@ class EnergyDataset():
                 x for x in channels if 'zone' in x and 'whitewire' in x
             ]
             hp_critical_channels = ['hp-idu-pwr', 'hp-odu-pwr']
-            hp_required_channels = [x for x in required_channels if 'hp' in x or 'primary' in x]
+            hp_required_channels = [x for x in required_channels if 'hp' in x or 'primary-flow' in x]
             store_required_channels = [x for x in required_channels if 'flow' in x or 'store' in x or 'relay3' in x]
             dist_required_channels = [x for x in required_channels if 'dist' in x]
 
@@ -247,7 +253,7 @@ class EnergyDataset():
             csv_times_dt = pd.to_datetime(csv_times, unit='ms', utc=True)
             csv_times_dt = [x.tz_convert(self.timezone_str).replace(tzinfo=None) for x in csv_times_dt]
 
-            csv_values = {}
+            csv_values = {'times': csv_times}
             for channel in required_channels:
                 if channel not in channels or not channels[channel]['times']:
                     print(f"Missing channel data: {channel}")
@@ -305,7 +311,72 @@ class EnergyDataset():
             else:
                 print(f"Missing critical channels: {hp_critical_channels}")
                 continue
-            if not [c for c in hp_required_channels if c not in csv_values]:
+            if (not [c for c in hp_required_channels if c not in csv_values]
+                or ('primary-pump-pwr' in csv_values and not [c for c in hp_required_channels if c not in csv_values and 'primary-flow' not in c])):
+
+                if 'primary-pump-pwr' in csv_values and hour_end_ms < pendulum.datetime(2025,1,1,tz=self.timezone_str).timestamp()*1000:
+                    primary_flow_processed = []
+                    last_correct_gpm = self.primary_pump_gpm
+                    # Missing primary flow
+                    if 'primary-flow' not in csv_values:
+                        for i in range(len(df)):
+                            value_watts = float(df['primary-pump-pwr'][i])
+                            pump_on = value_watts > 10
+                            if pump_on:
+                                value_gpm = last_correct_gpm
+                            else:
+                                value_gpm = 0
+                            primary_flow_processed.append(value_gpm*100)
+                    
+                    # Process primary flow
+                    else:
+                        last_pump_off_ms = None
+                        for i in range(len(df)):
+                            value_gpm = float(df['primary-flow'][i]/100)
+                            value_watts = float(df['primary-pump-pwr'][i])
+                            pump_on = value_watts > 10
+                            if not pump_on:
+                                last_pump_off_ms = df['times'][i]
+
+                            # Check if the pump was recently turned on
+                            pump_just_turned_on = False
+                            if last_pump_off_ms and pump_on and df['times'][i] - last_pump_off_ms < 20*1000:
+                                pump_just_turned_on = True
+
+                            # Check if the pump will soon be turned off and flow has stopped
+                            pump_about_to_be_turned_off = False
+                            min_pump_pwr_in_next_seconds = min(df[(df['times']>=df['times'][i]) & (df['times']<=df['times'][i]+10*1000)]['primary-pump-pwr'])
+                            max_flow_in_next_seconds = max(df[(df['times']>=df['times'][i]) & (df['times']<=df['times'][i]+10*1000)]['primary-flow'])
+                            if min_pump_pwr_in_next_seconds < 10 and max_flow_in_next_seconds < self.primary_pump_gpm-2:
+                                pump_about_to_be_turned_off = True
+
+                            # Update last correct GPM                            
+                            if pump_on and value_gpm > self.primary_pump_gpm-1:
+                                last_correct_gpm = value_gpm
+                            elif (pump_on and (value_gpm < self.primary_pump_gpm-1 or np.isnan(value_gpm)) 
+                                  and not pump_just_turned_on and not pump_about_to_be_turned_off):
+                                value_gpm = last_correct_gpm
+                            elif not pump_on and np.isnan(value_gpm):
+                                value_gpm = 0
+                            primary_flow_processed.append(value_gpm*100)
+                
+                    df['primary-flow-processed'] = primary_flow_processed
+                    
+                    # fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+                    # if 'primary-flow' in csv_values:
+                    #     ax.plot(df['primary-flow'], label='primary-flow', color='purple', alpha=0.5, linestyle='--')
+                    # ax.plot(df['primary-flow-processed'], label='primary-flow-processed', color='red', alpha=0.5)
+                    # ax2 = ax.twinx()    
+                    # ax2.plot(df['primary-pump-pwr'], label='primary-pump-pwr', color='pink', alpha=0.6, linestyle='--')
+                    # ax.set_ylim(-50, 1000)
+                    # ax2.set_ylim(-5, 100)
+                    # ax.legend()
+                    # ax2.legend()
+                    # plt.title(f"{self.unix_ms_to_date(hour_start_ms)}")
+                    # plt.show()
+
+                    df['primary-flow'] = df['primary-flow-processed']
+
                 df['lift_C'] = df['hp-lwt'] - df['hp-ewt']
                 df['lift_C'] = df['lift_C']/1000
                 df['flow_kgs'] = df['primary-flow'] / 100 / 60 * 3.78541 
@@ -430,7 +501,6 @@ class EnergyDataset():
 
             # Cumulative energy balance
             # if relay3_pulled_fraction > 0.96:
-            #     import matplotlib.pyplot as plt
             #     plt.plot(df['hp-lwt'].apply(lambda x: self.to_fahrenheit(x/1000)), label='HP LWT', color='tab:red')
             #     plt.plot(df['store-hot-pipe'].apply(lambda x: self.to_fahrenheit(x/1000)), label='Store hot pipe', color='tab:red', linestyle='--')
             #     plt.plot(df['hp-ewt'].apply(lambda x: self.to_fahrenheit(x/1000)), label='HP EWT', color='tab:blue')
