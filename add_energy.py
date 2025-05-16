@@ -91,6 +91,7 @@ class EnergyDataset():
         self.start_ms = start_ms
         self.end_ms = end_ms
         self.timezone_str = timezone
+        self.stop_flow_processing_date_ms = pendulum.datetime(2025,1,1,tz=self.timezone_str).timestamp()*1000
         whitewire_threshold_watts = {'beech': 100, 'elm': 0.9, 'default': 20}
         if self.house_alias in whitewire_threshold_watts:
             self.whitewire_threshold = whitewire_threshold_watts[self.house_alias]
@@ -167,18 +168,37 @@ class EnergyDataset():
             existing_dataset_dates = [int(x) for x in list(df['hour_start_ms'])]
 
         # Add data in batches of BATCH_SIZE hours
-        BATCH_SIZE = 20
+        SMALL_BATCH_SIZE = 20
+        LARGE_BATCH_SIZE = 100
+        using_small_batches = True
+
         batch_start_ms = int(pendulum.from_timestamp(self.start_ms/1000, tz=self.timezone_str).replace(hour=0, minute=0, microsecond=0).timestamp()*1000)
-        batch_end_ms = batch_start_ms + BATCH_SIZE*3600*1000
-        today_ms = int(time.time()*1000)
+        batch_end_ms = batch_start_ms + SMALL_BATCH_SIZE*3600*1000
+        now_ms = int(time.time()*1000)
         
-        while batch_start_ms < min(self.end_ms, today_ms):
+        while batch_start_ms < min(self.end_ms, now_ms):
+            batch_end_ms = min(batch_end_ms, now_ms, self.end_ms)
             if existing_dataset_dates and int(batch_end_ms-3600*1000) <= max(existing_dataset_dates):
                 print("Batch is already in data")
+                batch_start_ms += SMALL_BATCH_SIZE*3600*1000
+                batch_end_ms += SMALL_BATCH_SIZE*3600*1000
             else:
-                self.add_data(batch_start_ms, batch_end_ms)
-            batch_start_ms += BATCH_SIZE*3600*1000
-            batch_end_ms += BATCH_SIZE*3600*1000
+                # We are processing all the data: small batches
+                if batch_start_ms < self.stop_flow_processing_date_ms:
+                    self.add_data(batch_start_ms, batch_end_ms)
+                    batch_start_ms += SMALL_BATCH_SIZE*3600*1000
+                    batch_end_ms += SMALL_BATCH_SIZE*3600*1000
+                
+                # All the necessary data has been processed: move to large batches
+                elif batch_start_ms >= self.stop_flow_processing_date_ms:
+                    self.add_data(batch_start_ms, batch_end_ms)
+                    if using_small_batches:
+                        batch_start_ms += SMALL_BATCH_SIZE*3600*1000
+                        batch_end_ms += LARGE_BATCH_SIZE*3600*1000
+                        using_small_batches = False
+                    else:
+                        batch_start_ms += LARGE_BATCH_SIZE*3600*1000
+                        batch_end_ms += LARGE_BATCH_SIZE*3600*1000
 
     def add_data(self, batch_start_ms, batch_end_ms):
         st = time.time()
@@ -319,7 +339,7 @@ class EnergyDataset():
             if (not [c for c in hp_required_channels if c not in csv_values]
                 or ('primary-pump-pwr' in csv_values and not [c for c in hp_required_channels if c not in csv_values and 'primary-flow' not in c])):
 
-                if 'primary-pump-pwr' in csv_values and hour_end_ms < pendulum.datetime(2025,1,1,tz=self.timezone_str).timestamp()*1000:
+                if 'primary-pump-pwr' in csv_values and hour_end_ms < self.stop_flow_processing_date_ms or 'primary-flow' not in csv_values:
                     primary_flow_processed = []
                     last_correct_gpm = self.primary_pump_gpm
                     # Missing primary flow
@@ -422,7 +442,7 @@ class EnergyDataset():
             if (not [c for c in store_required_channels if c not in csv_values]
                 or ('store-pump-pwr' in csv_values and not [c for c in store_required_channels if c not in csv_values and 'store-flow' not in c and 'primary-flow' not in c])):
 
-                if 'store-pump-pwr' in csv_values and hour_end_ms < pendulum.datetime(2025,1,1,tz=self.timezone_str).timestamp()*1000:
+                if ('store-pump-pwr' in csv_values and hour_end_ms < self.stop_flow_processing_date_ms) or 'store-flow' not in csv_values:
                     store_flow_processed = []
                     last_correct_gpm = self.store_pump_gpm
                     # Missing store flow
@@ -470,6 +490,8 @@ class EnergyDataset():
                                     value_gpm = last_correct_gpm
                                 else:
                                     value_gpm = 0
+
+                            store_flow_processed.append(value_gpm*100)
                 
                     df['store-flow-processed'] = store_flow_processed
 
