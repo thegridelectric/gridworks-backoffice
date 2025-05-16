@@ -66,10 +66,10 @@ class HourlyElectricity(Base):
     )
 
 # Drop existing tables
-Base.metadata.drop_all(engine_gbo)
-Base.metadata.create_all(engine_gbo)
-if os.path.exists(f"energy_data_beech.csv"):
-    os.remove(f"energy_data_beech.csv")
+# Base.metadata.drop_all(engine_gbo)
+# Base.metadata.create_all(engine_gbo)
+# if os.path.exists(f"energy_data_beech.csv"):
+#     os.remove(f"energy_data_beech.csv")
 
 # SessionGbo = sessionmaker(bind=engine_gbo)
 # session = SessionGbo()
@@ -757,7 +757,7 @@ def generate(house_alias, start_year, start_month, start_day, end_year, end_mont
     s.generate_dataset()
 
 if __name__ == '__main__':
-    houses_to_generate = ['beech']#, 'oak', 'fir', 'maple', 'elm']
+    houses_to_generate = ['beech']# 'oak', 'fir', 'maple', 'elm']
     for house in houses_to_generate:
         generate(
             house_alias=house, 
