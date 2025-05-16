@@ -757,7 +757,7 @@ def generate(house_alias, start_year, start_month, start_day, end_year, end_mont
     s.generate_dataset()
 
 if __name__ == '__main__':
-    houses_to_generate = ['beech']# 'oak', 'fir', 'maple', 'elm']
+    houses_to_generate = ['beech', 'oak', 'fir', 'maple', 'elm']
     for house in houses_to_generate:
         generate(
             house_alias=house, 
