@@ -416,17 +416,17 @@
             
             .table-responsive > .table > thead > tr > th:nth-child(2),
             .table-responsive > .table > tbody > tr > td:nth-child(2) {
-                width: 30%;
+                width: 27%;
             }
             
             .table-responsive > .table > thead > tr > th:nth-child(3),
             .table-responsive > .table > tbody > tr > td:nth-child(3) {
-                width: 30%;
+                width: 25%;
             }
             
             .table-responsive > .table > thead > tr > th:nth-child(4),
             .table-responsive > .table > tbody > tr > td:nth-child(4) {
-                width: 20%;
+                width: 28%;
             }
         }
 
@@ -1993,8 +1993,30 @@
                         markerContent.style.width = '16px';
                         markerContent.style.height = '16px';
                         markerContent.style.borderRadius = '50%';
-                        markerContent.style.backgroundColor = row.cells[3].querySelector('.badge').classList.contains('bg-success') ? '#28a745' : '#ff4444';
+                        markerContent.style.position = 'relative';
+                        markerContent.style.overflow = 'hidden';
                         markerContent.style.border = '2px solid #ffffff';
+                        
+                        // Create the left half (alert status)
+                        const leftHalf = document.createElement('div');
+                        leftHalf.style.position = 'absolute';
+                        leftHalf.style.left = '0';
+                        leftHalf.style.top = '0';
+                        leftHalf.style.width = '50%';
+                        leftHalf.style.height = '100%';
+                        leftHalf.style.backgroundColor = row.cells[0].querySelector('.badge').classList.contains('bg-success') ? '#28a745' : '#ff4444';
+                        
+                        // Create the right half (representation status)
+                        const rightHalf = document.createElement('div');
+                        rightHalf.style.position = 'absolute';
+                        rightHalf.style.right = '0';
+                        rightHalf.style.top = '0';
+                        rightHalf.style.width = '50%';
+                        rightHalf.style.height = '100%';
+                        rightHalf.style.backgroundColor = row.cells[3].querySelector('.badge').classList.contains('bg-warning') ? '#ffc107' : '#3a86ff';
+                        
+                        markerContent.appendChild(leftHalf);
+                        markerContent.appendChild(rightHalf);
                         markerContent.style.cursor = 'pointer';
                         
                         markerView.content = markerContent;
