@@ -1595,7 +1595,7 @@
                     <td>${house.scada_git_commit || 'N/A'}</td>
                     <td>
                         <span class="badge ${house.representation_status === 'ListeningToAtn' ? 'bg-primary' : house.representation_status === 'NotListeningToAtn' ? 'bg-warning' : house.representation_status === 'ok' ? 'bg-success' : house.representation_status === 'alert' ? 'bg-danger' : 'bg-secondary'}">
-                            ${house.representation_status === 'ListeningToAtn' ? '<i class="bi bi-headphones fs-6" title="Listening to ATN"></i>' : house.representation_status === 'NotListeningToAtn' ? '<i class="bi bi-incognito fs-6" title="Not Listening to ATN"></i>' : house.representation_status || 'N/A'}
+                            ${house.representation_status === 'ListeningToAtn' ? '<i class="bi bi-headphones fs-6" title="ListeningToAtn"></i>' : house.representation_status === 'NotListeningToAtn' ? '<i class="bi bi-incognito fs-6" title="NotListeningToAtn"></i>' : house.representation_status || 'N/A'}
                         </span>
                     </td>
                 `;
@@ -2439,7 +2439,13 @@
                     const alias = row.cells[0].textContent.trim().toLowerCase();
                     const city = row.cells[1].textContent.trim().toLowerCase();
                     const commit = row.cells[2].textContent.trim().toLowerCase();
-                    const status = row.cells[3].textContent.trim().toLowerCase();
+                    const statusCell = row.cells[3].textContent.trim().toLowerCase();
+                    const statusIcon = row.cells[3].querySelector('i');
+                    const status = statusIcon ? 
+                        (statusIcon.classList.contains('bi-headphones') ? 'listeningtoatn' : 
+                         statusIcon.classList.contains('bi-incognito') ? 'notlisteningtoatn' : 
+                         statusCell) : 
+                        statusCell;
                     
                     const matchesAlias = alias.startsWith(aliasFilter);
                     const matchesCity = city.startsWith(cityFilter);
