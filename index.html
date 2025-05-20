@@ -498,6 +498,11 @@
             color: var(--danger-color);
         }
         
+        .bg-warning {
+            background-color: rgba(255, 193, 7, 0.2) !important;
+            color: #ffc107;
+        }
+        
         .bg-secondary {
             background-color: #6c757d;
             color: white;
@@ -1575,7 +1580,11 @@
                 
                 // Add cells
                 mainRow.innerHTML = `
-                    <td>${house.short_alias || 'N/A'}</td>
+                    <td>
+                        <span class="badge ${house.alert_status && house.alert_status.status === 'ok' ? 'bg-success' : house.alert_status && house.alert_status.status === 'alert' ? 'bg-danger' : 'bg-secondary'}">
+                            ${house.short_alias || 'N/A'}
+                        </span>
+                    </td>
                     <td>
                         ${house.address && house.address.city ? 
                             `${house.address.city}${house.address.state ? ', ' + house.address.state : ''}` : 
@@ -1583,12 +1592,9 @@
                     </td>
                     <td>${house.scada_git_commit || 'N/A'}</td>
                     <td>
-                        ${house.alert_status ? 
-                            `<span class="badge ${house.alert_status.status === 'ok' ? 'bg-success' : house.alert_status.status === 'alert' ? 'bg-danger' : 'bg-secondary'}">
-                                ${house.alert_status.status}
-                                ${house.alert_status.message && house.alert_status.status !== 'alert' ? `<br><small>${house.alert_status.message}</small>` : ''}
-                            </span>` : 
-                            'N/A'}
+                        <span class="badge ${house.representation_status === 'ListeningToAtn' ? 'bg-primary' : house.representation_status === 'NotListeningToAtn' ? 'bg-warning' : house.representation_status === 'ok' ? 'bg-success' : house.representation_status === 'alert' ? 'bg-danger' : 'bg-secondary'}">
+                            ${house.representation_status === 'ListeningToAtn' ? 'ListeningToAtn' : house.representation_status === 'NotListeningToAtn' ? 'NotListeningToAtn' : house.representation_status || 'N/A'}
+                        </span>
                     </td>
                 `;
                 
@@ -2595,7 +2601,7 @@
             }
         }
 
-        let isRunningLocally = false;
+        let isRunningLocally = true;
         let api_host = isRunningLocally ? 'http://localhost:8000' : 'https://visualizer.electricity.works';
 
         function getDefaultDate(start, electricity_use) {
