@@ -2417,10 +2417,10 @@
                     const commit = row.cells[2].textContent.trim().toLowerCase();
                     const status = row.cells[3].textContent.trim().toLowerCase();
                     
-                    const matchesAlias = alias.includes(aliasFilter);
-                    const matchesCity = city.includes(cityFilter);
-                    const matchesCommit = commit.includes(commitFilter);
-                    const matchesStatus = status.includes(statusFilter);
+                    const matchesAlias = alias.startsWith(aliasFilter);
+                    const matchesCity = city.startsWith(cityFilter);
+                    const matchesCommit = commit.startsWith(commitFilter);
+                    const matchesStatus = status.startsWith(statusFilter);
                     
                     if (matchesAlias && matchesCity && matchesCommit && matchesStatus) {
                         row.style.display = '';
