@@ -9,6 +9,8 @@ from gjk.named_types import TicklistHallReport, TicklistReedReport, ChannelReadi
 from typing import List
 import matplotlib.pyplot as plt
 from pathlib import Path
+import numpy as np
+from signal_processing import butter_lowpass, filtering
 
 settings = Settings(_env_file=dotenv.find_dotenv())
 engine = create_engine(settings.db_url.get_secret_value())
@@ -59,7 +61,7 @@ else:
 
 # Process the ticklists one by one like in the real world
 ticklists_to_process = [t for t in ticklists if t.ticklist.hw_uid == selected_pico]
-print(f"ready to process {len(ticklists_to_process)} ticklists")
+print(f"Ready to process {len(ticklists_to_process)} ticklists")
 
 class ApiFlowModule():
     def __init__(self):
@@ -69,12 +71,13 @@ class ApiFlowModule():
         self.latest_hz = None
         self.latest_gpm = None
 
-        self.AsyncCaptureThresholdGpmTimes100 = 20
+        self.AsyncCaptureThresholdGpmTimes100 = 10
         self.ConstantGallonsPerTick = 0.0009
         self.NoFlowMs = 250
         self.hz_calculation_method = "BasicExpWeightedAvg"
         self.exp_alpha = 0.2
         self.capture_s = 20
+        self.CutoffFrequency = 10
 
         self.gpm_readings = {'times': [], 'values': []}
         self.hz_readings = {'times': [], 'values': []}
@@ -90,7 +93,6 @@ class ApiFlowModule():
             self.hz_readings['values'].extend(values)
     
     def publish_zero_flow(self):
-        print("publish_zero_flow")
         self.latest_gpm = 0
         self.latest_hz = 0
         # Set the timestamp for the zero reading just after (100ms) the latest tick received
@@ -135,7 +137,7 @@ class ApiFlowModule():
         self.add_readings('gpm', [self.latest_tick_ns/1e6], [self.latest_gpm])
         self.add_readings('hz', [self.latest_tick_ns/1e6], [self.latest_hz])
 
-    def get_micro_hz_readings(self, filtering: bool) -> List[float]:
+    def get_micro_hz_readings(self, filtering_on: bool) -> List[float]:
         if len(self.nano_timestamps)==0:
             raise ValueError("Should not call get_hz_readings with an empty ticklist!")
 
@@ -205,7 +207,7 @@ class ApiFlowModule():
             self.latest_hz = frequencies[0]
 
         # No processing for slow turners
-        if self.slow_turner or not filtering:
+        if self.slow_turner or not filtering_on:
             sampled_timestamps = timestamps
             smoothed_frequencies = frequencies
             self.latest_hz = smoothed_frequencies[-1]
@@ -225,30 +227,30 @@ class ApiFlowModule():
             sampled_timestamps = timestamps
 
         # [Processing] Butterworth filter
-        # elif self.hz_calculation_method == "BasicButterWorth":
-        #     if len(frequencies) > 20:
-        #         # Add the last recorded frequency before the filtering (avoids overfitting the first point)
-        #         timestamps = [timestamps[0]-0.01*1e9] + list(timestamps)
-        #         frequencies = [self.latest_hz] + list(frequencies)
-        #         # Re-sample time at sampling frequency f_s
-        #         f_s = 5 * max(frequencies)
-        #         sampled_timestamps = np.linspace(min(timestamps), max(timestamps), int((max(timestamps)-min(timestamps))/1e9 * f_s))
-        #         # Re-sample frequency accordingly using a linear interpolaton
-        #         sampled_frequencies = np.interp(sampled_timestamps, timestamps, frequencies)
-        #         # Butterworth low-pass filter
-        #         b, a = butter_lowpass(N=5, Wn=self._component.gt.CutoffFrequency, fs=f_s)
-        #         smoothed_frequencies = filtering(b, a, sampled_frequencies)
-        #         # Remove points resulting from adding the first recorded frequency
-        #         smoothed_frequencies = [
-        #             smoothed_frequencies[i] 
-        #             for i in range(len(smoothed_frequencies)) 
-        #             if sampled_timestamps[i]>=timestamps[1]
-        #         ]
-        #         sampled_timestamps = [x for x in sampled_timestamps if x>=timestamps[1]]
-        #     else:
-        #         self.log(f"Warning: ticklist was too short ({len(frequencies)} instead of minimum 20) for butterworth.")
-        #         sampled_timestamps = timestamps
-        #         smoothed_frequencies = frequencies
+        elif self.hz_calculation_method == "BasicButterWorth":
+            if len(frequencies) > 20:
+                # Add the last recorded frequency before the filtering (avoids overfitting the first point)
+                timestamps = [timestamps[0]-0.01*1e9] + list(timestamps)
+                frequencies = [self.latest_hz] + list(frequencies)
+                # Re-sample time at sampling frequency f_s
+                f_s = 5 * max(frequencies)
+                sampled_timestamps = np.linspace(min(timestamps), max(timestamps), int((max(timestamps)-min(timestamps))/1e9 * f_s))
+                # Re-sample frequency accordingly using a linear interpolaton
+                sampled_frequencies = np.interp(sampled_timestamps, timestamps, frequencies)
+                # Butterworth low-pass filter
+                b, a = butter_lowpass(N=5, Wn=self.CutoffFrequency, fs=f_s)
+                smoothed_frequencies = filtering(b, a, sampled_frequencies)
+                # Remove points resulting from adding the first recorded frequency
+                smoothed_frequencies = [
+                    smoothed_frequencies[i] 
+                    for i in range(len(smoothed_frequencies)) 
+                    if sampled_timestamps[i]>=timestamps[1]
+                ]
+                sampled_timestamps = [x for x in sampled_timestamps if x>=timestamps[1]]
+            else:
+                print(f"Warning: ticklist was too short ({len(frequencies)} instead of minimum 20) for butterworth.")
+                sampled_timestamps = timestamps
+                smoothed_frequencies = frequencies
 
         # Sanity checks after processing
         if not sampled_timestamps or len(sampled_timestamps) != len(smoothed_frequencies) :
@@ -299,47 +301,54 @@ class ApiFlowModule():
         self.add_readings('hz', micro_hz_readings.scada_read_time_unix_ms_list, [x/1e6 for x in micro_hz_readings.value_list])
         self.add_readings('gpm', micro_hz_readings.scada_read_time_unix_ms_list, gpms)
 
-    def _process_ticklist_hall(self, data: TicklistHall, scada_received_unix_ms: int, filtering: bool):
-
+    def _process_ticklist_hall(self, data: TicklistHall, scada_received_unix_ms: int, filtering_on: bool):
         # Process empty ticklist
         if len(data.relative_microsecond_list)==0:
             if self.latest_gpm is None:
-                print("Empty ticklist, first reading")
                 self.publish_zero_flow()
             elif self.latest_gpm > self.AsyncCaptureThresholdGpmTimes100/100:
-                print("Empty ticklist, different from latest reading")
                 self.publish_zero_flow()
-            else:
-                print("Empty ticklist, same as latest reading")
             return
 
         # Get absolute timestamps and corresponding frequency/GPM readings
         self.update_timestamps_for_hall(data, scada_received_unix_ms)
-        micro_hz_readings = self.get_micro_hz_readings(filtering)
+        micro_hz_readings = self.get_micro_hz_readings(filtering_on)
         self.get_gpm_readings(micro_hz_readings)
 
     def main(self):
-
         if not ticklists_to_process:
             return
         
+        self.hz_calculation_method = "BasicButterWorth"
         for ticklist in ticklists_to_process:
-            self._process_ticklist_hall(ticklist.ticklist, ticklist.scada_received_unix_ms, filtering=True)
+            self._process_ticklist_hall(ticklist.ticklist, ticklist.scada_received_unix_ms, filtering_on=True)
 
-        backup_times = self.gpm_readings['times'].copy()
-        backup_values = self.gpm_readings['values'].copy()
+        filtered_times = self.gpm_readings['times'].copy()
+        filtered_values = self.gpm_readings['values'].copy()
+        self.gpm_readings['times'] = []
+        self.gpm_readings['values'] = []
 
+        self.hz_calculation_method = "BasicExpWeightedAvg"
+        for ticklist in ticklists_to_process:
+            self._process_ticklist_hall(ticklist.ticklist, ticklist.scada_received_unix_ms, filtering_on=True)
+
+        expwa_times = self.gpm_readings['times'].copy()
+        expwa_values = self.gpm_readings['values'].copy()
         self.gpm_readings['times'] = []
         self.gpm_readings['values'] = []
 
         for ticklist in ticklists_to_process:
-            self._process_ticklist_hall(ticklist.ticklist, ticklist.scada_received_unix_ms, filtering=False)
+            self._process_ticklist_hall(ticklist.ticklist, ticklist.scada_received_unix_ms, filtering_on=False)
+        raw_times = self.gpm_readings['times'].copy()
+        raw_values = self.gpm_readings['values'].copy()
         
         plt.figure(figsize=(15,4))
-        plt.step(self.gpm_readings['times'], self.gpm_readings['values'], where='post', alpha=0.3, color='gray', label='raw')
-        plt.step(backup_times, backup_values, where='post', alpha=0.5, color='red', label='processed')
-        plt.xticks(rotation=45)
+        plt.step(raw_times, raw_values, where='post', alpha=0.3, color='gray', label='raw')
+        plt.step(expwa_times, expwa_values, where='post', alpha=0.5, color='tab:blue', label='Exp Weighted Avg')
+        plt.step(filtered_times, filtered_values, where='post', alpha=0.5, color='tab:orange', label='Butterworth filter')
         plt.ylim(0,10)
+        plt.ylabel('GPM')
+        plt.xlabel('Time')
         plt.legend()
         plt.show()
 
