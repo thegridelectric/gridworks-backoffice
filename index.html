@@ -1060,6 +1060,31 @@
             gap: 1.5rem;
             align-items: center;
         }
+
+        #morning-checkboxDiv input[type="checkbox"] {
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border: 2px solid var(--text-muted);
+            border-radius: 4px;
+            background-color: transparent;
+            position: relative;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        #morning-checkboxDiv input[type="checkbox"]:checked {
+            background-color: var(--text-muted);
+            border-color: var(--text-muted);
+        }
+        #morning-checkboxDiv label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            color: var(--text-color);
+            padding-left: 0.5rem;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -1403,6 +1428,341 @@
             </div>
         </div>
 
+        <!-- Morning Report Card -->
+        <div class="card" id="morning-report-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title">Morning report</h5>
+                <div class="status-badges">
+                    <div class="loader" id="morning-loader-spinner" style="display: none;"></div>
+                    <button class="filter-toggle" id="morning-clear-btn">
+                        <span>Clear</span>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4">
+                <form id="morning-form">
+                    <div class="mb-4">
+                        <label class="form-label" style="font-size: 0.875rem; color: var(--text-muted);">Selected House(s)</label>
+                        <input type="text" class="form-control text-light border-secondary" style="background-color: rgba(56, 77, 164, 0.2);" id="morning-selected-house" placeholder="All houses in the table" readonly>
+                    </div>
+                    <table class="table table-borderless mb-4" style="max-width: 400px;">
+                        <tbody>
+                            <tr>
+                                <td style="width: 80px; font-size: 0.875rem; color: var(--text-muted); vertical-align: middle;">Start</td>
+                                <td style="width: 200px;">
+                                    <input type="date" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="morning-start-date">
+                                </td>
+                                <td style="width: 150px;">
+                                    <input type="time" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="morning-start-time">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="width: 80px; font-size: 0.875rem; color: var(--text-muted); vertical-align: middle;">End</td>
+                                <td style="width: 200px;">
+                                    <input type="date" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="morning-end-date">
+                                </td>
+                                <td style="width: 150px;">
+                                    <input type="time" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="morning-end-time">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 0.875rem; color: var(--text-muted);">Message types</label>
+                        <div id="morning-checkboxDiv">
+                            <label><input type="checkbox" name="morning-channels" value="gridworks.event.problem" checked>gridworks.event.problem</label>
+                            <label style="margin-bottom: 1.75rem;"><input type="checkbox" name="morning-channels" value="glitch" checked>glitch</label>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary" id="morning-submit-btn">Get messages</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="morning-now-btn">Now</button>
+                    </div>
+                </form>
+                <div id="morning-table-container" style="margin-top: 1.5rem;"></div>
+            </div>
+            <!-- Modal for details -->
+            <div id="morning-details-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:2000;">
+                <div id="morning-details-container" style="background:var(--card-background); border-radius:8px; padding:30px 50px; max-width:80vw; min-width:60vw; max-height:80vh; overflow-y:auto; box-shadow:0 4px 8px rgba(0,0,0,0.2); position:relative;">
+                    <button id="morning-close-btn" class="btn btn-sm btn-outline-secondary" style="position:absolute; top:10px; right:10px;">X</button>
+                    <div id="morning-details-content"></div>
+                </div>
+            </div>
+        </div>
+        <style>
+            #morning-table-container table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 1.5rem;
+            }
+            #morning-table-container th, #morning-table-container td {
+                border: 1px solid var(--border-color);
+                padding: 8px;
+                text-align: left;
+                font-size: 0.9rem;
+                background: var(--card-background);
+                color: var(--text-color);
+            }
+            #morning-table-container th {
+                background: var(--table-header-bg);
+                color: var(--text-muted);
+            }
+            #morning-table-container tr:hover {
+                background: var(--hover-color);
+                cursor: pointer;
+            }
+            #morning-table-container .summary-table {
+                max-width: 500px;
+                margin-bottom: 40px;
+            }
+            #morning-selected-house {
+                border: none;
+                cursor: pointer;
+                background-color: var(--selected-house-bg) !important;
+                color: var(--selected-house-text) !important;
+            }
+            #morning-selected-house::placeholder {
+                color: var(--text-muted) !important;
+                font-size: 0.875rem;
+                opacity: 0.7;
+            }
+        </style>
+        <script>
+        (function() {
+            const getAuthToken = window.getAuthToken;
+            let darkmode_tf = false;
+
+            function getDefaultDate(start) {
+                const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+                if (start) {
+                    nyDate.setDate(nyDate.getDate() - 1);
+                    nyDate.setHours(20, 0, 0, 0);
+                } else {
+                    nyDate.setMinutes(nyDate.getMinutes() + 1);
+                }
+                const year = nyDate.getFullYear();
+                const month = String(nyDate.getMonth() + 1).padStart(2, '0');
+                const day = String(nyDate.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+            function getDefaultTime(start) {
+                const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+                if (start) {
+                    nyDate.setDate(nyDate.getDate() - 1);
+                    nyDate.setHours(20, 0, 0, 0);
+                } else {
+                    nyDate.setMinutes(nyDate.getMinutes() + 1);
+                }
+                const hours = String(nyDate.getHours()).padStart(2, '0');
+                const minutes = String(nyDate.getMinutes()).padStart(2, '0');
+                return `${hours}:${minutes}`;
+            }
+            function setNow() {
+                const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+                nyDate.setMinutes(nyDate.getMinutes() + 1);
+                document.getElementById('morning-end-date').value = nyDate.toISOString().split('T')[0];
+                document.getElementById('morning-end-time').value = nyDate.toTimeString().split(' ')[0].substring(0, 5);
+            }
+            function enable_plot_buttons() {
+                const btn = document.getElementById('morning-submit-btn');
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                document.getElementById('morning-loader-spinner').style.display = 'none';
+            }
+            function disable_plot_buttons() {
+                const btn = document.getElementById('morning-submit-btn');
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                document.getElementById('morning-loader-spinner').style.display = 'inline-block';
+            }
+            function showLoader() {
+                document.getElementById('morning-loader-spinner').style.display = 'inline-block';
+            }
+            function hideLoader() {
+                document.getElementById('morning-loader-spinner').style.display = 'none';
+            }
+            function renderTable(data) {
+                const tableContainer = document.getElementById('morning-table-container');
+                tableContainer.innerHTML = '';
+                if (data.SummaryTable) {
+                    const summaryTable = document.createElement('table');
+                    summaryTable.classList.add('summary-table');
+                    const summaryHeaderRow = document.createElement('tr');
+                    const th1 = document.createElement('th'); th1.textContent = "Log level"; summaryHeaderRow.appendChild(th1);
+                    const th2 = document.createElement('th'); th2.textContent = "Count"; summaryHeaderRow.appendChild(th2);
+                    summaryTable.appendChild(summaryHeaderRow);
+                    Object.keys(data.SummaryTable).forEach(logLevel => {
+                        const row = document.createElement('tr');
+                        const logLevelCell = document.createElement('td'); logLevelCell.textContent = logLevel;
+                        const countCell = document.createElement('td'); countCell.textContent = data.SummaryTable[logLevel];
+                        row.appendChild(logLevelCell); row.appendChild(countCell); summaryTable.appendChild(row);
+                    });
+                    tableContainer.appendChild(summaryTable);
+                }
+                const table = document.createElement('table');
+                table.classList.add('data-table');
+                const headerRow = document.createElement('tr');
+                Object.keys(data).forEach(key => {
+                    if (key !== "Details" && key !== "SummaryTable") {
+                        const th = document.createElement('th'); th.textContent = key; headerRow.appendChild(th);
+                    }
+                });
+                table.appendChild(headerRow);
+                const numRows = data[Object.keys(data)[0]].length;
+                for (let i = 0; i < numRows; i++) {
+                    const row = document.createElement('tr');
+                    row.dataset.index = i;
+                    Object.keys(data).forEach(key => {
+                        if (key !== "Details" && key !== "SummaryTable") {
+                            const td = document.createElement('td');
+                            td.textContent = data[key][i];
+                            row.appendChild(td);
+                        }
+                    });
+                    row.addEventListener('click', function() {
+                        displayDetails(data, i);
+                    });
+                    table.appendChild(row);
+                }
+                tableContainer.appendChild(table);
+            }
+            function displayDetails(data, index) {
+                const details = data["Details"][index];
+                const timeCreated = data["Time created"][index];
+                const fromNode = data["From node"][index];
+                const logLevel = data["Log level"][index];
+                const summary = data["Summary"][index];
+                const detailsContainer = document.getElementById('morning-details-container');
+                const overlay = document.getElementById('morning-details-overlay');
+                const detailsContent = document.getElementById('morning-details-content');
+                if (detailsContainer && overlay && detailsContent) {
+                    let detailsHTML = `
+                    <b>Log level:</b> ${logLevel}<br>
+                    <b>From node:</b> ${fromNode}<br>
+                    <b>Summary:</b> ${summary}<br>
+                    <b>Time created:</b> ${timeCreated}<br><br>
+                    <b>Details:</b><br><p>${details}</p>`;
+                    detailsContent.innerHTML = detailsHTML;
+                    overlay.style.display = 'flex';
+                    detailsContainer.classList.add('show');
+                }
+            }
+            function closeModal() {
+                document.getElementById('morning-details-overlay').style.display = 'none';
+                document.getElementById('morning-details-container').classList.remove('show');
+            }
+            function getSelectedHouseAliases() {
+                const selectedHouseInput = document.getElementById('morning-selected-house');
+                const selectedHouse = selectedHouseInput.value.trim();
+                if (selectedHouse && selectedHouse !== 'All houses in the table') {
+                    return [selectedHouse];
+                }
+                const visibleRows = Array.from(document.querySelectorAll('.expandable-row'))
+                    .filter(row => row.style.display !== 'none');
+                return visibleRows.map(row => row.cells[0].textContent.trim());
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+                document.getElementById('morning-start-date').value = getDefaultDate(true);
+                document.getElementById('morning-start-time').value = getDefaultTime(true);
+                document.getElementById('morning-end-date').value = getDefaultDate(false);
+                document.getElementById('morning-end-time').value = getDefaultTime(false);
+                // Set initial value
+                function updateMorningSelectedHouse() {
+                    const selectedRow = document.querySelector('.expandable-row.expanded');
+                    const input = document.getElementById('morning-selected-house');
+                    if (selectedRow) {
+                        input.value = selectedRow.cells[0].textContent.trim();
+                    } else {
+                        input.value = '';
+                    }
+                }
+                updateMorningSelectedHouse();
+                // Update on row click (same as other cards)
+                document.querySelectorAll('.expandable-row').forEach(row => {
+                    row.addEventListener('click', function() {
+                        setTimeout(updateMorningSelectedHouse, 10);
+                    });
+                });
+                // Also update on .visualize-btn and .show-info-btn click
+                document.querySelectorAll('.visualize-btn, .show-info-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        setTimeout(updateMorningSelectedHouse, 10);
+                    });
+                });
+                // Clicking the input scrolls to the table and exits fullscreen if needed
+                document.getElementById('morning-selected-house').addEventListener('click', function() {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+                // Now button
+                document.getElementById('morning-now-btn').addEventListener('click', setNow);
+                // Clear button
+                document.getElementById('morning-clear-btn').addEventListener('click', function() {
+                    document.getElementById('morning-table-container').innerHTML = '';
+                });
+                // Modal close
+                document.getElementById('morning-close-btn').addEventListener('click', closeModal);
+                document.getElementById('morning-details-overlay').addEventListener('click', function(event) {
+                    if (event.target === this) closeModal();
+                });
+                // Form submit
+                document.getElementById('morning-form').addEventListener('submit', async function(event) {
+                    event.preventDefault();
+                    const selectedMessageTypes = Array.from(document.querySelectorAll('input[name="morning-channels"]:checked')).map(cb => cb.value);
+                    const selectedAliases = getSelectedHouseAliases();
+                    let house_alias = '';
+                    if (selectedAliases.length === 1) {
+                        house_alias = selectedAliases[0];
+                    }
+                    const startDate = document.getElementById('morning-start-date').value;
+                    const startTime = document.getElementById('morning-start-time').value;
+                    const endDate = document.getElementById('morning-end-date').value;
+                    const endTime = document.getElementById('morning-end-time').value;
+                    const startDateTime = luxon.DateTime.fromFormat(`${startDate} ${startTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
+                    const endDateTime = luxon.DateTime.fromFormat(`${endDate} ${endTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
+                    const startUnixMilliseconds = startDateTime.toUTC().toMillis();
+                    const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+                    disable_plot_buttons();
+                    showLoader();
+                    try {
+                        const response = await fetch(`${api_host}/messages`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${window.getAuthToken()}`
+                            },
+                            body: JSON.stringify({
+                                house_alias: house_alias,
+                                password: '',
+                                selected_channels: [],
+                                selected_message_types: selectedMessageTypes,
+                                start_ms: startUnixMilliseconds,
+                                end_ms: endUnixMilliseconds,
+                                darkmode: darkmode_tf,
+                            })
+                        });
+                        const contentType = response.headers.get("Content-Type");
+                        if (contentType && contentType.includes("application/json")) {
+                            const data = await response.json();
+                            if ('success' in data && data.success === false) {
+                                alert(data.message);
+                                if (data.reload) {
+                                    location.reload();
+                                }
+                                return;
+                            }
+                            renderTable(data);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching messages:', error);
+                        alert(`Error fetching messages.`);
+                    } finally {
+                        enable_plot_buttons();
+                        hideLoader();
+                    }
+                });
+            });
+        })();
+        </script>
 
     </div>
     
@@ -1801,6 +2161,7 @@
                     const selectedHouseInput = document.getElementById('selected-house');
                     const infoSelectedHouseInput = document.getElementById('info-selected-house');
                     const electricitySelectedHouseInput = document.getElementById('electricity-selected-house');
+                    const morningSelectedHouseInput = document.getElementById('morning-selected-house');
                     
                     // Toggle expanded class on the main row
                     const wasExpanded = this.classList.contains('expanded');
@@ -1811,11 +2172,13 @@
                         selectedHouseInput.value = this.cells[0].textContent.trim();
                         infoSelectedHouseInput.value = this.cells[0].textContent.trim();
                         electricitySelectedHouseInput.value = this.cells[0].textContent.trim();
+                        morningSelectedHouseInput.value = this.cells[0].textContent.trim();
                     } else {
                         // Row was just unselected
                         selectedHouseInput.value = '';
                         infoSelectedHouseInput.value = '';
                         electricitySelectedHouseInput.value = '';
+                        morningSelectedHouseInput.value = '';
                     }
                     
                     // Update button states
@@ -2688,8 +3051,8 @@
         function setNow() {
             const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
             nyDate.setMinutes(nyDate.getMinutes() + 1);
-            document.getElementById('end-date').value = nyDate.toISOString().split('T')[0];
-            document.getElementById('end-time').value = nyDate.toTimeString().split(' ')[0].substring(0, 5);
+            document.getElementById('morning-end-date').value = nyDate.toISOString().split('T')[0];
+            document.getElementById('morning-end-time').value = nyDate.toTimeString().split(' ')[0].substring(0, 5);
         }
 
         function clearPlots() {
