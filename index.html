@@ -1364,6 +1364,7 @@
                         <label><input type="checkbox" name="channels" value="hp-idu-pwr" checked>Indoor unit power</label>
                         <label><input type="checkbox" name="channels" value="primary-flow" checked>Primary pump flow rate</label>
                         <label><input type="checkbox" name="channels" value="primary-pump-pwr" checked>Primary pump power</label>
+                        <label><input type="checkbox" name="channels" value="primary-010v" checked>Primary pump 0-10V</label>
                         <label><input type="checkbox" name="channels" value="oil-boiler-pwr" checked>Oil boiler power</label>
                     </div>
                     <div class="options-section">
@@ -1372,6 +1373,7 @@
                         <label><input type="checkbox" name="channels" value="dist-rwt" checked>Return water temperature</label>
                         <label><input type="checkbox" name="channels" value="dist-flow" checked>Distribution pump flow rate</label>
                         <label><input type="checkbox" name="channels" value="dist-pump-pwr" checked>Distribution pump power</label>
+                        <label><input type="checkbox" name="channels" value="dist-010v" checked>Distribution pump 0-10V</label>
                     </div>
                     <div class="options-section">
                         <h6>Zones</h6>
@@ -1392,6 +1394,7 @@
                         <label><input type="checkbox" name="channels" value="store-flow" checked>Storage pump flow rate</label>
                         <label><input type="checkbox" name="channels" value="store-pump-pwr" checked>Storage pump power</label>
                         <label><input type="checkbox" name="channels" value="store-energy" checked>Available and required energy</label>
+                        <label><input type="checkbox" name="channels" value="storage-010v" checked>Storage pump 0-10V</label>
                         <label><input type="checkbox" name="channels" value="thermocline">Thermocline and centroids</label>
                     </div>
                     <div class="options-section">
@@ -3000,7 +3003,7 @@
             }
         }
 
-        let isRunningLocally = false;
+        let isRunningLocally = true;
         let api_host = isRunningLocally ? 'http://localhost:8000' : 'https://visualizer.electricity.works';
 
         function getDefaultDate(start, electricity_use) {
