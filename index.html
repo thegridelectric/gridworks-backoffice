@@ -4423,8 +4423,14 @@
         let dashboardCurrentUserId = 'user_' + Math.random().toString(36).substr(2, 9);
 
         function connectDashboardWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//visualizer.electricity.works:8080/ws`;
+            // Always use wss:// for external connections since the server requires SSL
+            const protocol = 'wss:';
+            // Use the same host as the API (which works) instead of port 8080
+            const wsUrl = `${protocol}//visualizer.electricity.works/ws`;
+            
+            console.log('Attempting WebSocket connection to:', wsUrl);
+            console.log('Current hostname:', window.location.hostname);
+            console.log('Current protocol:', window.location.protocol);
             
             dashboardWebsocket = new WebSocket(wsUrl);
             
@@ -4451,11 +4457,16 @@
             
             dashboardWebsocket.onerror = function(error) {
                 console.error('Dashboard WebSocket error:', error);
+                console.error('WebSocket readyState:', dashboardWebsocket.readyState);
+                console.error('WebSocket URL:', dashboardWebsocket.url);
                 document.getElementById('dashboard-status-left').textContent = 'Error, connection failed';
                 document.getElementById('dashboard-status-right').textContent = '-';
-                // Show a more user-friendly message for CORS/connection issues
+                
+                // More specific error information
                 if (window.location.hostname.includes('github.io')) {
-                    console.warn('WebSocket connection failed - this may be due to CORS restrictions on GitHub Pages');
+                    console.warn('WebSocket connection failed from GitHub Pages - checking if port 8080 is accessible');
+                } else {
+                    console.warn('WebSocket connection failed locally - check if WebSocket server is running on port 8080');
                 }
             };
 
