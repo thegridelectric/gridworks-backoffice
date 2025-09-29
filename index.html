@@ -4428,10 +4428,6 @@
             // Use the same host as the API (which works) instead of port 8080
             const wsUrl = `${protocol}//visualizer.electricity.works/ws`;
             
-            console.log('Attempting WebSocket connection to:', wsUrl);
-            console.log('Current hostname:', window.location.hostname);
-            console.log('Current protocol:', window.location.protocol);
-            
             dashboardWebsocket = new WebSocket(wsUrl);
             
             dashboardWebsocket.onopen = function(event) {
