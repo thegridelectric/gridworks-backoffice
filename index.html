@@ -1091,7 +1091,7 @@
         .card-visibility-controls {
             background-color: var(--card-background);
             border: 1px solid var(--border-color);
-            border-radius: 0.5rem;
+            border-radius: 0.25rem;
             padding: 1rem;
             margin-bottom: 1.5rem;
             display: flex;
@@ -2683,6 +2683,30 @@
                     const actionRow = document.querySelector(`.action-row[data-home-id="${homeId}"]`);
                     const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
                     const detailsContent = detailsRow.querySelector('.row-details');
+                    
+                    // Check which card is currently visible
+                    const dashboardCard = document.getElementById('dashboard-card');
+                    const visualizerCard = document.getElementById('visualizer-card');
+                    const informationCard = document.getElementById('information-card');
+                    
+                    const isSingleSelectionCard = (dashboardCard && !dashboardCard.classList.contains('hidden')) ||
+                                                (visualizerCard && !visualizerCard.classList.contains('hidden')) ||
+                                                (informationCard && !informationCard.classList.contains('hidden'));
+                    
+                    // If this is a single-selection card, unselect all other rows first
+                    if (isSingleSelectionCard) {
+                        // Unselect all other rows
+                        document.querySelectorAll('.expandable-row.expanded').forEach(otherRow => {
+                            if (otherRow !== this) {
+                                otherRow.classList.remove('expanded');
+                                const otherHomeId = otherRow.getAttribute('data-home-id');
+                                const otherDetailsRow = document.querySelector(`.details-row[data-home-id="${otherHomeId}"]`);
+                                if (otherDetailsRow) {
+                                    otherDetailsRow.style.display = 'none';
+                                }
+                            }
+                        });
+                    }
                     
                     // Clear previous content in both cards
                     clearPlots();
