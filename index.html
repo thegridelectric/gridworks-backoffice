@@ -1231,7 +1231,7 @@
         </div>
 
         <!-- Card Visibility Controls -->
-        <div class="card-visibility-controls" style="margin-top:-1.5rem">
+        <div class="card-visibility-controls" style="margin-top:-0rem; margin-bottom:2.5rem;">
             <button type="button" class="card-toggle-btn active" id="show-visualizer" data-card="visualizer-card">Visualizer</button>
             <button type="button" class="card-toggle-btn" id="show-electricity" data-card="electricity-card">Hourly data</button>
             <button type="button" class="card-toggle-btn" id="show-information" data-card="information-card">Information</button>
@@ -2267,50 +2267,18 @@
                     clearPlots();
                     document.getElementById('info-details').style.display = 'none';
                     
-                    // Update selected house inputs
-                    const selectedHouseInput = document.getElementById('selected-house');
-                    const infoSelectedHouseInput = document.getElementById('info-selected-house');
-                    const electricitySelectedHouseInput = document.getElementById('electricity-selected-house');
-                    const morningSelectedHouseInput = document.getElementById('morning-selected-house');
-                    
                     // Toggle expanded class on the main row
-                    const wasExpanded = this.classList.contains('expanded');
                     this.classList.toggle('expanded');
                     
-                    if (this.classList.contains('expanded')) {
-                        // Row was just selected
-                        selectedHouseInput.value = this.cells[0].textContent.trim();
-                        infoSelectedHouseInput.value = this.cells[0].textContent.trim();
-                        electricitySelectedHouseInput.value = this.cells[0].textContent.trim();
-                        morningSelectedHouseInput.value = this.cells[0].textContent.trim();
-                    } else {
-                        // Row was just unselected
-                        selectedHouseInput.value = '';
-                        infoSelectedHouseInput.value = '';
-                        electricitySelectedHouseInput.value = '';
-                        morningSelectedHouseInput.value = '';
-                    }
+                    // Update selected house inputs based on all selected rows
+                    updateSelectedHouseInputs();
                     
                     // Update button states
                     updateInfoButtonStates();
                     updateVisualizerButtonStates();
                     
-                    // Close other expanded rows
-                    expandableRows.forEach(otherRow => {
-                        if (otherRow !== this && otherRow.classList.contains('expanded')) {
-                            const otherId = otherRow.getAttribute('data-home-id');
-                            const otherActionRow = document.querySelector(`.action-row[data-home-id="${otherId}"]`);
-                            const otherDetailsRow = document.querySelector(`.details-row[data-home-id="${otherId}"]`);
-                            const otherDetailsContent = otherDetailsRow.querySelector('.row-details');
-                            
-                            otherRow.classList.remove('expanded');
-                            otherActionRow.style.display = 'none';
-                            otherDetailsContent.classList.remove('expanded');
-                        }
-                    });
-                    
-                    // Update map focus based on row expansion state
-                    updateMapFocus(this);
+                    // Update map focus based on selection
+                    updateMapFocusForMultiSelection();
                     
                     // Fetch electricity plots after selection change
                     // fetchElectricityPlots(); // Commented out - only plot when Plot button is clicked
@@ -2956,7 +2924,7 @@
                 if (visibleCount === 0) {
                     const noResultsRow = document.createElement('tr');
                     noResultsRow.className = 'no-results-row';
-                    noResultsRow.innerHTML = '<td colspan="3"><span>No results found</span></td>';
+                    noResultsRow.innerHTML = '<td colspan="4"><span>No results found</span></td>';
                     tableContainer.appendChild(noResultsRow);
                 }
                 
@@ -3114,6 +3082,60 @@
                 }
             } else {
                 // If row is collapsed, zoom out to show all visible markers
+                updateMapMarkers();
+            }
+        }
+
+        // Function to update selected house inputs based on all selected rows
+        function updateSelectedHouseInputs() {
+            const selectedRows = document.querySelectorAll('.expandable-row.expanded');
+            const selectedHouses = Array.from(selectedRows).map(row => row.cells[0].textContent.trim());
+            
+            const selectedHouseInput = document.getElementById('selected-house');
+            const infoSelectedHouseInput = document.getElementById('info-selected-house');
+            const electricitySelectedHouseInput = document.getElementById('electricity-selected-house');
+            const morningSelectedHouseInput = document.getElementById('morning-selected-house');
+            
+            if (selectedHouses.length === 0) {
+                // No houses selected
+                selectedHouseInput.value = '';
+                infoSelectedHouseInput.value = '';
+                electricitySelectedHouseInput.value = '';
+                morningSelectedHouseInput.value = '';
+            } else if (selectedHouses.length === 1) {
+                // Single house selected
+                const houseAlias = selectedHouses[0];
+                selectedHouseInput.value = houseAlias;
+                infoSelectedHouseInput.value = houseAlias;
+                electricitySelectedHouseInput.value = houseAlias;
+                morningSelectedHouseInput.value = houseAlias;
+            } else {
+                // Multiple houses selected
+                const houseList = selectedHouses.join(', ');
+                selectedHouseInput.value = 'Select a single house in the table';
+                infoSelectedHouseInput.value = 'Select a single house in the table';
+                electricitySelectedHouseInput.value = houseList;
+                morningSelectedHouseInput.value = houseList;
+            }
+        }
+
+        // Function to update map focus for multi-selection
+        function updateMapFocusForMultiSelection() {
+            if (!map) {
+                console.warn('Map not initialized');
+                return;
+            }
+            
+            const selectedRows = document.querySelectorAll('.expandable-row.expanded');
+            
+            if (selectedRows.length === 0) {
+                // No houses selected, show all markers
+                updateMapMarkers();
+            } else if (selectedRows.length === 1) {
+                // Single house selected, focus on that house
+                updateMapFocus(selectedRows[0]);
+            } else {
+                // Multiple houses selected, show default position (all houses)
                 updateMapMarkers();
             }
         }
@@ -3536,12 +3558,15 @@
                 document.getElementById('show-hardware-btn')
             ];
             
-            const hasSelectedHouse = houseAlias && houseAlias.trim() !== '';
+            // Only enable buttons if exactly one house is selected
+            const hasSingleSelectedHouse = houseAlias && 
+                houseAlias.trim() !== '' && 
+                houseAlias.trim() !== 'Select a single house in the table';
             
             buttons.forEach(button => {
                 if (button) {
-                    button.disabled = !hasSelectedHouse;
-                    button.style.opacity = hasSelectedHouse ? '1' : '0.5';
+                    button.disabled = !hasSingleSelectedHouse;
+                    button.style.opacity = hasSingleSelectedHouse ? '1' : '0.5';
                 }
             });
         }
@@ -3555,12 +3580,15 @@
                 document.getElementById('flo-btn')
             ];
             
-            const hasSelectedHouse = houseAlias && houseAlias.trim() !== '';
+            // Only enable buttons if exactly one house is selected
+            const hasSingleSelectedHouse = houseAlias && 
+                houseAlias.trim() !== '' && 
+                houseAlias.trim() !== 'Select a single house in the table';
             
             buttons.forEach(button => {
                 if (button) {
-                    button.disabled = !hasSelectedHouse;
-                    button.style.opacity = hasSelectedHouse ? '1' : '0.5';
+                    button.disabled = !hasSingleSelectedHouse;
+                    button.style.opacity = hasSingleSelectedHouse ? '1' : '0.5';
                 }
             });
         }
