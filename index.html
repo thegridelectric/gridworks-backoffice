@@ -949,7 +949,7 @@
             display: none;
             margin-bottom: 3rem;
             padding: 0.5rem 2rem;
-            max-height: 400px;
+            max-height: 2000px;
             overflow-y: scroll;
         }
 
@@ -998,7 +998,8 @@
 
         #selected-house,
         #info-selected-house,
-        #electricity-selected-house {
+        #electricity-selected-house,
+        #data-download-selected-house {
             border: none;
             cursor: pointer;
             background-color: var(--selected-house-bg) !important;
@@ -1008,7 +1009,8 @@
         /* Placeholder styling */
         #selected-house::placeholder,
         #info-selected-house::placeholder,
-        #electricity-selected-house::placeholder {
+        #electricity-selected-house::placeholder,
+        #data-download-selected-house::placeholder {
             color: var(--text-muted) !important;
             font-size: 0.875rem;
             opacity: 0.7;
@@ -1240,10 +1242,11 @@
         <div class="card-visibility-controls" style="margin-top:-0rem; margin-bottom:2.5rem;">
             <button type="button" class="card-toggle-btn active" id="show-dashboard" data-card="dashboard-card">Dashboard</button>
             <button type="button" class="card-toggle-btn" id="show-visualizer" data-card="visualizer-card">Visualizer</button>
+            <button type="button" class="card-toggle-btn" id="show-data-download" data-card="data-download-card">Channel data</button>
             <button type="button" class="card-toggle-btn" id="show-electricity" data-card="electricity-card">Hourly data</button>
             <button type="button" class="card-toggle-btn" id="show-information" data-card="information-card">Information</button>
             <button type="button" class="card-toggle-btn" id="show-morning-report" data-card="morning-report-card">Morning report</button>
-            <button type="button" class="card-toggle-btn" id="show-map" data-card="map-card">Map</button>
+            <button type="button" class="card-toggle-btn" id="show-map" data-card="map-card" style="display: none;">Map</button>
         </div>
 
         <!-- Dashboard Card -->
@@ -1690,7 +1693,7 @@
         <!-- Electricity Use Card -->
         <div class="card" id="electricity-card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title">Hourly data</h5>
+                <h5 class="card-title">Download hourly data</h5>
                 <div class="status-badges">
                     <button class="fullscreen-btn" id="electricity-fullscreen-btn">
                         <i class="bi bi-arrows-fullscreen"></i>
@@ -1830,7 +1833,7 @@
                 </table>
                 <div class="d-flex gap-2 align-items-center">
                     <button class="btn btn-sm btn-outline-secondary" id="plot-btn">Plot</button>
-                    <button class="btn btn-sm btn-outline-secondary" id="csv-btn">CSV</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="csv-btn" style="display: none;">CSV</button>
                     <button class="btn btn-sm btn-outline-secondary" id="flo-btn">FLO</button>
                     <button class="btn btn-sm btn-outline-secondary" id="now-btn">Now</button>
                     <button class="btn btn-sm btn-outline-secondary" id="options-btn">Options</button>
@@ -1911,6 +1914,119 @@
                 <div id="plot10" class="plot-div"></div>
                 <div id="plot11" class="plot-div"></div>
                 <div id="plot-png" class="plot-div"></div>
+            </div>
+        </div>
+
+        <!-- Data Download Card -->
+        <div class="card" id="data-download-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title">Download channel data</h5>
+                <div class="status-badges">
+                    <div class="loader" style="display: none;"></div>
+                    <button class="fullscreen-btn" id="data-download-fullscreen-btn">
+                        <i class="bi bi-arrows-fullscreen"></i>
+                    </button>
+                    <button class="filter-toggle" id="data-download-clear-btn" style="display: none;">
+                        <span>Clear</span>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4">
+                <div class="mb-4">
+                    <label class="form-label" style="font-size: 0.875rem; color: var(--text-muted);">Selected House</label>
+                    <input type="text" class="form-control text-light border-secondary" id="data-download-selected-house" placeholder="Select a house in the table" readonly>
+                </div>
+                <table class="table table-borderless mb-4" style="max-width: 400px;">
+                    <tbody>
+                        <tr>
+                            <td style="width: 80px; font-size: 0.875rem; color: var(--text-muted); vertical-align: middle;">Start</td>
+                            <td style="width: 200px;">
+                                <input type="date" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="data-download-start-date">
+                            </td>
+                            <td style="width: 150px;">
+                                    <input type="time" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="data-download-start-time">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="width: 80px; font-size: 0.875rem; color: var(--text-muted); vertical-align: middle;">End</td>
+                            <td style="width: 200px;">
+                                <input type="date" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="data-download-end-date">
+                            </td>
+                            <td style="width: 150px;">
+                                <input type="time" class="form-control text-light" style="color: var(--datetime-text) !important; background-color: var(--datetime-background) !important; border: 1px solid var(--border-color);" id="data-download-end-time">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-sm btn-outline-secondary" id="data-download-csv-btn">CSV</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="data-download-now-btn">Now</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="data-download-options-btn">Options</button>
+                </div>
+            </div>
+            <div id="data-download-options-div" class="options-container" style="border-top: 1px solid var(--border-color); margin-bottom:0rem">
+                <div class="options-content">
+                    <div class="options-section">
+                        <div class="mt-3" style="margin-top: -1rem;">
+                            <h6>Time step (seconds):</h6>
+                            <input type="number" class="form-control border-secondary" style="margin-left: 10px; margin-bottom: 2rem; width: 100px;" id="data-download-csv-timestep" value="1">
+                        </div>
+                        <div class="mt-3">
+                            <h6>Channel selection</h6>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="data-download-select-all-btn">Select all</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="data-download-unselect-all-btn">Unselect all</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="options-section">
+                        <h6>Heat pump</h6>
+                        <label><input type="checkbox" name="data-download-channels" value="hp-lwt" checked>Leaving water temperature</label>
+                        <label><input type="checkbox" name="data-download-channels" value="hp-ewt" checked>Entering water temperature</label>
+                        <label><input type="checkbox" name="data-download-channels" value="hp-odu-pwr" checked>Outdoor unit power</label>
+                        <label><input type="checkbox" name="data-download-channels" value="hp-idu-pwr" checked>Indoor unit power</label>
+                        <label><input type="checkbox" name="data-download-channels" value="primary-flow" checked>Primary pump flow rate</label>
+                        <label><input type="checkbox" name="data-download-channels" value="primary-pump-pwr" checked>Primary pump power</label>
+                        <label><input type="checkbox" name="data-download-channels" value="primary-010v" checked>Primary pump 0-10V</label>
+                    </div>
+                    <div class="options-section">
+                        <h6>Distribution</h6>
+                        <label><input type="checkbox" name="data-download-channels" value="dist-swt" checked>Source water temperature</label>
+                        <label><input type="checkbox" name="data-download-channels" value="dist-rwt" checked>Return water temperature</label>
+                        <label><input type="checkbox" name="data-download-channels" value="dist-flow" checked>Distribution pump flow rate</label>
+                        <label><input type="checkbox" name="data-download-channels" value="dist-pump-pwr" checked>Distribution pump power</label>
+                        <label><input type="checkbox" name="data-download-channels" value="dist-010v" checked>Distribution pump 0-10V</label>
+                    </div>
+                    <div class="options-section">
+                        <h6>Zones</h6>
+                        <label><input type="checkbox" name="data-download-channels" value="zone-heat-calls" checked>Heat calls</label>
+                        <label><input type="checkbox" name="data-download-channels" value="white-wires" checked>White wire power</label>
+                    </div>
+                    <div class="options-section">
+                        <h6>Buffer</h6>
+                        <label><input type="checkbox" name="data-download-channels" value="buffer-depths" checked>Buffer depths</label>
+                        <label><input type="checkbox" name="data-download-channels" value="buffer-hot-pipe" checked>Buffer hot pipe</label>
+                        <label><input type="checkbox" name="data-download-channels" value="buffer-cold-pipe" checked>Buffer cold pipe</label>
+                    </div>
+                    <div class="options-section">
+                        <h6>Storage</h6>
+                        <label><input type="checkbox" name="data-download-channels" value="storage-depths" checked>Storage depths</label>
+                        <label><input type="checkbox" name="data-download-channels" value="store-hot-pipe" checked>Storage hot pipe</label>
+                        <label><input type="checkbox" name="data-download-channels" value="store-cold-pipe" checked>Storage cold pipe</label>
+                        <label><input type="checkbox" name="data-download-channels" value="store-flow" checked>Storage pump flow rate</label>
+                        <label><input type="checkbox" name="data-download-channels" value="store-pump-pwr" checked>Storage pump power</label>
+                        <label><input type="checkbox" name="data-download-channels" value="storage-010v" checked>Storage pump 0-10V</label>
+                    </div>
+                    <div class="options-section">
+                        <h6>Other</h6>
+                        <label><input type="checkbox" name="data-download-channels" value="oil-boiler-pwr" checked>Oil boiler power</label>
+                        <label><input type="checkbox" name="data-download-channels" value="oat" checked>Outside air temperature</label>
+                        <label><input type="checkbox" name="data-download-channels" value="relays" checked>Relays</label>
+                        <label><input type="checkbox" name="data-download-channels" value="all-data" checked>All other channels</label>
+                    </div>
+                    
+                </div>
             </div>
         </div>
 
@@ -2260,6 +2376,7 @@
                     'show-electricity': 'electricity-card', 
                     'show-information': 'information-card',
                     'show-visualizer': 'visualizer-card',
+                    'show-data-download': 'data-download-card',
                     'show-morning-report': 'morning-report-card'
                 };
 
@@ -2286,9 +2403,25 @@
                                 }
                             });
                             
+                            // Hide map card when switching away from information card
+                            if (cardId !== 'information-card') {
+                                const mapCard = document.getElementById('map-card');
+                                if (mapCard) {
+                                    mapCard.classList.add('hidden');
+                                }
+                            }
+                            
                             // Add active class to clicked button and show its card
                             this.classList.add('active');
                             card.classList.remove('hidden');
+                            
+                            // Special case: when information card is selected, also show map card
+                            if (cardId === 'information-card') {
+                                const mapCard = document.getElementById('map-card');
+                                if (mapCard) {
+                                    mapCard.classList.remove('hidden');
+                                }
+                            }
                             
                             // Initialize dashboard when it becomes visible
                             if (cardId === 'dashboard-card') {
@@ -2395,6 +2528,7 @@
             // Initialize button states
             updateInfoButtonStates();
             updateVisualizerButtonStates();
+            updateDataDownloadButtonStates();
             initializeDashboard();
 
             // Add event listener for the electricity plot button
@@ -2425,6 +2559,26 @@
                     icon.classList.add('bi-arrows-fullscreen');
                     if (wasFullscreen) {
                         visualizerCard.scrollIntoView({ behavior: 'instant', block: 'start' });
+                    }
+                }
+            });
+
+            // Data download card fullscreen toggle functionality
+            const dataDownloadFullscreenBtn = document.getElementById('data-download-fullscreen-btn');
+            const dataDownloadCard = document.getElementById('data-download-card');
+
+            dataDownloadFullscreenBtn.addEventListener('click', function() {
+                const wasFullscreen = dataDownloadCard.classList.contains('fullscreen');
+                dataDownloadCard.classList.toggle('fullscreen');
+                const icon = this.querySelector('i');
+                if (dataDownloadCard.classList.contains('fullscreen')) {
+                    icon.classList.remove('bi-arrows-fullscreen');
+                    icon.classList.add('bi-arrows-angle-contract');
+                } else {
+                    icon.classList.remove('bi-arrows-angle-contract');
+                    icon.classList.add('bi-arrows-fullscreen');
+                    if (wasFullscreen) {
+                        dataDownloadCard.scrollIntoView({ behavior: 'instant', block: 'start' });
                     }
                 }
             });
@@ -2764,6 +2918,7 @@
                     // Update button states
                     updateInfoButtonStates();
                     updateVisualizerButtonStates();
+                    updateDataDownloadButtonStates();
                     initializeDashboard();
                     
                     // Update map focus based on selection
@@ -3035,6 +3190,12 @@
             document.getElementById('electricity-end-date').value = getDefaultDate(false, true);
             document.getElementById('electricity-end-time').value = getDefaultTime(false, true);
             
+            // Initialize data download card date and time fields
+            document.getElementById('data-download-start-date').value = getDefaultDate(true, false);
+            document.getElementById('data-download-start-time').value = getDefaultTime(true, false);
+            document.getElementById('data-download-end-date').value = getDefaultDate(false, false);
+            document.getElementById('data-download-end-time').value = getDefaultTime(false, false);
+            
             // Add click event listeners to selected house inputs
             document.getElementById('selected-house').addEventListener('click', function() {
                 const visualizerCard = document.querySelector('.card:has(#plot-container)');
@@ -3061,6 +3222,18 @@
             });
             
             document.getElementById('info-selected-house').addEventListener('click', function() {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+            
+            document.getElementById('data-download-selected-house').addEventListener('click', function() {
+                const dataDownloadCard = document.getElementById('data-download-card');
+                if (dataDownloadCard.classList.contains('fullscreen')) {
+                    dataDownloadCard.classList.remove('fullscreen');
+                    const fullscreenBtn = document.getElementById('data-download-fullscreen-btn');
+                    const icon = fullscreenBtn.querySelector('i');
+                    icon.classList.remove('bi-arrows-angle-contract');
+                    icon.classList.add('bi-arrows-fullscreen');
+                }
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
             
@@ -3093,6 +3266,12 @@
             nowBtn.addEventListener('click', function() {
                 setNow();
             });
+
+            // Data download card now button functionality
+            const dataDownloadNowBtn = document.getElementById('data-download-now-btn');
+            dataDownloadNowBtn.addEventListener('click', function() {
+                setDataDownloadNow();
+            });
             
             expandableRows.forEach(row => {
                 row.addEventListener('click', function(e) {
@@ -3118,6 +3297,7 @@
                     // Update button states
                     updateInfoButtonStates();
                     updateVisualizerButtonStates();
+                    updateDataDownloadButtonStates();
                     initializeDashboard();
                     
                     // Toggle expanded class on the main row
@@ -3206,6 +3386,7 @@
                     // Update button states
                     updateInfoButtonStates();
                     updateVisualizerButtonStates();
+                    updateDataDownloadButtonStates();
                     initializeDashboard();
                     
                     // Show information details
@@ -3605,6 +3786,7 @@
             const infoSelectedHouseInput = document.getElementById('info-selected-house');
             const electricitySelectedHouseInput = document.getElementById('electricity-selected-house');
             const morningSelectedHouseInput = document.getElementById('morning-selected-house');
+            const dataDownloadSelectedHouseInput = document.getElementById('data-download-selected-house');
             
             if (selectedHouses.length === 0) {
                 // No houses selected
@@ -3612,6 +3794,7 @@
                 infoSelectedHouseInput.value = '';
                 electricitySelectedHouseInput.value = '';
                 morningSelectedHouseInput.value = '';
+                dataDownloadSelectedHouseInput.value = '';
             } else if (selectedHouses.length === 1) {
                 // Single house selected
                 const houseAlias = selectedHouses[0];
@@ -3619,6 +3802,7 @@
                 infoSelectedHouseInput.value = houseAlias;
                 electricitySelectedHouseInput.value = houseAlias;
                 morningSelectedHouseInput.value = houseAlias;
+                dataDownloadSelectedHouseInput.value = houseAlias;
             } else {
                 // Multiple houses selected
                 const houseList = selectedHouses.join(', ');
@@ -3626,6 +3810,7 @@
                 infoSelectedHouseInput.value = 'Select a single house in the table';
                 electricitySelectedHouseInput.value = houseList;
                 morningSelectedHouseInput.value = houseList;
+                dataDownloadSelectedHouseInput.value = 'Select a single house in the table';
             }
         }
 
@@ -3706,6 +3891,13 @@
             document.getElementById('morning-end-time').value = nyDate.toTimeString().split(' ')[0].substring(0, 5);
         }
 
+        function setDataDownloadNow() {
+            const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+            nyDate.setMinutes(nyDate.getMinutes() + 1);
+            document.getElementById('data-download-end-date').value = nyDate.toISOString().split('T')[0];
+            document.getElementById('data-download-end-time').value = nyDate.toTimeString().split(' ')[0].substring(0, 5);
+        }
+
         function clearPlots() {
             const plotDivs = [
                 document.getElementById('plot1'),
@@ -3758,6 +3950,9 @@
 
         // Add event listener for the FLO button
         document.getElementById('flo-btn').addEventListener('click', downloadFLO);
+
+        // Add event listener for the data download CSV button
+        document.getElementById('data-download-csv-btn').addEventListener('click', exportDataDownloadCSV);
 
         // Function to export CSV
         async function exportCSV(event) {
@@ -3840,6 +4035,90 @@
                 console.error('Error getting CSV:', error);
             } finally {
                 enableButton('csv-btn');
+            }
+        }
+
+        // Function to export CSV for data download card
+        async function exportDataDownloadCSV(event) {
+            event.preventDefault();
+            const houseAlias = document.getElementById('data-download-selected-house').value;
+            
+            // Check if a house is selected
+            if (!houseAlias || houseAlias.trim() === '') {
+                return;
+            }
+            
+            const startDate = document.getElementById('data-download-start-date').value;
+            const startTime = document.getElementById('data-download-start-time').value;
+            const endDate = document.getElementById('data-download-end-date').value;
+            const endTime = document.getElementById('data-download-end-time').value;
+
+            const startDateTime = luxon.DateTime.fromFormat(`${startDate} ${startTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
+            const endDateTime = luxon.DateTime.fromFormat(`${endDate} ${endTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
+            
+            const startUnixMilliseconds = startDateTime.toUTC().toMillis();
+            const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+
+            const selectedChannels = Array.from(document.querySelectorAll('input[name="data-download-channels"]:checked'))
+                .map(checkbox => checkbox.value);
+            const timestep = document.getElementById('data-download-csv-timestep').value;
+
+            disableButton('data-download-csv-btn');
+
+            try {
+                const response = await fetch(`${api_host}/csv`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    },
+                    body: JSON.stringify({
+                        house_alias: houseAlias,
+                        password: '',
+                        start_ms: startUnixMilliseconds,
+                        end_ms: endUnixMilliseconds,
+                        selected_channels: selectedChannels,
+                        timestep: timestep,
+                        confirm_with_user: false
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const contentType = response.headers.get("Content-Type");
+                if (contentType && contentType.includes("application/json")) {
+                    const data = await response.json();
+                    if ('success' in data && data.success === false) {
+                        if (data.confirm_with_user) {
+                            const userChoice = confirm(data.message);
+                            if (userChoice) {
+                                await exportDataDownloadCSV(event);
+                            }
+                        } else {
+                            console.error('Error:', data.message);
+                        }
+                    }
+                } else {
+                    const startDate = new Date(startUnixMilliseconds);
+                    const formattedStartDate = startDate.toISOString().slice(0, 16).replace('T', '-');
+                    const endDate = new Date(endUnixMilliseconds);
+                    const formattedEndDate = endDate.toISOString().slice(0, 16).replace('T', '-');
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${houseAlias}_${timestep}s_${formattedStartDate}-${formattedEndDate}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                }
+            } catch (error) {
+                console.error('Error getting CSV:', error);
+            } finally {
+                enableButton('data-download-csv-btn');
             }
         }
 
@@ -3936,6 +4215,45 @@
             if (e.target === optionsDiv) {
                 toggleOptions();
             }
+        });
+
+        // Data download options functionality
+        const dataDownloadOptionsBtn = document.getElementById('data-download-options-btn');
+        const dataDownloadOptionsDiv = document.getElementById('data-download-options-div');
+
+        // Initialize data download options div display state
+        dataDownloadOptionsDiv.style.display = 'none';
+
+        function toggleDataDownloadOptions() {
+            dataDownloadOptionsDiv.style.display = dataDownloadOptionsDiv.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        dataDownloadOptionsBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleDataDownloadOptions();
+        });
+
+        // Close data download options when clicking outside
+        dataDownloadOptionsDiv.addEventListener('click', function(e) {
+            if (e.target === dataDownloadOptionsDiv) {
+                toggleDataDownloadOptions();
+            }
+        });
+
+        // Data download select all/unselect all functionality
+        document.getElementById('data-download-select-all-btn').addEventListener('click', function() {
+            const checkboxes = document.querySelectorAll('input[name="data-download-channels"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+        });
+
+        document.getElementById('data-download-unselect-all-btn').addEventListener('click', function() {
+            const checkboxes = document.querySelectorAll('input[name="data-download-channels"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
         });
 
         // Update getData function to use selected channels
@@ -4088,6 +4406,26 @@
                 document.getElementById('plot-btn'),
                 document.getElementById('csv-btn'),
                 document.getElementById('flo-btn')
+            ];
+            
+            // Only enable buttons if exactly one house is selected
+            const hasSingleSelectedHouse = houseAlias && 
+                houseAlias.trim() !== '' && 
+                houseAlias.trim() !== 'Select a single house in the table';
+            
+            buttons.forEach(button => {
+                if (button) {
+                    button.disabled = !hasSingleSelectedHouse;
+                    button.style.opacity = hasSingleSelectedHouse ? '1' : '0.5';
+                }
+            });
+        }
+
+        // Function to update data download button states based on house selection
+        function updateDataDownloadButtonStates() {
+            const houseAlias = document.getElementById('data-download-selected-house').value;
+            const buttons = [
+                document.getElementById('data-download-csv-btn')
             ];
             
             // Only enable buttons if exactly one house is selected
@@ -4345,6 +4683,12 @@
             initializeDashboard();
         });
 
+        document.getElementById('data-download-clear-btn').addEventListener('click', function() {
+            // Clear the selected house input and update button states
+            document.getElementById('data-download-selected-house').value = '';
+            updateDataDownloadButtonStates();
+        });
+
         async function login(username, password) {
             const response = await fetch(`${api_host}/login`, {
                 method: 'POST',
@@ -4440,16 +4784,6 @@
                 const data = JSON.parse(event.data);
                 handleDashboardMessage(data);
             };
-            
-            // dashboardWebsocket.onclose = function(event) {
-            //     const selectedHouse = document.getElementById('selected-house').value;
-            //     if (!selectedHouse || selectedHouse.trim() === '') {
-            //         document.getElementById('dashboard-status-left').textContent = 'No house selected';
-            //     } else {
-            //         document.getElementById('dashboard-status-left').textContent = 'Select a single house in the table';
-            //     }
-            //     document.getElementById('dashboard-status-right').textContent = '-';
-            // };
             
             dashboardWebsocket.onerror = function(error) {
                 console.error('Dashboard WebSocket error:', error);
