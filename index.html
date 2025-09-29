@@ -1232,11 +1232,423 @@
 
         <!-- Card Visibility Controls -->
         <div class="card-visibility-controls" style="margin-top:-0rem; margin-bottom:2.5rem;">
-            <button type="button" class="card-toggle-btn active" id="show-visualizer" data-card="visualizer-card">Visualizer</button>
+            <button type="button" class="card-toggle-btn active" id="show-dashboard" data-card="dashboard-card">Dashboard</button>
+            <button type="button" class="card-toggle-btn" id="show-visualizer" data-card="visualizer-card">Visualizer</button>
             <button type="button" class="card-toggle-btn" id="show-electricity" data-card="electricity-card">Hourly data</button>
             <button type="button" class="card-toggle-btn" id="show-information" data-card="information-card">Information</button>
             <button type="button" class="card-toggle-btn" id="show-morning-report" data-card="morning-report-card">Morning report</button>
             <button type="button" class="card-toggle-btn" id="show-map" data-card="map-card">Map</button>
+        </div>
+
+        <!-- Dashboard Card -->
+        <div class="card" id="dashboard-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title">Dashboard</h5>
+                <div class="status-badges">
+                    <button class="fullscreen-btn" id="dashboard-fullscreen-btn">
+                        <i class="bi bi-arrows-fullscreen"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4">
+                <!-- Dashboard Status Bar -->
+                <div id="dashboard-status" style="text-align: center; padding: 8px 20px;">
+                    <div id="dashboard-status-left" style="font-size: 1.2em;">Connecting...</div>
+                    <div id="dashboard-status-right" style="font-size: 0.8em;"></div>
+                </div>
+                
+                <!-- Last Snapshot Timestamp -->
+                <div id="dashboard-snapshot-timestamp" style="text-align: center; margin-bottom: 0rem; color: var(--text-muted); font-size: 0.875rem;">
+                    Last snapshot: <span id="dashboard-snapshot-time">-</span>
+                </div>
+                
+                <!-- System Diagram -->
+                <div id="dashboard-system-diagram" style="text-align: center; max-width: 100%; margin: 0 auto 2rem auto;">
+                    <svg id="dashboard-diagram-svg" viewBox="0 0 1000 500" style="width: 100%; height: auto; max-width: 1000px;">
+                        <defs>
+                            <!-- Dynamic gradient for heat pump animation (EWT to LWT) -->
+                            <linearGradient id="dashboardHeatGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+                                <stop id="dashboard-ewt-stop" offset="25%" style="stop-color:#888; stop-opacity:1" />
+                                <stop id="dashboard-lwt-stop" offset="75%" style="stop-color:#888; stop-opacity:1" />
+                            </linearGradient>
+                            
+                            <!-- Dynamic gradient for house animation (dist-rwt to dist-swt, left to right) -->
+                            <linearGradient id="dashboardHouseHeatGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop id="dashboard-dist-rwt-stop" offset="25%" style="stop-color:#888; stop-opacity:1" />
+                                <stop id="dashboard-dist-swt-stop" offset="75%" style="stop-color:#888; stop-opacity:1" />
+                            </linearGradient>
+                            
+                            <!-- Flow pattern for HpOffStoreDischarge top horizontal pipe -->
+                            <pattern id="dashboardFlowPattern" x="0" y="0" width="90" height="15" patternUnits="userSpaceOnUse">
+                                <rect width="90" height="15" fill="#4CAF50"/>
+                                <rect x="0" y="0" width="15" height="15" fill="#66BB6A"/>
+                                <rect x="30" y="0" width="15" height="15" fill="#66BB6A"/>
+                                <rect x="60" y="0" width="15" height="15" fill="#66BB6A"/>
+                                <animateTransform
+                                    attributeName="patternTransform"
+                                    type="translate"
+                                    values="0 0; 90 0"
+                                    dur="1.2s"
+                                    repeatCount="indefinite"/>
+                            </pattern>
+                            
+                            <!-- Flow pattern for HpOffStoreDischarge vertical pipe (upward flow) -->
+                            <pattern id="dashboardVerticalFlowPattern" x="0" y="0" width="15" height="90" patternUnits="userSpaceOnUse">
+                                <rect width="15" height="90" fill="#4CAF50"/>
+                                <rect x="0" y="0" width="15" height="15" fill="#66BB6A"/>
+                                <rect x="0" y="30" width="15" height="15" fill="#66BB6A"/>
+                                <rect x="0" y="60" width="15" height="15" fill="#66BB6A"/>
+                                <animateTransform
+                                    attributeName="patternTransform"
+                                    type="translate"
+                                    values="0 0; 0 -90"
+                                    dur="1.2s"
+                                    repeatCount="indefinite"/>
+                            </pattern>
+                            
+                            <!-- Flow pattern for HpOffStoreDischarge vertical pipe (downward flow) -->
+                            <pattern id="dashboardVerticalDownFlowPattern" x="0" y="0" width="15" height="90" patternUnits="userSpaceOnUse">
+                                <rect width="15" height="90" fill="#4CAF50"/>
+                                <rect x="0" y="0" width="15" height="15" fill="#66BB6A"/>
+                                <rect x="0" y="30" width="15" height="15" fill="#66BB6A"/>
+                                <rect x="0" y="60" width="15" height="15" fill="#66BB6A"/>
+                                <animateTransform
+                                    attributeName="patternTransform"
+                                    type="translate"
+                                    values="0 0; 0 90"
+                                    dur="1.2s"
+                                    repeatCount="indefinite"/>
+                            </pattern>
+                            
+                            <!-- Flow pattern for HpOffStoreDischarge horizontal pipe (leftward flow) -->
+                            <pattern id="dashboardLeftFlowPattern" x="0" y="0" width="90" height="15" patternUnits="userSpaceOnUse">
+                                <rect width="90" height="15" fill="#4CAF50"/>
+                                <rect x="0" y="0" width="15" height="15" fill="#66BB6A"/>
+                                <rect x="30" y="0" width="15" height="15" fill="#66BB6A"/>
+                                <rect x="60" y="0" width="15" height="15" fill="#66BB6A"/>
+                                <animateTransform
+                                    attributeName="patternTransform"
+                                    type="translate"
+                                    values="0 0; -90 0"
+                                    dur="1.2s"
+                                    repeatCount="indefinite"/>
+                            </pattern>
+                            
+                            <!-- Moving heat lines pattern -->
+                            <pattern id="dashboardHeatLinesPattern" x="0" y="0" width="20" height="120" patternUnits="userSpaceOnUse">
+                                <path d="M 3,10 Q 10,7 17,10 Q 10,13 3,10" fill="#999" opacity="0.12"/>
+                                <path d="M 3,30 Q 10,27 17,30 Q 10,33 3,30" fill="#999" opacity="0.12"/>
+                                <path d="M 3,50 Q 10,47 17,50 Q 10,53 3,50" fill="#999" opacity="0.12"/>
+                                <path d="M 3,70 Q 10,67 17,70 Q 10,73 3,70" fill="#999" opacity="0.12"/>
+                                <path d="M 3,90 Q 10,87 17,90 Q 10,93 3,90" fill="#999" opacity="0.12"/>
+                                <path d="M 3,110 Q 10,107 17,110 Q 10,113 3,110" fill="#999" opacity="0.12"/>
+                                <animateTransform
+                                    attributeName="patternTransform"
+                                    type="translate"
+                                    values="0 0; 0 -120"
+                                    dur="3s"
+                                    repeatCount="indefinite"/>
+                            </pattern>
+                            
+                            <!-- Buffer heat lines pattern - top to bottom flow -->
+                            <pattern id="dashboardBufferHeatLinesTopToBottom" x="0" y="0" width="20" height="120" patternUnits="userSpaceOnUse">
+                                <path d="M 3,10 Q 10,7 17,10 Q 10,13 3,10" fill="#999" opacity="0.12"/>
+                                <path d="M 3,30 Q 10,27 17,30 Q 10,33 3,30" fill="#999" opacity="0.12"/>
+                                <path d="M 3,50 Q 10,47 17,50 Q 10,53 3,50" fill="#999" opacity="0.12"/>
+                                <path d="M 3,70 Q 10,67 17,70 Q 10,73 3,70" fill="#999" opacity="0.12"/>
+                                <path d="M 3,90 Q 10,87 17,90 Q 10,93 3,90" fill="#999" opacity="0.12"/>
+                                <path d="M 3,110 Q 10,107 17,110 Q 10,113 3,110" fill="#999" opacity="0.12"/>
+                                <animateTransform
+                                    attributeName="patternTransform"
+                                    type="translate"
+                                    values="0 0; 0 120"
+                                    dur="3s"
+                                    repeatCount="indefinite"/>
+                            </pattern>
+                            
+                            <!-- Buffer heat lines pattern - bottom to top flow -->
+                            <pattern id="dashboardBufferHeatLinesBottomToTop" x="0" y="0" width="20" height="120" patternUnits="userSpaceOnUse">
+                                <path d="M 3,10 Q 10,7 17,10 Q 10,13 3,10" fill="#999" opacity="0.12"/>
+                                <path d="M 3,30 Q 10,27 17,30 Q 10,33 3,30" fill="#999" opacity="0.12"/>
+                                <path d="M 3,50 Q 10,47 17,50 Q 10,53 3,50" fill="#999" opacity="0.12"/>
+                                <path d="M 3,70 Q 10,67 17,70 Q 10,73 3,70" fill="#999" opacity="0.12"/>
+                                <path d="M 3,90 Q 10,87 17,90 Q 10,93 3,90" fill="#999" opacity="0.12"/>
+                                <path d="M 3,110 Q 10,107 17,110 Q 10,113 3,110" fill="#999" opacity="0.12"/>
+                                <animateTransform
+                                    attributeName="patternTransform"
+                                    type="translate"
+                                    values="0 120; 0 0"
+                                    dur="3s"
+                                    repeatCount="indefinite"/>
+                            </pattern>
+                            
+                            <!-- Moving heat lines pattern for house (uniform, seamless) -->
+                            <pattern id="dashboardHouseHeatLinesPattern" x="0" y="0" width="120" height="20" patternUnits="userSpaceOnUse">
+                                <path d="M 10,3 Q 7,10 10,17 Q 13,10 10,3" fill="#999" opacity="0.12"/>
+                                <path d="M 30,3 Q 27,10 30,17 Q 33,10 30,3" fill="#999" opacity="0.12"/>
+                                <path d="M 50,3 Q 47,10 50,17 Q 53,10 50,3" fill="#999" opacity="0.12"/>
+                                <path d="M 70,3 Q 67,10 70,17 Q 73,10 70,3" fill="#999" opacity="0.12"/>
+                                <path d="M 90,3 Q 87,10 90,17 Q 93,10 90,3" fill="#999" opacity="0.12"/>
+                                <path d="M 110,3 Q 107,10 110,17 Q 113,10 110,3" fill="#999" opacity="0.12"/>
+                                <animateTransform
+                                    attributeName="patternTransform"
+                                    type="translate"
+                                    values="0 0; -120 0"
+                                    dur="3s"
+                                    repeatCount="indefinite"/>
+                            </pattern>
+                            
+                            <!-- Tank heat lines pattern - top to bottom flow -->
+                            <pattern id="dashboardTankHeatLinesTopToBottom" x="0" y="0" width="20" height="120" patternUnits="userSpaceOnUse">
+                                <path d="M 3,10 Q 10,7 17,10 Q 10,13 3,10" fill="#999" opacity="0.12"/>
+                                <path d="M 3,30 Q 10,27 17,30 Q 10,33 3,30" fill="#999" opacity="0.12"/>
+                                <path d="M 3,50 Q 10,47 17,50 Q 10,53 3,50" fill="#999" opacity="0.12"/>
+                                <path d="M 3,70 Q 10,67 17,70 Q 10,73 3,70" fill="#999" opacity="0.12"/>
+                                <path d="M 3,90 Q 10,87 17,90 Q 10,93 3,90" fill="#999" opacity="0.12"/>
+                                <path d="M 3,110 Q 10,107 17,110 Q 10,113 3,110" fill="#999" opacity="0.12"/>
+                                <animateTransform
+                                    attributeName="patternTransform"
+                                    type="translate"
+                                    values="0 0; 0 120"
+                                    dur="3s"
+                                    repeatCount="indefinite"/>
+                            </pattern>
+                            
+                            <!-- Tank heat lines pattern - bottom to top flow -->
+                            <pattern id="dashboardTankHeatLinesBottomToTop" x="0" y="0" width="20" height="120" patternUnits="userSpaceOnUse">
+                                <path d="M 3,10 Q 10,7 17,10 Q 10,13 3,10" fill="#999" opacity="0.12"/>
+                                <path d="M 3,30 Q 10,27 17,30 Q 10,33 3,30" fill="#999" opacity="0.12"/>
+                                <path d="M 3,50 Q 10,47 17,50 Q 10,53 3,50" fill="#999" opacity="0.12"/>
+                                <path d="M 3,70 Q 10,67 17,70 Q 10,73 3,70" fill="#999" opacity="0.12"/>
+                                <path d="M 3,90 Q 10,87 17,90 Q 10,93 3,90" fill="#999" opacity="0.12"/>
+                                <path d="M 3,110 Q 10,107 17,110 Q 10,113 3,110" fill="#999" opacity="0.12"/>
+                                <animateTransform
+                                    attributeName="patternTransform"
+                                    type="translate"
+                                    values="0 120; 0 0"
+                                    dur="3s"
+                                    repeatCount="indefinite"/>
+                            </pattern>
+                        </defs>
+
+                        <!-- Heat pump -->
+                        <rect x="20" y="50" width="120" height="200" rx="10" fill="#888"/>
+                        <g id="dashboard-hp-animation" style="display: none;">
+                            <rect x="20" y="50" width="120" height="200" rx="10" fill="url(#dashboardHeatGradient)"/>
+                            <rect x="20" y="50" width="120" height="200" rx="10" fill="url(#dashboardHeatLinesPattern)"/>
+                        </g>
+                        <text x="80" y="270" text-anchor="middle" fill="var(--text-color)" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">Heat pump</text>
+                        <text id="dashboard-hp-lift" x="80" y="150" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="16" font-weight="600">Lift<tspan x="80" dy="1.2em">-°F</tspan>
+                        </text>
+                        
+                        <!-- Buffer -->
+                        <rect x="860" y="50" width="120" height="200" rx="10" fill="transparent"/>
+                        <g id="dashboard-buffer-animation" style="display: none;">
+                            <rect x="860" y="50" width="120" height="200" rx="10" fill="url(#dashboardBufferHeatLinesTopToBottom)"/>
+                        </g>
+                        <!-- Buffer sections -->
+                        <path id="dashboard-buffer-section1" d="M 860,60 Q 860,50 870,50 L 970,50 Q 980,50 980,60 L 980,116 L 860,116 Z" fill="#444"/>
+                        <rect id="dashboard-buffer-section2" x="860" y="116" width="120" height="66" fill="#444"/>
+                        <path id="dashboard-buffer-section3" d="M 860,182 L 980,182 L 980,240 Q 980,250 970,250 L 870,250 Q 860,250 860,240 Z" fill="#444"/>
+                        <text id="dashboard-buffer-depth1" x="920" y="90" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text id="dashboard-buffer-depth2" x="920" y="156" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text id="dashboard-buffer-depth3" x="920" y="222" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text x="920" y="270" text-anchor="middle" fill="var(--text-color)" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">Buffer</text>
+                        
+                        <!-- House (bottom right, left of buffer) -->
+                        <rect x="660" y="280" width="120" height="200" rx="10" fill="#888"/>
+                        <g id="dashboard-house-animation" style="display: none;">
+                            <rect x="660" y="280" width="120" height="200" rx="10" fill="url(#dashboardHouseHeatGradient)"/>
+                            <rect x="660" y="280" width="120" height="200" rx="10" fill="url(#dashboardHouseHeatLinesPattern)"/>
+                        </g>
+                        <text x="720" y="500" text-anchor="middle" fill="var(--text-color)" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">House</text>
+                        <text id="dashboard-house-drop" x="720" y="380" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="16" font-weight="600">Drop<tspan x="720" dy="1.2em">-°F</tspan>
+                        </text>
+                        
+                        <!-- Tank 3 (bottom left) -->
+                        <rect x="200" y="280" width="120" height="200" rx="10" fill="transparent"/>
+                        <g id="dashboard-tank3-animation" style="display: none;">
+                            <rect x="200" y="280" width="120" height="200" rx="10" fill="url(#dashboardTankHeatLinesTopToBottom)"/>
+                        </g>
+                        <!-- Tank 3 sections -->
+                        <path id="dashboard-tank3-section1" d="M 200,290 Q 200,280 210,280 L 310,280 Q 320,280 320,290 L 320,346 L 200,346 Z" fill="#444"/>
+                        <rect id="dashboard-tank3-section2" x="200" y="346" width="120" height="66" fill="#444"/>
+                        <path id="dashboard-tank3-section3" d="M 200,412 L 320,412 L 320,470 Q 320,480 310,480 L 210,480 Q 200,480 200,470 Z" fill="#444"/>
+                        <text id="dashboard-tank3-depth1" x="260" y="320" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text id="dashboard-tank3-depth2" x="260" y="386" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text id="dashboard-tank3-depth3" x="260" y="452" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text x="260" y="500" text-anchor="middle" fill="var(--text-color)" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">Tank 3</text>
+                        
+                        <!-- Tank 2 (bottom center) -->
+                        <rect x="330" y="280" width="120" height="200" rx="10" fill="transparent"/>
+                        <g id="dashboard-tank2-animation" style="display: none;">
+                            <rect x="330" y="280" width="120" height="200" rx="10" fill="url(#dashboardTankHeatLinesTopToBottom)"/>
+                        </g>
+                        <!-- Tank 2 sections -->
+                        <path id="dashboard-tank2-section1" d="M 330,290 Q 330,280 340,280 L 440,280 Q 450,280 450,290 L 450,346 L 330,346 Z" fill="#444"/>
+                        <rect id="dashboard-tank2-section2" x="330" y="346" width="120" height="66" fill="#444"/>
+                        <path id="dashboard-tank2-section3" d="M 330,412 L 450,412 L 450,470 Q 450,480 440,480 L 340,480 Q 330,480 330,470 Z" fill="#444"/>
+                        <text id="dashboard-tank2-depth1" x="390" y="320" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text id="dashboard-tank2-depth2" x="390" y="386" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text id="dashboard-tank2-depth3" x="390" y="452" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text x="390" y="500" text-anchor="middle" fill="var(--text-color)" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">Tank 2</text>
+                        
+                        <!-- Tank 1 (bottom right) -->
+                        <rect x="460" y="280" width="120" height="200" rx="10" fill="transparent"/>
+                        <g id="dashboard-tank1-animation" style="display: none;">
+                            <rect x="460" y="280" width="120" height="200" rx="10" fill="url(#dashboardTankHeatLinesTopToBottom)"/>
+                        </g>
+                        <!-- Tank 1 sections -->
+                        <path id="dashboard-tank1-section1" d="M 460,290 Q 460,280 470,280 L 570,280 Q 580,280 580,290 L 580,346 L 460,346 Z" fill="#444"/>
+                        <rect id="dashboard-tank1-section2" x="460" y="346" width="120" height="66" fill="#444"/>
+                        <path id="dashboard-tank1-section3" d="M 460,412 L 580,412 L 580,470 Q 580,480 570,480 L 470,480 Q 460,480 460,470 Z" fill="#444"/>
+                        <text id="dashboard-tank1-depth1" x="520" y="320" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text id="dashboard-tank1-depth2" x="520" y="386" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text id="dashboard-tank1-depth3" x="520" y="452" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text x="520" y="500" text-anchor="middle" fill="var(--text-color)" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">Tank 1</text>
+                        
+                        <!-- Store hot pipe temperature label (above Tank 1) -->
+                        <text id="dashboard-store-hot-pipe" x="560" y="260" text-anchor="middle" fill="#888" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        
+                        <!-- Store cold pipe temperature label (left of Tank 3) -->
+                        <text id="dashboard-store-cold-pipe" x="145" y="430" text-anchor="middle" fill="#888" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        
+                        <!-- Top pipe (from top of heat pump to top of buffer) -->
+                        <rect id="dashboard-hp-buffer-top-pipe" x="140" y="75" width="720" height="15" fill="#888"/>
+                        <text id="dashboard-hp-lwt" x="170" y="70" text-anchor="middle" fill="#888" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+
+                        <!-- Bottom pipe (from bottom of heat pump to bottom of buffer) -->
+                        <rect id="dashboard-hp-buffer-bottom-pipe" x="140" y="215" width="720" height="15" fill="#888"/>
+                        <text id="dashboard-hp-ewt" x="170" y="210" text-anchor="middle" fill="#888" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+
+                        <!-- Horizontal pipe from Tank1 vertical pipe to heat pump top (HpOnStoreCharge) -->
+                        <rect id="dashboard-tank1-hp-horizontal-pipe-charge" x="140" y="75" width="465" height="15" fill="#888"/>
+                        
+                        <!-- Horizontal pipe from Tank3 vertical pipe to heat pump bottom (HpOnStoreCharge) -->
+                        <rect id="dashboard-tank3-hp-horizontal-pipe-charge" x="140" y="215" width="50" height="15" fill="#888"/>
+
+                        <!-- Vertical pipe from Tank 1 to heat pump top pipe (HpOffStoreDischarge) -->
+                        <rect id="dashboard-tank1-hp-vertical-pipe" x="590" y="90" width="15" height="205" fill="#888"/>
+                        
+                        <!-- Horizontal pipe from Tank1-HP vertical pipe to buffer top (HpOffStoreDischarge) -->
+                        <rect id="dashboard-tank1-buffer-horizontal-pipe" x="590" y="75" width="270" height="15" fill="#888"/>
+                        
+                        <!-- Small horizontal pipe from bottom of vertical pipe to top of Tank1 (HpOffStoreDischarge) -->
+                        <rect id="dashboard-tank1-connection-pipe" x="580" y="295" width="25" height="15" fill="#888"/>
+                        
+                        <!-- Vertical pipe from bottom left of Tank3 to HP-Buffer bottom pipe (HpOffStoreDischarge) -->
+                        <rect id="dashboard-tank3-hp-vertical-pipe" x="175" y="220" width="15" height="220" fill="#888"/>
+                        
+                        <!-- Horizontal pipe from top of Tank3 vertical pipe to bottom of buffer (HpOffStoreDischarge) -->
+                        <rect id="dashboard-tank3-buffer-horizontal-pipe" x="175" y="215" width="685" height="15" fill="#888"/>
+                        
+                        <!-- Small horizontal pipe from Tank3 vertical pipe to bottom of Tank3 (HpOffStoreDischarge) -->
+                        <rect id="dashboard-tank3-connection-pipe" x="175" y="440" width="25" height="15" fill="#888"/>
+                        
+                        <!-- Vertical pipe from Tank1 to heat pump top pipe (HpOnStoreCharge) -->
+                        <rect id="dashboard-tank1-hp-vertical-pipe-charge" x="590" y="90" width="15" height="205" fill="#888"/>
+                        
+                        <!-- Vertical pipe from bottom left of Tank3 to HP-Buffer bottom pipe (HpOnStoreCharge) -->
+                        <rect id="dashboard-tank3-hp-vertical-pipe-charge" x="175" y="220" width="15" height="220" fill="#888"/>
+                        
+                        <!-- Small horizontal pipe from Tank1 vertical pipe to top of Tank1 (HpOnStoreCharge) -->
+                        <rect id="dashboard-tank1-connection-pipe-charge" x="580" y="295" width="25" height="15" fill="#888"/>
+
+                        <!-- Small horizontal pipe from Tank3 vertical pipe to bottom of Tank3 (HpOnStoreCharge) -->
+                        <rect id="dashboard-tank3-connection-pipe-charge" x="175" y="440" width="25" height="15" fill="#888"/>
+                        
+                        <!-- Vertical pipe from House to heat pump top pipe -->
+                        <rect id="dashboard-house-hp-vertical-pipe" x="790" y="90" width="15" height="280" fill="#888"/>
+                        
+                        <!-- Small horizontal pipe from House vertical pipe to top of House -->
+                        <rect id="dashboard-house-connection-pipe" x="780" y="370" width="25" height="15" fill="#888"/>
+                        
+                        <!-- Vertical pipe from House bottom to heat pump bottom pipe -->
+                        <rect id="dashboard-house-hp-vertical-pipe-bottom" x="635" y="230" width="15" height="140" fill="#888"/>
+                        
+                        <!-- Small horizontal pipe from House vertical pipe to bottom of House -->
+                        <rect id="dashboard-house-connection-pipe-bottom" x="635" y="370" width="25" height="15" fill="#888"/>
+                        
+                        <!-- Dist system labels -->
+                        <text id="dashboard-dist-swt" x="810" y="405" text-anchor="middle" fill="#888" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text id="dashboard-dist-rwt" x="630" y="405" text-anchor="middle" fill="#888" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        
+                        <!-- Horizontal pipe from top of right House vertical to buffer top -->
+                        <rect id="dashboard-house-buffer-top-pipe" x="790" y="75" width="70" height="15" fill="#888"/>
+                        
+                        <!-- Horizontal pipe from top of left House vertical to buffer bottom -->
+                        <rect id="dashboard-house-buffer-bottom-pipe" x="635" y="215" width="225" height="15" fill="#888"/>
+                        
+                        <!-- Buffer pipe temperature labels -->
+                        <text id="dashboard-buffer-hot-pipe" x="830" y="70" text-anchor="middle" fill="#888" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        <text id="dashboard-buffer-cold-pipe" x="830" y="210" text-anchor="middle" fill="#888" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        
+                    </svg>
+                </div>
+
+                <!-- System Monitoring Tables -->
+                <div id="dashboard-monitoring-tables" style="max-width: 100%; margin: 50px auto 20px auto; display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;">
+                    <!-- Thermostats and Hot Water Table -->
+                    <div>
+                        <table id="dashboard-thermostat-table" style="border: 1px solid var(--border-color); border-collapse: collapse; border-radius: 0.25rem; background-color: var(--card-background); margin: 0 auto; font-size: 0.75rem; color: var(--text-muted);">
+                            <thead>
+                                <tr style="background-color: #f0f0f0;">
+                                    <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.75rem; color: var(--text-muted);">Thermostats</th>
+                                    <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.75rem; color: var(--text-muted);">Setpoint</th>
+                                    <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.75rem; color: var(--text-muted);">Temperature</th>
+                                    <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.75rem; color: var(--text-muted);">State</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboard-thermostat-tbody">
+                                <tr>
+                                    <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.75rem; color: var(--text-muted);">Loading...</td>
+                                    <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.75rem; color: var(--text-muted);">Loading...</td>
+                                    <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.75rem; color: var(--text-muted);">Loading...</td>
+                                    <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.75rem; color: var(--text-muted);">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- HP Power Table -->
+                    <div>
+                        <table id="dashboard-hp-power-table" style="border: 1px solid var(--border-color); border-collapse: collapse; border-radius: 0.25rem; background-color: var(--card-background); margin: 0 auto; font-size: 0.8rem; color: var(--text-muted);">
+                            <thead>
+                                <tr style="background-color: #f0f0f0;">
+                                    <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">Heat pump</th>
+                                    <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">kW</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboard-hp-power-tbody">
+                                <tr>
+                                    <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">Loading...</td>
+                                    <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pump Table -->
+                    <div>
+                        <table id="dashboard-pump-table" style="border: 1px solid var(--border-color); border-collapse: collapse; border-radius: 0.25rem; background-color: var(--card-background); margin: 0 auto; font-size: 0.8rem; color: var(--text-muted);">
+                            <thead>
+                                <tr style="background-color: #f0f0f0;">
+                                    <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">Pumps</th>
+                                    <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">GPM</th>
+                                    <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">W</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboard-pump-tbody">
+                                <tr>
+                                    <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">Loading...</td>
+                                    <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">Loading...</td>
+                                    <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Map Card -->
@@ -1826,6 +2238,7 @@
             // Card visibility controls
             function initializeCardVisibility() {
                 const buttons = {
+                    'show-dashboard': 'dashboard-card',
                     'show-map': 'map-card',
                     'show-electricity': 'electricity-card', 
                     'show-information': 'information-card',
@@ -1859,6 +2272,11 @@
                             // Add active class to clicked button and show its card
                             this.classList.add('active');
                             card.classList.remove('hidden');
+                            
+                            // Initialize dashboard when it becomes visible
+                            if (cardId === 'dashboard-card') {
+                                initializeDashboard();
+                            }
                         });
                     }
                 });
@@ -1960,6 +2378,7 @@
             // Initialize button states
             updateInfoButtonStates();
             updateVisualizerButtonStates();
+            initializeDashboard();
 
             // Add event listener for the electricity plot button
             const electricityPlotBtn = document.getElementById('electricity-plot-btn');
@@ -2276,6 +2695,7 @@
                     // Update button states
                     updateInfoButtonStates();
                     updateVisualizerButtonStates();
+                    initializeDashboard();
                     
                     // Update map focus based on selection
                     updateMapFocusForMultiSelection();
@@ -2614,6 +3034,7 @@
                     // Update button states
                     updateInfoButtonStates();
                     updateVisualizerButtonStates();
+                    initializeDashboard();
                     
                     // Toggle expanded class on the main row
                     this.classList.toggle('expanded');
@@ -2701,6 +3122,7 @@
                     // Update button states
                     updateInfoButtonStates();
                     updateVisualizerButtonStates();
+                    initializeDashboard();
                     
                     // Show information details
                     document.getElementById('info-details').style.display = 'grid';
@@ -3601,6 +4023,7 @@
             document.getElementById('info-selected-house').value = '';
             // Update button states
             updateInfoButtonStates();
+            initializeDashboard();
         });
 
         // Add event listener for the get info button
@@ -3831,6 +4254,7 @@
             // Clear the selected house input and update button states
             document.getElementById('selected-house').value = '';
             updateVisualizerButtonStates();
+            initializeDashboard();
         });
 
         async function login(username, password) {
@@ -3883,6 +4307,601 @@
         document.getElementById('electricity-now-btn').addEventListener('click', function() {
             setElectricityNow();
         });
+
+        // Dashboard card fullscreen functionality
+        const dashboardFullscreenBtn = document.getElementById('dashboard-fullscreen-btn');
+        const dashboardCard = document.getElementById('dashboard-card');
+
+        dashboardFullscreenBtn.addEventListener('click', function() {
+            const wasFullscreen = dashboardCard.classList.contains('fullscreen');
+            dashboardCard.classList.toggle('fullscreen');
+            const icon = this.querySelector('i');
+            if (dashboardCard.classList.contains('fullscreen')) {
+                icon.classList.remove('bi-arrows-fullscreen');
+                icon.classList.add('bi-arrows-angle-contract');
+            } else {
+                icon.classList.remove('bi-arrows-angle-contract');
+                icon.classList.add('bi-arrows-fullscreen');
+                if (wasFullscreen) {
+                    dashboardCard.scrollIntoView({ behavior: 'instant', block: 'start' });
+                }
+            }
+        });
+
+        // Dashboard JavaScript functionality
+        let dashboardWebsocket = null;
+        let dashboardRelays = {};
+        let dashboardThermostatNames = [];
+        let dashboardCurrentUserId = 'user_' + Math.random().toString(36).substr(2, 9);
+
+        function connectDashboardWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//visualizer.electricity.works:8080/ws`;
+            
+            dashboardWebsocket = new WebSocket(wsUrl);
+            
+            dashboardWebsocket.onopen = function(event) {
+                document.getElementById('dashboard-status-left').textContent = 'Connected';
+                document.getElementById('dashboard-status-right').textContent = '';
+                showDashboardContent();
+            };
+            
+            dashboardWebsocket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                handleDashboardMessage(data);
+            };
+            
+            // dashboardWebsocket.onclose = function(event) {
+            //     const selectedHouse = document.getElementById('selected-house').value;
+            //     if (!selectedHouse || selectedHouse.trim() === '') {
+            //         document.getElementById('dashboard-status-left').textContent = 'No house selected';
+            //     } else {
+            //         document.getElementById('dashboard-status-left').textContent = 'Select a single house in the table';
+            //     }
+            //     document.getElementById('dashboard-status-right').textContent = '-';
+            // };
+            
+            dashboardWebsocket.onerror = function(error) {
+                console.error('Dashboard WebSocket error:', error);
+                document.getElementById('dashboard-status-left').textContent = 'Error, connection failed';
+                document.getElementById('dashboard-status-right').textContent = '-';
+            };
+
+            const statusLeft = document.getElementById('dashboard-status-left');
+            const snapshotTime = document.getElementById('dashboard-snapshot-timestamp');
+            if (statusLeft) statusLeft.style.color = 'var(--text-color)';
+            if (snapshotTime) snapshotTime.style.display = 'block';
+        }
+
+        function handleDashboardMessage(data) {
+            if (data.type === 'status') {
+                updateDashboardStatus(data);
+            } else if (data.type === 'mqtt_message') {
+                if (data.message_type === 'single.reading') {
+                    updateDashboardRelayState(data.payload);
+                } else if (data.message_type === 'snapshot.spaceheat') {
+                    updateDashboardMonitoringTables(data.payload);
+                }
+            } else if (data.type === 'error') {
+                console.error('Dashboard Error: ' + data.message);
+            }
+        }
+
+        function updateDashboardStatus(data) {
+            let leftStatus = '';
+            let rightStatus = '';
+            
+            const gnodeParts = data.target_gnode ? data.target_gnode.split('.') : [];
+            const beforeLastPart = gnodeParts.length > 1 ? gnodeParts[gnodeParts.length - 2] : '';
+            const capitalizedPart = beforeLastPart.charAt(0).toUpperCase() + beforeLastPart.slice(1);
+            if (data.target_gnode) {
+                leftStatus = `<b>${capitalizedPart}</b>`;
+            }
+            
+            if (data.target_gnode) {
+                rightStatus = `<span style="color: var(--text-muted); font-size: 1em;">${data.target_gnode}</span>`;
+            }
+            
+            document.getElementById('dashboard-status-left').innerHTML = leftStatus;
+            document.getElementById('dashboard-status-right').innerHTML = rightStatus;
+            
+            if (data.relays) {
+                dashboardRelays = data.relays;
+                updateDashboardPipeColors();
+            }
+            
+            if (data.thermostat_names) {
+                dashboardThermostatNames = data.thermostat_names;
+            }
+        }
+
+        function updateDashboardRelayState(payload) {
+            if (payload && payload.relay_name && payload.state) {
+                dashboardRelays[payload.relay_name] = {
+                    ...dashboardRelays[payload.relay_name],
+                    state: payload.state
+                };
+                updateDashboardPipeColors();
+            }
+        }
+
+        function updateDashboardMonitoringTables(snapshotData) {
+            updateDashboardSnapshotTimestamp(snapshotData);
+            updateDashboardThermostatTable(snapshotData);
+            updateDashboardPowerPumpTable(snapshotData);
+            updateDashboardTankTemperatures(snapshotData);
+            updateDashboardPipeColors();
+        }
+
+        function updateDashboardSnapshotTimestamp(snapshotData) {
+            const timestampElement = document.getElementById('dashboard-snapshot-time');
+            if (!timestampElement) return;
+            
+            if (snapshotData && snapshotData.SnapshotTimeUnixMs) {
+                const timestamp = new Date(snapshotData.SnapshotTimeUnixMs);
+                const formattedTime = timestamp.toLocaleString('sv-SE', {
+                    timeZone: 'America/New_York',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+                timestampElement.textContent = formattedTime;
+            } else {
+                timestampElement.textContent = 'Unknown';
+            }
+        }
+
+        function updateDashboardThermostatTable(snapshotData) {
+            const tbody = document.getElementById('dashboard-thermostat-tbody');
+            if (!tbody || !snapshotData.LatestReadingList) return;
+            
+            if (!dashboardThermostatNames || dashboardThermostatNames.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="border: 1px solid var(--border-color); padding: 8px; text-align: center;">Loading thermostat names...</td></tr>';
+                return;
+            }
+            
+            const zones = dashboardThermostatNames.map((name, index) => ({
+                key: `zone${index + 1}-${name}`,
+                display: `zone${index + 1}-${name}`
+            }));
+            
+            const readingsMap = {};
+            snapshotData.LatestReadingList.forEach(reading => {
+                readingsMap[reading.ChannelName] = reading;
+            });
+            
+            tbody.innerHTML = '';
+            
+            zones.forEach(zone => {
+                const tempReading = readingsMap[`${zone.key}-temp`];
+                const setPointReading = readingsMap[`${zone.key}-set`];
+                const stateReading = readingsMap[`${zone.key}-state`];
+                
+                const tempF = tempReading ? (tempReading.Value / 1000).toFixed(1) : '-';
+                const setPointF = setPointReading ? (setPointReading.Value / 1000).toFixed(1) : '-';
+                const state = stateReading ? (stateReading.Value > 0 ? 'heating' : 'idle') : 'idle';
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${zone.display}</td>
+                    <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${setPointF}°F</td>
+                    <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${tempF}°F</td>
+                    <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${state}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateDashboardPowerPumpTable(snapshotData) {
+            if (!snapshotData.LatestReadingList) return;
+            
+            const readingsMap = {};
+            snapshotData.LatestReadingList.forEach(reading => {
+                readingsMap[reading.ChannelName] = reading;
+            });
+            
+            updateDashboardHpPowerTable(readingsMap);
+            updateDashboardPumpTable(readingsMap);
+        }
+
+        function updateDashboardHpPowerTable(readingsMap) {
+            const tbody = document.getElementById('dashboard-hp-power-tbody');
+            if (!tbody) return;
+            
+            const hpOduReading = readingsMap['hp-odu-pwr'];
+            const hpIduReading = readingsMap['hp-idu-pwr'];
+            const hpTotalReading = hpOduReading && hpIduReading ? 
+                { Value: hpOduReading.Value + hpIduReading.Value } : null;
+            
+            const hpTotalKw = hpTotalReading ? (hpTotalReading.Value / 1000).toFixed(2) : '0.00';
+            const hpOduKw = hpOduReading ? (hpOduReading.Value / 1000).toFixed(2) : '0.00';
+            const hpIduKw = hpIduReading ? (hpIduReading.Value / 1000).toFixed(2) : '0.00';
+            
+            tbody.innerHTML = '';
+            
+            const row2 = document.createElement('tr');
+            row2.innerHTML = `
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">Outdoor unit</td>
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${hpOduKw}</td>
+            `;
+            tbody.appendChild(row2);
+            
+            const row3 = document.createElement('tr');
+            row3.innerHTML = `
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">Indoor unit</td>
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${hpIduKw}</td>
+            `;
+            tbody.appendChild(row3);
+
+            const row1 = document.createElement('tr');
+            row1.innerHTML = `
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">Total</td>
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${hpTotalKw}</td>
+            `;
+            tbody.appendChild(row1);
+        }
+
+        function updateDashboardPumpTable(readingsMap) {
+            const tbody = document.getElementById('dashboard-pump-tbody');
+            if (!tbody) return;
+            
+            const primaryFlowReading = readingsMap['primary-flow'];
+            const primaryPowerReading = readingsMap['primary-pump-pwr'];
+            const distFlowReading = readingsMap['dist-flow'];
+            const distPowerReading = readingsMap['dist-pump-pwr'];
+            const storeFlowReading = readingsMap['store-flow'];
+            const storePowerReading = readingsMap['store-pump-pwr'];
+            
+            tbody.innerHTML = '';
+            
+            const row1 = document.createElement('tr');
+            row1.innerHTML = `
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">Primary</td>
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${primaryFlowReading ? (primaryFlowReading.Value / 100).toFixed(1) : '0.0'}</td>
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${primaryPowerReading && primaryPowerReading.Value > 0 ? primaryPowerReading.Value.toFixed(1) : '0.0'}</td>
+            `;
+            tbody.appendChild(row1);
+            
+            const row2 = document.createElement('tr');
+            row2.innerHTML = `
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">Distribution</td>
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${distFlowReading ? (distFlowReading.Value / 100).toFixed(1) : '0.0'}</td>
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${distPowerReading && distPowerReading.Value > 0 ? distPowerReading.Value.toFixed(1) : '0.0'}</td>
+            `;
+            tbody.appendChild(row2);
+            
+            const row3 = document.createElement('tr');
+            row3.innerHTML = `
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">Store</td>
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${storeFlowReading ? (storeFlowReading.Value / 100).toFixed(1) : '0.0'}</td>
+                <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${storePowerReading && storePowerReading.Value > 0 ? storePowerReading.Value.toFixed(1) : '0.0'}</td>
+            `;
+            tbody.appendChild(row3);
+        }
+
+        function updateDashboardLayerBackground(temp) {
+            const minTemp = 50;
+            const maxTemp = 160;
+            const normalizedTemp = (temp - minTemp) / (maxTemp - minTemp);
+            const red = Math.min(255, Math.floor(255 * normalizedTemp));
+            const blue = Math.min(255, Math.floor(255 * (1 - normalizedTemp)));
+            const backgroundColor = `rgba(${red}, 0, ${blue}, 0.86)`;
+            return backgroundColor;
+        }
+
+        function updateDashboardTankTemperatures(snapshotData) {
+            if (!snapshotData || !snapshotData.LatestReadingList) return;
+            
+            const readingsMap = {};
+            snapshotData.LatestReadingList.forEach(reading => {
+                readingsMap[reading.ChannelName] = reading;
+            });
+            
+            // Update each tank's temperature readings
+            for (let tankNum = 1; tankNum <= 3; tankNum++) {
+                for (let depth = 1; depth <= 3; depth++) {
+                    const channelName = `tank${tankNum}-depth${depth}`;
+                    const reading = readingsMap[channelName];
+                    const elementId = `dashboard-tank${tankNum}-depth${depth}`;
+                    const element = document.getElementById(elementId);
+                    
+                    if (element && reading) {
+                        const tempC = reading.Value / 1000;
+                        const tempF = (tempC * 9/5 + 32).toFixed(1);
+                        element.textContent = `${tempF}°F`;
+                        
+                        const sectionElement = document.getElementById(`dashboard-tank${tankNum}-section${depth}`);
+                        if (sectionElement) {
+                            const tempFNum = parseFloat(tempF);
+                            const backgroundColor = updateDashboardLayerBackground(tempFNum);
+                            sectionElement.setAttribute('fill', backgroundColor);
+                        }
+                    } else if (element) {
+                        element.textContent = '-';
+                    }
+                }
+            }
+            
+            // Update buffer temperature readings
+            for (let depth = 1; depth <= 3; depth++) {
+                const channelName = `buffer-depth${depth}`;
+                const reading = readingsMap[channelName];
+                const elementId = `dashboard-buffer-depth${depth}`;
+                const element = document.getElementById(elementId);
+                
+                if (element && reading) {
+                    const tempC = reading.Value / 1000;
+                    const tempF = (tempC * 9/5 + 32).toFixed(1);
+                    element.textContent = `${tempF}°F`;
+                    
+                    const sectionElement = document.getElementById(`dashboard-buffer-section${depth}`);
+                    if (sectionElement) {
+                        const tempFNum = parseFloat(tempF);
+                        const backgroundColor = updateDashboardLayerBackground(tempFNum);
+                        sectionElement.setAttribute('fill', backgroundColor);
+                    }
+                } else if (element) {
+                    element.textContent = '-';
+                }
+            }
+            
+            // Update heat pump temperatures
+            const hpLwtReading = readingsMap['hp-lwt'];
+            const hpEwtReading = readingsMap['hp-ewt'];
+            let hpLwtTempF = null;
+            let hpEwtTempF = null;
+            
+            if (hpLwtReading) {
+                const tempC = hpLwtReading.Value / 1000;
+                hpLwtTempF = parseFloat((tempC * 9/5 + 32).toFixed(1));
+                document.getElementById('dashboard-hp-lwt').textContent = `${hpLwtTempF}°F`;
+            } else {
+                document.getElementById('dashboard-hp-lwt').textContent = '-';
+            }
+            
+            if (hpEwtReading) {
+                const tempC = hpEwtReading.Value / 1000;
+                hpEwtTempF = parseFloat((tempC * 9/5 + 32).toFixed(1));
+                document.getElementById('dashboard-hp-ewt').textContent = `${hpEwtTempF}°F`;
+            } else {
+                document.getElementById('dashboard-hp-ewt').textContent = '-';
+            }
+            
+            // Calculate and update heat pump lift
+            const hpLiftElement = document.getElementById('dashboard-hp-lift');
+            if (hpLiftElement && hpLwtTempF !== null && hpEwtTempF !== null) {
+                const lift = (hpLwtTempF - hpEwtTempF).toFixed(1);
+                hpLiftElement.innerHTML = `Lift<tspan x="80" dy="1.2em">${lift}°F</tspan>`;
+            } else if (hpLiftElement) {
+                hpLiftElement.innerHTML = `Lift<tspan x="80" dy="1.2em">-°F</tspan>`;
+            }
+            
+            // Update house distribution temperatures
+            const distSwtReading = readingsMap['dist-swt'];
+            const distRwtReading = readingsMap['dist-rwt'];
+            let distSwtTempF = null;
+            let distRwtTempF = null;
+            
+            if (distSwtReading) {
+                const tempC = distSwtReading.Value / 1000;
+                distSwtTempF = parseFloat((tempC * 9/5 + 32).toFixed(1));
+                document.getElementById('dashboard-dist-swt').textContent = `${distSwtTempF}°F`;
+            } else {
+                document.getElementById('dashboard-dist-swt').textContent = '-';
+            }
+            
+            if (distRwtReading) {
+                const tempC = distRwtReading.Value / 1000;
+                distRwtTempF = parseFloat((tempC * 9/5 + 32).toFixed(1));
+                document.getElementById('dashboard-dist-rwt').textContent = `${distRwtTempF}°F`;
+            } else {
+                document.getElementById('dashboard-dist-rwt').textContent = '-';
+            }
+            
+            // Calculate and update house drop
+            const houseDropElement = document.getElementById('dashboard-house-drop');
+            if (houseDropElement && distSwtTempF !== null && distRwtTempF !== null) {
+                const drop = (distSwtTempF - distRwtTempF).toFixed(1);
+                houseDropElement.innerHTML = `Drop<tspan x="720" dy="1.2em">${drop}°F</tspan>`;
+            } else if (houseDropElement) {
+                houseDropElement.innerHTML = `Drop<tspan x="720" dy="1.2em">-°F</tspan>`;
+            }
+        }
+
+        function updateDashboardPipeColors() {
+            // Check relay states to determine system state
+            const relay5 = dashboardRelays['relay5'];
+            const relay6 = dashboardRelays['relay6'];
+            const relay3 = dashboardRelays['relay3'];
+            const relay9 = dashboardRelays['relay9'];
+            
+            let currentState = null;
+            
+            if (relay5 && relay6 && relay3 && relay9) {
+                const relay5State = relay5.state;
+                const relay6State = relay6.state;
+                const relay3State = relay3.state;
+                const relay9State = relay9.state;
+                
+                let hpOn = false;
+                if (relay5State === 'energized' && relay6State === 'deenergized') {
+                    hpOn = true;
+                }
+                
+                let storeCharge = false;
+                let storeDischarge = false;
+                if (relay3State === 'energized') {
+                    storeCharge = true;
+                } else if (relay3State === 'deenergized' && relay9State === 'energized') {
+                    storeDischarge = true;
+                }
+                
+                if (hpOn && storeCharge) {
+                    currentState = 'HpOnStoreCharge';
+                } else if (hpOn && !storeCharge && !storeDischarge) {
+                    currentState = 'HpOnStoreOff';
+                } else if (!hpOn && storeDischarge) {
+                    currentState = 'HpOffStoreDischarge';
+                } else if (!hpOn && !storeCharge && !storeDischarge) {
+                    currentState = 'HpOffStoreOff';
+                } else {
+                    currentState = 'Unknown combined state';
+                }
+            }
+            
+            // Update pipe colors and animations based on state
+            if (currentState === 'HpOnStoreOff') {
+                // Show heat pump animation
+                const hpAnimation = document.getElementById('dashboard-hp-animation');
+                if (hpAnimation) {
+                    hpAnimation.style.display = 'block';
+                }
+                
+                // Show buffer animation
+                const bufferAnimation = document.getElementById('dashboard-buffer-animation');
+                if (bufferAnimation) {
+                    bufferAnimation.style.display = 'block';
+                }
+                
+                // Update pipe colors for HpOnStoreOff state
+                const hpBufferTopPipe = document.getElementById('dashboard-hp-buffer-top-pipe');
+                const hpBufferBottomPipe = document.getElementById('dashboard-hp-buffer-bottom-pipe');
+                
+                if (hpBufferTopPipe) {
+                    hpBufferTopPipe.setAttribute('fill', 'url(#dashboardFlowPattern)');
+                }
+                if (hpBufferBottomPipe) {
+                    hpBufferBottomPipe.setAttribute('fill', 'url(#dashboardLeftFlowPattern)');
+                }
+                
+            } else if (currentState === 'HpOffStoreDischarge') {
+                // Hide heat pump animation
+                const hpAnimation = document.getElementById('dashboard-hp-animation');
+                if (hpAnimation) {
+                    hpAnimation.style.display = 'none';
+                }
+                
+                // Show tank animations
+                const tank1Animation = document.getElementById('dashboard-tank1-animation');
+                const tank2Animation = document.getElementById('dashboard-tank2-animation');
+                const tank3Animation = document.getElementById('dashboard-tank3-animation');
+                
+                if (tank1Animation) tank1Animation.style.display = 'block';
+                if (tank2Animation) tank2Animation.style.display = 'block';
+                if (tank3Animation) tank3Animation.style.display = 'block';
+                
+                // Show buffer animation
+                const bufferAnimation = document.getElementById('dashboard-buffer-animation');
+                if (bufferAnimation) {
+                    bufferAnimation.style.display = 'block';
+                }
+                
+            } else if (currentState === 'HpOnStoreCharge') {
+                // Show heat pump animation
+                const hpAnimation = document.getElementById('dashboard-hp-animation');
+                if (hpAnimation) {
+                    hpAnimation.style.display = 'block';
+                }
+                
+                // Show tank animations
+                const tank1Animation = document.getElementById('dashboard-tank1-animation');
+                const tank2Animation = document.getElementById('dashboard-tank2-animation');
+                const tank3Animation = document.getElementById('dashboard-tank3-animation');
+                
+                if (tank1Animation) tank1Animation.style.display = 'block';
+                if (tank2Animation) tank2Animation.style.display = 'block';
+                if (tank3Animation) tank3Animation.style.display = 'block';
+                
+            } else {
+                // Hide all animations for other states
+                const hpAnimation = document.getElementById('dashboard-hp-animation');
+                const bufferAnimation = document.getElementById('dashboard-buffer-animation');
+                const tank1Animation = document.getElementById('dashboard-tank1-animation');
+                const tank2Animation = document.getElementById('dashboard-tank2-animation');
+                const tank3Animation = document.getElementById('dashboard-tank3-animation');
+                
+                if (hpAnimation) hpAnimation.style.display = 'none';
+                if (bufferAnimation) bufferAnimation.style.display = 'none';
+                if (tank1Animation) tank1Animation.style.display = 'none';
+                if (tank2Animation) tank2Animation.style.display = 'none';
+                if (tank3Animation) tank3Animation.style.display = 'none';
+            }
+        }
+
+        // Initialize dashboard when the dashboard card becomes visible and a house is selected
+        function initializeDashboard() {
+            const selectedHouse = document.getElementById('selected-house').value;
+            const dashboardCard = document.getElementById('dashboard-card');
+            
+            if (dashboardCard && !dashboardCard.classList.contains('hidden')) {
+                if (selectedHouse && selectedHouse.trim() !== '') {
+                    if (selectedHouse.includes('Select a single house in the table')) {
+                        // Multiple houses selected, show message
+                        console.log('Multiple houses selected');
+                        showDashboardMultipleHousesMessage();
+                    } else {
+                        // A single house is selected, connect to WebSocket
+                        connectDashboardWebSocket();
+                    }
+                } else {
+                    // No house selected, show message
+                    showDashboardNoHouseMessage();
+                }
+            }
+        }
+
+            // Show "No house selected" message in dashboard
+            function showDashboardNoHouseMessage() {
+                const statusLeft = document.getElementById('dashboard-status-left');
+                const statusRight = document.getElementById('dashboard-status-right');
+                const snapshotTime = document.getElementById('dashboard-snapshot-timestamp');
+                const systemDiagram = document.getElementById('dashboard-system-diagram');
+                const monitoringTables = document.getElementById('dashboard-monitoring-tables');
+                
+                if (statusLeft) statusLeft.textContent = 'No house selected';
+                if (statusLeft) statusLeft.style.fontSize = '1em';
+                if (statusLeft) statusLeft.style.color = 'var(--text-muted)';
+                if (statusRight) statusRight.textContent = '';
+                if (snapshotTime) snapshotTime.style.display = 'none';
+                if (systemDiagram) systemDiagram.style.display = 'none';
+                if (monitoringTables) monitoringTables.style.display = 'none';
+                
+                // Disconnect WebSocket if connected
+                if (dashboardWebsocket) {
+                    dashboardWebsocket.close();
+                    dashboardWebsocket = null;
+                }
+            }
+
+        // Show "Multiple houses selected" message in dashboard
+        function showDashboardMultipleHousesMessage() {
+            const statusLeft = document.getElementById('dashboard-status-left');
+            const statusRight = document.getElementById('dashboard-status-right');
+            const snapshotTime = document.getElementById('dashboard-snapshot-timestamp');
+            const systemDiagram = document.getElementById('dashboard-system-diagram');
+            const monitoringTables = document.getElementById('dashboard-monitoring-tables');
+            
+            if (statusLeft) statusLeft.textContent = 'Multiple houses selected';
+            if (statusLeft) statusLeft.style.fontSize = '1em';
+            if (statusLeft) statusLeft.style.color = 'var(--text-muted)';
+            if (statusRight) statusRight.textContent = '';
+            if (snapshotTime) snapshotTime.textContent = '-';
+            if (systemDiagram) systemDiagram.style.display = 'none';
+            if (monitoringTables) monitoringTables.style.display = 'none';
+        }
+
+        // Show dashboard content when house is selected
+        function showDashboardContent() {
+            const systemDiagram = document.getElementById('dashboard-system-diagram');
+            const monitoringTables = document.getElementById('dashboard-monitoring-tables');
+            
+            if (systemDiagram) systemDiagram.style.display = 'block';
+            if (monitoringTables) monitoringTables.style.display = 'flex';
+        }
 
         // Function to clear electricity plots
         function clearElectricityPlots() {
