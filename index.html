@@ -131,6 +131,7 @@
         
         .main-container {
             max-width: 1000px;
+            min-height: 100vh;
             margin: 3rem auto 2rem auto;
             padding: 0 1.5rem;
             flex: 1;
@@ -550,7 +551,7 @@
             padding: 2rem 0;
             color: var(--text-muted);
             font-size: 0.75rem;
-            border-top: 1px solid var(--border-color);
+            /* border-top: 1px solid var(--border-color); */
             margin-top: auto;
             background-color: var(--background-color);
         }
@@ -1139,7 +1140,7 @@
         <div class="container">
             <a class="navbar-brand" href="#">
                 <div>
-                    <span class="brand-text">gridworks</span>
+                    <span class="brand-text">GridWorks</span>
                 </div>
             </a>
             <div class="d-flex align-items-center gap-3">
@@ -1608,7 +1609,7 @@
                     <div>
                         <table id="dashboard-thermostat-table" style="border: 1px solid var(--border-color); border-collapse: collapse; border-radius: 0.25rem; background-color: var(--card-background); margin: 0 auto; font-size: 0.75rem; color: var(--text-muted);">
                             <thead>
-                                <tr style="background-color: #f0f0f0;">
+                                <tr style="background-color: var(--hover-color);">
                                     <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.75rem; color: var(--text-muted);">Thermostats</th>
                                     <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.75rem; color: var(--text-muted);">Setpoint</th>
                                     <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.75rem; color: var(--text-muted);">Temperature</th>
@@ -1630,7 +1631,7 @@
                     <div>
                         <table id="dashboard-hp-power-table" style="border: 1px solid var(--border-color); border-collapse: collapse; border-radius: 0.25rem; background-color: var(--card-background); margin: 0 auto; font-size: 0.8rem; color: var(--text-muted);">
                             <thead>
-                                <tr style="background-color: #f0f0f0;">
+                                <tr style="background-color: var(--hover-color);">
                                     <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">Heat pump</th>
                                     <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">kW</th>
                                 </tr>
@@ -1648,7 +1649,7 @@
                     <div>
                         <table id="dashboard-pump-table" style="border: 1px solid var(--border-color); border-collapse: collapse; border-radius: 0.25rem; background-color: var(--card-background); margin: 0 auto; font-size: 0.8rem; color: var(--text-muted);">
                             <thead>
-                                <tr style="background-color: #f0f0f0;">
+                                <tr style="background-color: var(--hover-color);">
                                     <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">Pumps</th>
                                     <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">GPM</th>
                                     <th style="border: 1px solid var(--border-color); padding: 6px; text-align: left; font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">W</th>
