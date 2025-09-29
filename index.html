@@ -2446,15 +2446,41 @@
                     window.houses = houses; // Store houses data globally
                     displayHouses(houses);
                 } else {
-                    console.error('Failed to fetch houses:', response.status);
+                    console.error('Failed to fetch houses:', response.status, response.statusText);
                     // If unauthorized, redirect to login
                     if (response.status === 401) {
                         console.log('Unauthorized, redirecting to login page');
                         window.location.href = "login.html";
+                    } else if (response.status === 0 || response.status >= 500) {
+                        console.error('Server error or network issue. This may be due to CORS restrictions on GitHub Pages.');
+                        // Show a user-friendly error message
+                        const tableBody = document.getElementById('table-body');
+                        if (tableBody) {
+                            tableBody.innerHTML = `
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        Unable to connect to server. This may be due to CORS restrictions when running on GitHub Pages.
+                                    </td>
+                                </tr>
+                            `;
+                        }
                     }
                 }
             } catch (error) {
                 console.error('Error fetching houses:', error);
+                // Show a user-friendly error message
+                const tableBody = document.getElementById('table-body');
+                if (tableBody) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                Network error: ${error.message}
+                            </td>
+                        </tr>
+                    `;
+                }
             }
         }
 
@@ -2871,7 +2897,18 @@
             for (const row of visibleRows) {
                 const homeId = row.getAttribute('data-home-id');
                 const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
+                
+                // Skip if details row or address table not found
+                if (!detailsRow) {
+                    console.warn(`Details row not found for home ID: ${homeId}`);
+                    continue;
+                }
+                
                 const addressTable = detailsRow.querySelector('.detail-table');
+                if (!addressTable) {
+                    console.warn(`Address table not found for home ID: ${homeId}`);
+                    continue;
+                }
                 
                 if (addressTable) {
                     const rows = addressTable.querySelectorAll('tr');
@@ -2916,7 +2953,9 @@
                         leftHalf.style.top = '0';
                         leftHalf.style.width = '50%';
                         leftHalf.style.height = '100%';
-                        leftHalf.style.backgroundColor = row.cells[0].querySelector('.badge').classList.contains('bg-success') ? '#28a745' : '#ff4444';
+                        // Add null check for cells[0] and badge element
+                        const alertStatusBadge = row.cells[0]?.querySelector('.badge');
+                        leftHalf.style.backgroundColor = alertStatusBadge?.classList.contains('bg-success') ? '#28a745' : '#ff4444';
                         
                         // Create the right half (representation status)
                         const rightHalf = document.createElement('div');
@@ -2925,7 +2964,9 @@
                         rightHalf.style.top = '0';
                         rightHalf.style.width = '50%';
                         rightHalf.style.height = '100%';
-                        rightHalf.style.backgroundColor = row.cells[3].querySelector('.badge').classList.contains('bg-warning') ? '#ffc107' : '#3a86ff';
+                        // Add null check for cells[3] and badge element
+                        const repStatusBadge = row.cells[3]?.querySelector('.badge');
+                        rightHalf.style.backgroundColor = repStatusBadge?.classList.contains('bg-warning') ? '#ffc107' : '#3a86ff';
                         
                         markerContent.appendChild(leftHalf);
                         markerContent.appendChild(rightHalf);
@@ -4412,6 +4453,10 @@
                 console.error('Dashboard WebSocket error:', error);
                 document.getElementById('dashboard-status-left').textContent = 'Error, connection failed';
                 document.getElementById('dashboard-status-right').textContent = '-';
+                // Show a more user-friendly message for CORS/connection issues
+                if (window.location.hostname.includes('github.io')) {
+                    console.warn('WebSocket connection failed - this may be due to CORS restrictions on GitHub Pages');
+                }
             };
 
             const statusLeft = document.getElementById('dashboard-status-left');
@@ -4763,15 +4808,10 @@
             // Check if SVG diagram is visible
             const systemDiagram = document.getElementById('dashboard-system-diagram');
             const diagramSvg = document.getElementById('dashboard-diagram-svg');
-            console.log('systemDiagram element:', systemDiagram);
-            console.log('diagramSvg element:', diagramSvg);
-            console.log('systemDiagram display style:', systemDiagram ? systemDiagram.style.display : 'not found');
             
             // Check if SVG patterns exist
             const flowPattern = document.getElementById('dashboardFlowPattern');
             const leftFlowPattern = document.getElementById('dashboardLeftFlowPattern');
-            console.log('dashboardFlowPattern element:', flowPattern);
-            console.log('dashboardLeftFlowPattern element:', leftFlowPattern);
             
             // Check for distribution flow to animate House pipes
             const readingsMap = {};
@@ -4818,12 +4858,6 @@
             // Combined condition: dist-flow > 0 OR zone relay condition
             const shouldAnimate = hasDistFlow || hasZoneRelayCondition;
             
-            console.log('Distribution flow check:', {
-                hasDistFlow: hasDistFlow,
-                hasZoneRelayCondition: hasZoneRelayCondition,
-                shouldAnimate: shouldAnimate,
-                distFlowValue: distFlowReading ? distFlowReading.Value : 'no reading'
-            });
             
             // Check relay states to determine system state
             const relay5 = dashboardRelays['relay5'];
@@ -4864,7 +4898,6 @@
                     currentState = 'Unknown combined state';
                 }
             }
-            console.log('currentState', currentState);
             
             // Update pipe colors and animations based on state
             if (currentState === 'HpOnStoreOff') {
@@ -4872,45 +4905,35 @@
                 const hpAnimation = document.getElementById('dashboard-hp-animation');
                 if (hpAnimation) {
                     hpAnimation.style.display = 'block';
-                    console.log('Set hpAnimation display to block for HpOnStoreOff');
                     // Apply the heat gradient and lines pattern
                     const hpGradientRect = hpAnimation.querySelector('rect[fill*="dashboardHeatGradient"]');
                     const hpLinesRect = hpAnimation.querySelector('rect[fill*="dashboardHeatLinesPattern"]');
-                    console.log('hpGradientRect:', hpGradientRect);
-                    console.log('hpLinesRect:', hpLinesRect);
                 }
                 
                 // Show buffer animation
                 const bufferAnimation = document.getElementById('dashboard-buffer-animation');
                 if (bufferAnimation) {
                     bufferAnimation.style.display = 'block';
-                    console.log('Set bufferAnimation display to block for HpOnStoreOff');
                     // Apply the top-to-bottom pattern for buffer
                     const bufferRect = bufferAnimation.querySelector('rect');
                     if (bufferRect) {
                         bufferRect.setAttribute('fill', 'url(#dashboardBufferHeatLinesTopToBottom)');
-                        console.log('Applied dashboardBufferHeatLinesTopToBottom to buffer for HpOnStoreOff');
                     }
                 }
                 
                 // Update pipe colors for HpOnStoreOff state
                 const hpBufferTopPipe = document.getElementById('dashboard-hp-buffer-top-pipe');
                 const hpBufferBottomPipe = document.getElementById('dashboard-hp-buffer-bottom-pipe');
-                
-                console.log('hpBufferTopPipe element:', hpBufferTopPipe);
-                console.log('hpBufferBottomPipe element:', hpBufferBottomPipe);
-                
+                                
                 if (hpBufferTopPipe) {
                     hpBufferTopPipe.setAttribute('fill', 'url(#dashboardFlowPattern)');
                     hpBufferTopPipe.removeAttribute('stroke');
                     hpBufferTopPipe.parentNode.appendChild(hpBufferTopPipe);
-                    console.log('Set hpBufferTopPipe fill to dashboardFlowPattern');
                 }
                 if (hpBufferBottomPipe) {
                     hpBufferBottomPipe.setAttribute('fill', 'url(#dashboardLeftFlowPattern)');
                     hpBufferBottomPipe.removeAttribute('stroke');
                     hpBufferBottomPipe.parentNode.appendChild(hpBufferBottomPipe);
-                    console.log('Set hpBufferBottomPipe fill to dashboardLeftFlowPattern');
                 }
                 
                 // Reset other pipes to gray for HpOnStoreOff state
@@ -5001,68 +5024,49 @@
                 }
                 
             } else if (currentState === 'HpOffStoreDischarge') {
-                console.log('HpOffStoreDischarge here we go for animations');
                 // Hide heat pump animation
                 const hpAnimation = document.getElementById('dashboard-hp-animation');
-                console.log('hpAnimation element:', hpAnimation);
                 if (hpAnimation) {
                     hpAnimation.style.display = 'none';
-                    console.log('Set hpAnimation display to none');
                 }
                 
                 // Show tank animations
                 const tank1Animation = document.getElementById('dashboard-tank1-animation');
                 const tank2Animation = document.getElementById('dashboard-tank2-animation');
                 const tank3Animation = document.getElementById('dashboard-tank3-animation');
-                
-                console.log('tank1Animation element:', tank1Animation);
-                console.log('tank2Animation element:', tank2Animation);
-                console.log('tank3Animation element:', tank3Animation);
-                
+                                
                 if (tank1Animation) {
                     tank1Animation.style.display = 'block';
-                    console.log('Set tank1Animation display to block');
                     // Check if the pattern is applied to the rect inside
                     const tank1Rect = tank1Animation.querySelector('rect');
-                    console.log('tank1Rect element:', tank1Rect);
                     if (tank1Rect) {
-                        console.log('tank1Rect fill attribute:', tank1Rect.getAttribute('fill'));
                         // Apply the bottom-to-top pattern
                         tank1Rect.setAttribute('fill', 'url(#dashboardTankHeatLinesBottomToTop)');
-                        console.log('Applied dashboardTankHeatLinesBottomToTop to tank1');
                     }
                 }
                 if (tank2Animation) {
                     tank2Animation.style.display = 'block';
-                    console.log('Set tank2Animation display to block');
                     const tank2Rect = tank2Animation.querySelector('rect');
                     if (tank2Rect) {
                         tank2Rect.setAttribute('fill', 'url(#dashboardTankHeatLinesBottomToTop)');
-                        console.log('Applied dashboardTankHeatLinesBottomToTop to tank2');
                     }
                 }
                 if (tank3Animation) {
                     tank3Animation.style.display = 'block';
-                    console.log('Set tank3Animation display to block');
                     const tank3Rect = tank3Animation.querySelector('rect');
                     if (tank3Rect) {
                         tank3Rect.setAttribute('fill', 'url(#dashboardTankHeatLinesBottomToTop)');
-                        console.log('Applied dashboardTankHeatLinesBottomToTop to tank3');
                     }
                 }
                 
                 // Show buffer animation
                 const bufferAnimation = document.getElementById('dashboard-buffer-animation');
-                console.log('bufferAnimation element:', bufferAnimation);
                 if (bufferAnimation) {
                     bufferAnimation.style.display = 'block';
-                    console.log('Set bufferAnimation display to block');
                     // Apply the top-to-bottom pattern for buffer
                     const bufferRect = bufferAnimation.querySelector('rect');
-                    console.log('bufferRect element:', bufferRect);
                     if (bufferRect) {
                         bufferRect.setAttribute('fill', 'url(#dashboardBufferHeatLinesTopToBottom)');
-                        console.log('Applied dashboardBufferHeatLinesTopToBottom to buffer');
                     }
                 }
                 
@@ -5073,44 +5077,36 @@
                 const tank3HpVerticalPipe = document.getElementById('dashboard-tank3-hp-vertical-pipe');
                 const tank3BufferHorizontalPipe = document.getElementById('dashboard-tank3-buffer-horizontal-pipe');
                 const tank3ConnectionPipe = document.getElementById('dashboard-tank3-connection-pipe');
-                
-                console.log('Animating pipes for HpOffStoreDischarge');
-                
+                                
                 if (tank1HpVerticalPipe) {
                     tank1HpVerticalPipe.setAttribute('fill', 'url(#dashboardVerticalFlowPattern)');
                     tank1HpVerticalPipe.removeAttribute('stroke');
                     tank1HpVerticalPipe.parentNode.appendChild(tank1HpVerticalPipe);
-                    console.log('Applied vertical flow pattern to tank1-hp-vertical-pipe');
                 }
                 if (tank1BufferHorizontalPipe) {
                     tank1BufferHorizontalPipe.setAttribute('fill', 'url(#dashboardFlowPattern)');
                     tank1BufferHorizontalPipe.removeAttribute('stroke');
                     tank1BufferHorizontalPipe.parentNode.appendChild(tank1BufferHorizontalPipe);
-                    console.log('Applied flow pattern to tank1-buffer-horizontal-pipe');
                 }
                 if (tank1ConnectionPipe) {
                     tank1ConnectionPipe.setAttribute('fill', 'url(#dashboardFlowPattern)');
                     tank1ConnectionPipe.removeAttribute('stroke');
                     tank1ConnectionPipe.parentNode.appendChild(tank1ConnectionPipe);
-                    console.log('Applied flow pattern to tank1-connection-pipe');
                 }
                 if (tank3HpVerticalPipe) {
                     tank3HpVerticalPipe.setAttribute('fill', 'url(#dashboardVerticalDownFlowPattern)');
                     tank3HpVerticalPipe.removeAttribute('stroke');
                     tank3HpVerticalPipe.parentNode.appendChild(tank3HpVerticalPipe);
-                    console.log('Applied vertical down flow pattern to tank3-hp-vertical-pipe');
                 }
                 if (tank3BufferHorizontalPipe) {
                     tank3BufferHorizontalPipe.setAttribute('fill', 'url(#dashboardLeftFlowPattern)');
                     tank3BufferHorizontalPipe.removeAttribute('stroke');
                     tank3BufferHorizontalPipe.parentNode.appendChild(tank3BufferHorizontalPipe);
-                    console.log('Applied left flow pattern to tank3-buffer-horizontal-pipe');
                 }
                 if (tank3ConnectionPipe) {
                     tank3ConnectionPipe.setAttribute('fill', 'url(#dashboardFlowPattern)');
                     tank3ConnectionPipe.removeAttribute('stroke');
                     tank3ConnectionPipe.parentNode.appendChild(tank3ConnectionPipe);
-                    console.log('Applied flow pattern to tank3-connection-pipe');
                 }
                 
                 // Reset other pipes to gray for HpOffStoreDischarge state
@@ -5190,7 +5186,6 @@
                 const hpAnimation = document.getElementById('dashboard-hp-animation');
                 if (hpAnimation) {
                     hpAnimation.style.display = 'block';
-                    console.log('Set hpAnimation display to block for HpOnStoreCharge');
                 }
                 
                 // Show tank animations with top-to-bottom flow
@@ -5203,7 +5198,6 @@
                     const tank1Rect = tank1Animation.querySelector('rect');
                     if (tank1Rect) {
                         tank1Rect.setAttribute('fill', 'url(#dashboardTankHeatLinesTopToBottom)');
-                        console.log('Applied dashboardTankHeatLinesTopToBottom to tank1 for HpOnStoreCharge');
                     }
                 }
                 if (tank2Animation) {
@@ -5211,7 +5205,6 @@
                     const tank2Rect = tank2Animation.querySelector('rect');
                     if (tank2Rect) {
                         tank2Rect.setAttribute('fill', 'url(#dashboardTankHeatLinesTopToBottom)');
-                        console.log('Applied dashboardTankHeatLinesTopToBottom to tank2 for HpOnStoreCharge');
                     }
                 }
                 if (tank3Animation) {
@@ -5219,7 +5212,6 @@
                     const tank3Rect = tank3Animation.querySelector('rect');
                     if (tank3Rect) {
                         tank3Rect.setAttribute('fill', 'url(#dashboardTankHeatLinesTopToBottom)');
-                        console.log('Applied dashboardTankHeatLinesTopToBottom to tank3 for HpOnStoreCharge');
                     }
                 }
                 
@@ -5230,44 +5222,36 @@
                 const tank3ConnectionPipeCharge = document.getElementById('dashboard-tank3-connection-pipe-charge');
                 const tank1HpHorizontalPipeCharge = document.getElementById('dashboard-tank1-hp-horizontal-pipe-charge');
                 const tank3HpHorizontalPipeCharge = document.getElementById('dashboard-tank3-hp-horizontal-pipe-charge');
-                
-                console.log('Animating pipes for HpOnStoreCharge');
-                
+                                
                 if (tank1HpVerticalPipeCharge) {
                     tank1HpVerticalPipeCharge.setAttribute('fill', 'url(#dashboardVerticalDownFlowPattern)');
                     tank1HpVerticalPipeCharge.removeAttribute('stroke');
                     tank1HpVerticalPipeCharge.parentNode.appendChild(tank1HpVerticalPipeCharge);
-                    console.log('Applied vertical down flow pattern to tank1-hp-vertical-pipe-charge');
                 }
                 if (tank3HpVerticalPipeCharge) {
                     tank3HpVerticalPipeCharge.setAttribute('fill', 'url(#dashboardVerticalFlowPattern)');
                     tank3HpVerticalPipeCharge.removeAttribute('stroke');
                     tank3HpVerticalPipeCharge.parentNode.appendChild(tank3HpVerticalPipeCharge);
-                    console.log('Applied vertical flow pattern to tank3-hp-vertical-pipe-charge');
                 }
                 if (tank1ConnectionPipeCharge) {
                     tank1ConnectionPipeCharge.setAttribute('fill', 'url(#dashboardLeftFlowPattern)');
                     tank1ConnectionPipeCharge.removeAttribute('stroke');
                     tank1ConnectionPipeCharge.parentNode.appendChild(tank1ConnectionPipeCharge);
-                    console.log('Applied left flow pattern to tank1-connection-pipe-charge');
                 }
                 if (tank3ConnectionPipeCharge) {
                     tank3ConnectionPipeCharge.setAttribute('fill', 'url(#dashboardLeftFlowPattern)');
                     tank3ConnectionPipeCharge.removeAttribute('stroke');
                     tank3ConnectionPipeCharge.parentNode.appendChild(tank3ConnectionPipeCharge);
-                    console.log('Applied left flow pattern to tank3-connection-pipe-charge');
                 }
                 if (tank1HpHorizontalPipeCharge) {
                     tank1HpHorizontalPipeCharge.setAttribute('fill', 'url(#dashboardFlowPattern)');
                     tank1HpHorizontalPipeCharge.removeAttribute('stroke');
                     tank1HpHorizontalPipeCharge.parentNode.appendChild(tank1HpHorizontalPipeCharge);
-                    console.log('Applied flow pattern to tank1-hp-horizontal-pipe-charge');
                 }
                 if (tank3HpHorizontalPipeCharge) {
                     tank3HpHorizontalPipeCharge.setAttribute('fill', 'url(#dashboardLeftFlowPattern)');
                     tank3HpHorizontalPipeCharge.removeAttribute('stroke');
                     tank3HpHorizontalPipeCharge.parentNode.appendChild(tank3HpHorizontalPipeCharge);
-                    console.log('Applied left flow pattern to tank3-hp-horizontal-pipe-charge');
                 }
                 
                 // Reset other pipes to gray for HpOnStoreCharge state
@@ -5441,7 +5425,6 @@
                     'dashboard-house-buffer-bottom-pipe'
                 ];
                 
-                console.log('Resetting all pipes to gray for other states');
                 allPipes.forEach(pipeId => {
                     const pipe = document.getElementById(pipeId);
                     if (pipe) {
