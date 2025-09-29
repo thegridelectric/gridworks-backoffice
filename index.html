@@ -412,45 +412,47 @@
         @media (max-width: 800px) {
             .table-responsive > .table > thead > tr > th:first-child,
             .table-responsive > .table > tbody > tr > td:first-child {
-                width: 20%;
+                width: 27%;
             }
             
             .table-responsive > .table > thead > tr > th:nth-child(2),
             .table-responsive > .table > tbody > tr > td:nth-child(2) {
-                width: 30%;
+                width: 36%;
             }
             
             .table-responsive > .table > thead > tr > th:nth-child(3),
             .table-responsive > .table > tbody > tr > td:nth-child(3) {
-                width: 25%;
+                width: 36%;
             }
             
-            .table-responsive > .table > thead > tr > th:nth-child(4),
+            /* TODO: Add back in later when ready */
+            /* .table-responsive > .table > thead > tr > th:nth-child(4),
             .table-responsive > .table > tbody > tr > td:nth-child(4) {
                 width: 20%;
-            }
+            } */
         }
 
         @media (min-width: 800px) {
             .table-responsive > .table > thead > tr > th:first-child,
             .table-responsive > .table > tbody > tr > td:first-child {
-                width: 25%;
+                width: 30%;
             }
             
             .table-responsive > .table > thead > tr > th:nth-child(2),
             .table-responsive > .table > tbody > tr > td:nth-child(2) {
-                width: 25%;
+                width: 35%;
             }
             
             .table-responsive > .table > thead > tr > th:nth-child(3),
             .table-responsive > .table > tbody > tr > td:nth-child(3) {
-                width: 25%;
+                width: 35%;
             }
             
-            .table-responsive > .table > thead > tr > th:nth-child(4),
+            /* TODO: Add back in later when ready */
+            /* .table-responsive > .table > thead > tr > th:nth-child(4),
             .table-responsive > .table > tbody > tr > td:nth-child(4) {
                 width: 25%;
-            }
+            } */
         }
         
         .table-responsive > .table > tbody > tr.expandable-row {
@@ -1155,12 +1157,13 @@
                     <button class="filter-toggle" id="filter-toggle" title="Filter table">
                         <i class="bi bi-funnel fs-6"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-secondary" id="add-house-btn" title="Listen to ATN">
+                    <!-- TODO: Add back in later when ready -->
+                    <!-- <button class="btn btn-sm btn-outline-secondary" id="add-house-btn" title="Listen to ATN">
                         <i class="bi bi-headphones fs-6"></i>
                     </button>
                     <button class="btn btn-sm btn-outline-secondary" id="remove-house-btn" title="Don't listen to ATN">
                         <i class="bi bi-incognito fs-6"></i>
-                    </button>
+                    </button> -->
                     <button class="btn btn-sm btn-outline-secondary" id="update-scada-btn" title="Update SCADA code">
                         <i class="bi bi-cloud-download fs-6"></i>
                     </button>
@@ -1192,12 +1195,13 @@
                         <input type="text" class="search-input" id="search-commit" placeholder="Commit">
                     </div>
                 </div>
-                <div class="search-group status">
+                <!-- TODO: Add back in later when ready -->
+                <!-- <div class="search-group status">
                     <div class="search-input-wrapper">
                         <i class="bi bi-search search-icon"></i>
                         <input type="text" class="search-input" id="search-status" placeholder="Status">
                     </div>
-                </div>
+                </div> -->
                 <button class="clear-filters-btn" id="clear-filters">
                     <i class="bi bi-x-lg"></i>
                     Clear
@@ -1211,7 +1215,8 @@
                             <th data-sort="short_alias">Alias</th>
                             <th data-sort="address">Location</th>
                             <th data-sort="commit">Commit</th>
-                            <th data-sort="status">Status</th>
+                            <!-- TODO: Add back in later when ready -->
+                            <!-- <th data-sort="status">Status</th> -->
                         </tr>
                     </thead>
                     <tbody id="table-body">
@@ -2498,11 +2503,13 @@
                             'N/A'}
                     </td>
                     <td>${house.scada_git_commit || 'N/A'}</td>
+                    <!-- TODO: Add back in later when ready 
                     <td>
                         <span class="badge ${house.representation_status === 'ListeningToAtn' ? 'bg-primary' : house.representation_status === 'NotListeningToAtn' ? 'bg-warning' : house.representation_status === 'ok' ? 'bg-success' : house.representation_status === 'alert' ? 'bg-danger' : 'bg-secondary'}">
                             ${house.representation_status === 'ListeningToAtn' ? '<i class="bi bi-headphones fs-6" title="ListeningToAtn"></i>' : house.representation_status === 'NotListeningToAtn' ? '<i class="bi bi-incognito fs-6" title="NotListeningToAtn"></i>' : house.representation_status || 'N/A'}
                         </span>
                     </td>
+                    -->
                 `;
                 
                 // Create action row
@@ -3323,7 +3330,8 @@
                 alias: document.getElementById('search-alias'),
                 city: document.getElementById('search-city'),
                 commit: document.getElementById('search-commit'),
-                status: document.getElementById('search-status')
+                // TODO: Add back in later when ready
+                // status: document.getElementById('search-status')
             };
             
             const clearSearchBtn = document.getElementById('clear-search');
@@ -3335,7 +3343,8 @@
                 const aliasFilter = searchInputs.alias ? searchInputs.alias.value.toLowerCase() : '';
                 const cityFilter = searchInputs.city ? searchInputs.city.value.toLowerCase() : '';
                 const commitFilter = searchInputs.commit ? searchInputs.commit.value.toLowerCase() : '';
-                const statusFilter = searchInputs.status ? searchInputs.status.value.toLowerCase() : '';
+                // TODO: Add back in later when ready
+                // const statusFilter = searchInputs.status ? searchInputs.status.value.toLowerCase() : '';
                 
                 const rows = document.querySelectorAll('.expandable-row');
                 let visibleCount = 0;
@@ -3351,20 +3360,22 @@
                     const alias = row.cells[0].textContent.trim().toLowerCase();
                     const city = row.cells[1].textContent.trim().toLowerCase();
                     const commit = row.cells[2].textContent.trim().toLowerCase();
-                    const statusCell = row.cells[3].textContent.trim().toLowerCase();
-                    const statusIcon = row.cells[3].querySelector('i');
-                    const status = statusIcon ? 
-                        (statusIcon.classList.contains('bi-headphones') ? 'listeningtoatn' : 
-                         statusIcon.classList.contains('bi-incognito') ? 'notlisteningtoatn' : 
-                         statusCell) : 
-                        statusCell;
+                    // TODO: Add back in later when ready
+                    // const statusCell = row.cells[3].textContent.trim().toLowerCase();
+                    // const statusIcon = row.cells[3].querySelector('i');
+                    // const status = statusIcon ? 
+                    //     (statusIcon.classList.contains('bi-headphones') ? 'listeningtoatn' : 
+                    //      statusIcon.classList.contains('bi-incognito') ? 'notlisteningtoatn' : 
+                    //      statusCell) : 
+                    //     statusCell;
                     
                     const matchesAlias = alias.startsWith(aliasFilter);
                     const matchesCity = city.startsWith(cityFilter);
                     const matchesCommit = commit.startsWith(commitFilter);
-                    const matchesStatus = status.startsWith(statusFilter);
-                    
-                    if (matchesAlias && matchesCity && matchesCommit && matchesStatus) {
+                    // TODO: Add back in later when ready
+                    // const matchesStatus = status.startsWith(statusFilter);
+                    if (matchesAlias && matchesCity && matchesCommit) { // && matchesStatus
+                        // TODO: Add back in later when ready
                         row.style.display = '';
                         const detailsRow = document.querySelector(`.details-row[data-home-id="${row.getAttribute('data-home-id')}"]`);
                         if (detailsRow) detailsRow.style.display = '';
