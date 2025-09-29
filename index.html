@@ -1086,6 +1086,50 @@
             padding-left: 0.5rem;
             cursor: pointer;
         }
+
+        /* Card visibility controls styling */
+        .card-visibility-controls {
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-toggle-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 0;
+            border-radius: 0.25rem;
+        }
+
+        .card-toggle-btn:hover {
+            color: var(--text-color);
+        }
+
+        .card-toggle-btn.active {
+            background-color: var(--hover-color) !important;
+            color: var(--text-color);
+        }
+
+        .card-toggle-btn.active:hover {
+            background-color: var(--hover-color) !important;
+        }
+
+        /* Hide cards by default */
+        .card.hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -1186,8 +1230,17 @@
             </div>
         </div>
 
+        <!-- Card Visibility Controls -->
+        <div class="card-visibility-controls" style="margin-top:-1.5rem">
+            <button type="button" class="card-toggle-btn active" id="show-visualizer" data-card="visualizer-card">Visualizer</button>
+            <button type="button" class="card-toggle-btn" id="show-electricity" data-card="electricity-card">Hourly data</button>
+            <button type="button" class="card-toggle-btn" id="show-information" data-card="information-card">Information</button>
+            <button type="button" class="card-toggle-btn" id="show-morning-report" data-card="morning-report-card">Morning report</button>
+            <button type="button" class="card-toggle-btn" id="show-map" data-card="map-card">Map</button>
+        </div>
+
         <!-- Map Card -->
-        <div class="card map-card">
+        <div class="card map-card" id="map-card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title">Map</h5>
                 <div class="status-badges">
@@ -1206,9 +1259,9 @@
         </div>
 
         <!-- Electricity Use Card -->
-        <div class="card">
+        <div class="card" id="electricity-card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title">Electricity use</h5>
+                <h5 class="card-title">Hourly data</h5>
                 <div class="status-badges">
                     <button class="fullscreen-btn" id="electricity-fullscreen-btn">
                         <i class="bi bi-arrows-fullscreen"></i>
@@ -1306,9 +1359,9 @@
         </div>
 
         <!-- Visualizer Card -->
-        <div class="card">
+        <div class="card" id="visualizer-card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title">Visualize data</h5>
+                <h5 class="card-title">Visualizer</h5>
                 <div class="status-badges">
                     <div class="loader" style="display: none;"></div>
                     <button class="fullscreen-btn" id="fullscreen-btn">
@@ -1711,6 +1764,10 @@
                 // Form submit
                 document.getElementById('morning-form').addEventListener('submit', async function(event) {
                     event.preventDefault();
+                    
+                    // Clear the morning report card first
+                    document.getElementById('morning-table-container').innerHTML = '';
+                    
                     const selectedMessageTypes = Array.from(document.querySelectorAll('input[name="morning-channels"]:checked')).map(cb => cb.value);
                     const selectedAliases = getSelectedHouseAliases();
                     let house_alias = '';
@@ -1765,6 +1822,54 @@
                     }
                 });
             });
+
+            // Card visibility controls
+            function initializeCardVisibility() {
+                const buttons = {
+                    'show-map': 'map-card',
+                    'show-electricity': 'electricity-card', 
+                    'show-information': 'information-card',
+                    'show-visualizer': 'visualizer-card',
+                    'show-morning-report': 'morning-report-card'
+                };
+
+                // Set initial visibility based on button states
+                Object.entries(buttons).forEach(([buttonId, cardId]) => {
+                    const button = document.getElementById(buttonId);
+                    const card = document.getElementById(cardId);
+                    
+                    if (button && card) {
+                        // Set initial visibility
+                        if (!button.classList.contains('active')) {
+                            card.classList.add('hidden');
+                        }
+                        
+                        // Add event listener
+                        button.addEventListener('click', function() {
+                            // Remove active class from all buttons
+                            Object.keys(buttons).forEach(otherButtonId => {
+                                const otherButton = document.getElementById(otherButtonId);
+                                const otherCard = document.getElementById(buttons[otherButtonId]);
+                                if (otherButton && otherCard) {
+                                    otherButton.classList.remove('active');
+                                    otherCard.classList.add('hidden');
+                                }
+                            });
+                            
+                            // Add active class to clicked button and show its card
+                            this.classList.add('active');
+                            card.classList.remove('hidden');
+                        });
+                    }
+                });
+            }
+
+            // Initialize card visibility when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initializeCardVisibility);
+            } else {
+                initializeCardVisibility();
+            }
         })();
         </script>
 
@@ -1854,6 +1959,7 @@
 
             // Initialize button states
             updateInfoButtonStates();
+            updateVisualizerButtonStates();
 
             // Add event listener for the electricity plot button
             const electricityPlotBtn = document.getElementById('electricity-plot-btn');
@@ -2122,7 +2228,7 @@
             setTimeout(() => {
                 updateMapMarkers();
                 // Fetch electricity plots after table is loaded
-                fetchElectricityPlots();
+                // fetchElectricityPlots(); // Commented out - only plot when Plot button is clicked
             }, 500);
         }
 
@@ -2187,6 +2293,7 @@
                     
                     // Update button states
                     updateInfoButtonStates();
+                    updateVisualizerButtonStates();
                     
                     // Close other expanded rows
                     expandableRows.forEach(otherRow => {
@@ -2206,7 +2313,7 @@
                     updateMapFocus(this);
                     
                     // Fetch electricity plots after selection change
-                    fetchElectricityPlots();
+                    // fetchElectricityPlots(); // Commented out - only plot when Plot button is clicked
                 });
             });
             
@@ -2536,6 +2643,10 @@
                     infoSelectedHouseInput.value = this.cells[0].textContent.trim();
                     electricitySelectedHouseInput.value = this.cells[0].textContent.trim();
                     
+                    // Update button states
+                    updateInfoButtonStates();
+                    updateVisualizerButtonStates();
+                    
                     // Toggle expanded class on the main row
                     this.classList.toggle('expanded');
                     
@@ -2557,7 +2668,7 @@
                     updateMapFocus(this);
                     
                     // Fetch electricity plots after selection change
-                    fetchElectricityPlots();
+                    // fetchElectricityPlots(); // Commented out - only plot when Plot button is clicked
                 });
             });
 
@@ -2618,6 +2729,10 @@
                     selectedHouseInput.value = row.cells[0].textContent.trim();
                     infoSelectedHouseInput.value = row.cells[0].textContent.trim();
                     electricitySelectedHouseInput.value = row.cells[0].textContent.trim();
+                    
+                    // Update button states
+                    updateInfoButtonStates();
+                    updateVisualizerButtonStates();
                     
                     // Show information details
                     document.getElementById('info-details').style.display = 'grid';
@@ -2851,7 +2966,7 @@
                 // Only fetch electricity plots if the visible houses have changed
                 if (currentVisibleAliasesStr !== window.previousVisibleAliasesStr) {
                     window.previousVisibleAliasesStr = currentVisibleAliasesStr;
-                    fetchElectricityPlots();
+                    // fetchElectricityPlots(); // Commented out - only plot when Plot button is clicked
                 }
                 
                 // Return the count of visible rows
@@ -3431,6 +3546,25 @@
             });
         }
 
+        // Function to update visualizer button states based on house selection
+        function updateVisualizerButtonStates() {
+            const houseAlias = document.getElementById('selected-house').value;
+            const buttons = [
+                document.getElementById('plot-btn'),
+                document.getElementById('csv-btn'),
+                document.getElementById('flo-btn')
+            ];
+            
+            const hasSelectedHouse = houseAlias && houseAlias.trim() !== '';
+            
+            buttons.forEach(button => {
+                if (button) {
+                    button.disabled = !hasSelectedHouse;
+                    button.style.opacity = hasSelectedHouse ? '1' : '0.5';
+                }
+            });
+        }
+
         // Add event listener for the info reset button
         const infoResetBtn = document.getElementById('info-reset-btn');
         infoResetBtn.addEventListener('click', function() {
@@ -3666,6 +3800,9 @@
 
         document.getElementById('clear-btn').addEventListener('click', function() {
             clearPlots();
+            // Clear the selected house input and update button states
+            document.getElementById('selected-house').value = '';
+            updateVisualizerButtonStates();
         });
 
         async function login(username, password) {
