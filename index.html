@@ -1457,10 +1457,6 @@
                         
                         <!-- House (bottom right, left of buffer) -->
                         <rect x="660" y="280" width="120" height="200" rx="10" fill="#888"/>
-                        <g id="dashboard-house-animation" style="display: none;">
-                            <rect x="660" y="280" width="120" height="200" rx="10" fill="url(#dashboardHouseHeatGradient)"/>
-                            <rect x="660" y="280" width="120" height="200" rx="10" fill="url(#dashboardHouseHeatLinesPattern)"/>
-                        </g>
                         <text x="720" y="500" text-anchor="middle" fill="var(--text-color)" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">House</text>
                         <text id="dashboard-house-drop" x="720" y="380" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="16" font-weight="600">Drop<tspan x="720" dy="1.2em">-°F</tspan>
                         </text>
@@ -1582,6 +1578,12 @@
                         <!-- Buffer pipe temperature labels -->
                         <text id="dashboard-buffer-hot-pipe" x="830" y="70" text-anchor="middle" fill="#888" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
                         <text id="dashboard-buffer-cold-pipe" x="830" y="210" text-anchor="middle" fill="#888" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">-</text>
+                        
+                        <!-- House animation group (moved to end to ensure visibility) -->
+                        <g id="dashboard-house-animation" style="display: none;">
+                            <rect x="660" y="280" width="120" height="200" rx="10" fill="url(#dashboardHouseHeatGradient)"/>
+                            <rect x="660" y="280" width="120" height="200" rx="10" fill="url(#dashboardHouseHeatLinesPattern)"/>
+                        </g>
                         
                     </svg>
                 </div>
@@ -4429,7 +4431,7 @@
             updateDashboardSnapshotTimestamp(snapshotData);
             updateDashboardThermostatTable(snapshotData);
             updateDashboardPowerPumpTable(snapshotData);
-            updateDashboardTankTemperatures(snapshotData);
+            updateTankTemperatures(snapshotData);
             updateDashboardPipeColors();
         }
 
@@ -5494,12 +5496,498 @@
             }
         }
 
+        function updateTankTemperatures(snapshotData) {
+            if (!snapshotData || !snapshotData.LatestReadingList) return;
+            
+            // Create a lookup map for readings
+            const readingsMap = {};
+            snapshotData.LatestReadingList.forEach(reading => {
+                readingsMap[reading.ChannelName] = reading;
+            });
+            
+            
+            // Detect number of depth layers for each component
+            const getMaxDepth = (componentName) => {
+                let maxDepth = 3; // Default to 3 layers
+                for (let depth = 4; depth <= 10; depth++) { // Check up to 10 layers
+                    if (readingsMap[`${componentName}-depth${depth}`]) {
+                        maxDepth = depth;
+                    }
+                }
+                return maxDepth;
+            };
+            
+            // Update each tank's temperature readings
+            for (let tankNum = 1; tankNum <= 3; tankNum++) {
+                const maxDepth = getMaxDepth(`tank${tankNum}`);
+                
+                // Create or update sections dynamically
+                createTankSections(tankNum, maxDepth);
+                
+                for (let depth = 1; depth <= maxDepth; depth++) {
+                    const channelName = `tank${tankNum}-depth${depth}`;
+                    const reading = readingsMap[channelName];
+                    const elementId = `dashboard-tank${tankNum}-depth${depth}`;
+                    const element = document.getElementById(elementId);
+                    
+                    if (element && reading) {
+                        // Convert temperature from Celsius * 1000 to Fahrenheit
+                        // Formula: °F = (°C * 9/5) + 32
+                        const tempC = reading.Value / 1000; // Convert from degCx1000 to degC
+                        const tempF = (tempC * 9/5 + 32).toFixed(1); // Convert to Fahrenheit
+                        element.textContent = `${tempF}°F`;
+                        
+                        // Update background color based on temperature
+                        const sectionElement = document.getElementById(`dashboard-tank${tankNum}-section${depth}`);
+                        if (sectionElement) {
+                            const tempFNum = parseFloat(tempF);
+                            const backgroundColor = updateLayerBackground(tempFNum);
+                            sectionElement.setAttribute('fill', backgroundColor);
+                        }
+                        
+                    } else if (element) {
+                        // If no reading available, show placeholder
+                        element.textContent = '-';
+                        //console.log(`No reading available for ${channelName}`);
+                    }
+                }
+            }
+            
+            // Update buffer temperature readings
+            const bufferMaxDepth = getMaxDepth('buffer');
+            
+            // Create or update buffer sections dynamically
+            createBufferSections(bufferMaxDepth);
+            
+            for (let depth = 1; depth <= bufferMaxDepth; depth++) {
+                const channelName = `buffer-depth${depth}`;
+                const reading = readingsMap[channelName];
+                const elementId = `dashboard-buffer-depth${depth}`;
+                const element = document.getElementById(elementId);
+                
+                if (element && reading) {
+                    // Convert temperature from Celsius * 1000 to Fahrenheit
+                    // Formula: °F = (°C * 9/5) + 32
+                    const tempC = reading.Value / 1000; // Convert from degCx1000 to degC
+                    const tempF = (tempC * 9/5 + 32).toFixed(1); // Convert to Fahrenheit
+                    element.textContent = `${tempF}°F`;
+                    
+                    // Update background color based on temperature
+                    const sectionElement = document.getElementById(`dashboard-buffer-section${depth}`);
+                    if (sectionElement) {
+                        const tempFNum = parseFloat(tempF);
+                        const backgroundColor = updateLayerBackground(tempFNum);
+                        sectionElement.setAttribute('fill', backgroundColor);
+                    }
+                    
+                } else if (element) {
+                    // If no reading available, show placeholder
+                    element.textContent = '-';
+                    //console.log(`No reading available for ${channelName}`);
+                }
+            }
+            
+            // Update heat pump leaving water temperature (hp-lwt)
+            const hpLwtReading = readingsMap['hp-lwt'];
+            const hpLwtElement = document.getElementById('dashboard-hp-lwt');
+            let hpLwtTempF = null;
+            
+            if (hpLwtElement && hpLwtReading) {
+                // Convert temperature from Celsius * 1000 to Fahrenheit
+                // Formula: °F = (°C * 9/5) + 32
+                const tempC = hpLwtReading.Value / 1000; // Convert from degCx1000 to degC
+                hpLwtTempF = parseFloat((tempC * 9/5 + 32).toFixed(1)); // Convert to Fahrenheit
+                hpLwtElement.textContent = `${hpLwtTempF}°F`;
+                
+            } else if (hpLwtElement) {
+                // If no reading available, show placeholder
+                hpLwtElement.textContent = '-';
+                //console.log(`No reading available for hp-lwt`);
+            }
+            
+            // Update heat pump entering water temperature (hp-ewt)
+            const hpEwtReading = readingsMap['hp-ewt'];
+            const hpEwtElement = document.getElementById('dashboard-hp-ewt');
+            let hpEwtTempF = null;
+            
+            if (hpEwtElement && hpEwtReading) {
+                // Convert temperature from Celsius * 1000 to Fahrenheit
+                // Formula: °F = (°C * 9/5) + 32
+                const tempC = hpEwtReading.Value / 1000; // Convert from degCx1000 to degC
+                hpEwtTempF = parseFloat((tempC * 9/5 + 32).toFixed(1)); // Convert to Fahrenheit
+                hpEwtElement.textContent = `${hpEwtTempF}°F`;
+                
+            } else if (hpEwtElement) {
+                // If no reading available, show placeholder
+                hpEwtElement.textContent = '-';
+                //console.log(`No reading available for hp-ewt`);
+            }
+            
+            // Calculate and update heat pump lift (hp-lwt - hp-ewt)
+            const hpLiftElement = document.getElementById('dashboard-hp-lift');
+            if (hpLiftElement && hpLwtTempF !== null && hpEwtTempF !== null) {
+                const lift = (hpLwtTempF - hpEwtTempF).toFixed(1);
+                hpLiftElement.innerHTML = `Lift<tspan x="80" dy="1.2em">${lift}°F</tspan>`;
+            } else if (hpLiftElement) {
+                // If either temperature is not available, show placeholder
+                hpLiftElement.innerHTML = `Lift<tspan x="80" dy="1.2em">-°F</tspan>`;
+                //console.log(`Cannot calculate lift - missing temperature data`);
+            }
+            
+            // Update heat pump gradient colors based on EWT and LWT temperatures
+            const ewtStop = document.getElementById('dashboard-ewt-stop');
+            const lwtStop = document.getElementById('dashboard-lwt-stop');
+            if (ewtStop && lwtStop && hpEwtTempF !== null && hpLwtTempF !== null) {
+                const ewtColor = updateLayerBackground(hpEwtTempF);
+                const lwtColor = updateLayerBackground(hpLwtTempF);
+                
+                // Force update by removing and re-adding the style attribute
+                ewtStop.removeAttribute('style');
+                lwtStop.removeAttribute('style');
+                ewtStop.setAttribute('style', `stop-color:${ewtColor};stop-opacity:1`);
+                lwtStop.setAttribute('style', `stop-color:${lwtColor};stop-opacity:1`);
+                
+                // Also try setting the stop-color attribute directly
+                ewtStop.setAttribute('stop-color', ewtColor);
+                lwtStop.setAttribute('stop-color', lwtColor);
+                
+            } else if (ewtStop && lwtStop) {
+                // Reset to default colors if temperatures are not available
+                ewtStop.removeAttribute('style');
+                lwtStop.removeAttribute('style');
+                ewtStop.setAttribute('style', 'stop-color:#888;stop-opacity:1');
+                lwtStop.setAttribute('style', 'stop-color:#888;stop-opacity:1');
+                ewtStop.setAttribute('stop-color', '#888');
+                lwtStop.setAttribute('stop-color', '#888');
+                //console.log('Reset heat pump gradient to default colors - missing temperature data');
+            } else {
+                //console.log('Gradient elements not found: ewtStop=', !!ewtStop, 'lwtStop=', !!lwtStop);
+            }
+            
+            // Update buffer hot pipe temperature (buffer-hot-pipe)
+            const bufferHotPipeReading = readingsMap['buffer-hot-pipe'];
+            const bufferHotPipeElement = document.getElementById('dashboard-buffer-hot-pipe');
+            
+            if (bufferHotPipeElement && bufferHotPipeReading) {
+                // Convert temperature from Celsius * 1000 to Fahrenheit
+                // Formula: °F = (°C * 9/5) + 32
+                const tempC = bufferHotPipeReading.Value / 1000; // Convert from degCx1000 to degC
+                const tempF = (tempC * 9/5 + 32).toFixed(1); // Convert to Fahrenheit
+                bufferHotPipeElement.textContent = `${tempF}°F`;
+                
+            } else if (bufferHotPipeElement) {
+                // If no reading available, show placeholder
+                bufferHotPipeElement.textContent = '-';
+                //console.log(`No reading available for buffer-hot-pipe`);
+            }
+            
+            // Update buffer cold pipe temperature (buffer-cold-pipe)
+            const bufferColdPipeReading = readingsMap['buffer-cold-pipe'];
+            const bufferColdPipeElement = document.getElementById('dashboard-buffer-cold-pipe');
+            
+            if (bufferColdPipeElement && bufferColdPipeReading) {
+                // Convert temperature from Celsius * 1000 to Fahrenheit
+                // Formula: °F = (°C * 9/5) + 32
+                const tempC = bufferColdPipeReading.Value / 1000; // Convert from degCx1000 to degC
+                const tempF = (tempC * 9/5 + 32).toFixed(1); // Convert to Fahrenheit
+                bufferColdPipeElement.textContent = `${tempF}°F`;
+                
+            } else if (bufferColdPipeElement) {
+                // If no reading available, show placeholder
+                bufferColdPipeElement.textContent = '-';
+                //console.log(`No reading available for buffer-cold-pipe`);
+            }
+            
+            // Update store hot pipe temperature (store-hot-pipe)
+            const storeHotPipeReading = readingsMap['store-hot-pipe'];
+            const storeHotPipeElement = document.getElementById('dashboard-store-hot-pipe');
+            
+            
+            if (storeHotPipeElement && storeHotPipeReading) {
+                // Convert temperature from Celsius * 1000 to Fahrenheit
+                // Formula: °F = (°C * 9/5) + 32
+                const tempC = storeHotPipeReading.Value / 1000; // Convert from degCx1000 to degC
+                const tempF = (tempC * 9/5 + 32).toFixed(1); // Convert to Fahrenheit
+                storeHotPipeElement.textContent = `${tempF}°F`;
+                
+            } else if (storeHotPipeElement) {
+                // If no reading available, show placeholder
+                storeHotPipeElement.textContent = '-';
+                //console.log(`No reading available for store-hot-pipe`);
+            }
+            
+            // Update store cold pipe temperature (store-cold-pipe)
+            const storeColdPipeReading = readingsMap['store-cold-pipe'];
+            const storeColdPipeElement = document.getElementById('dashboard-store-cold-pipe');
+            
+            
+            if (storeColdPipeElement && storeColdPipeReading) {
+                // Convert temperature from Celsius * 1000 to Fahrenheit
+                // Formula: °F = (°C * 9/5) + 32
+                const tempC = storeColdPipeReading.Value / 1000; // Convert from degCx1000 to degC
+                const tempF = (tempC * 9/5 + 32).toFixed(1); // Convert to Fahrenheit
+                storeColdPipeElement.textContent = `${tempF}°F`;
+                
+            } else if (storeColdPipeElement) {
+                // If no reading available, show placeholder
+                storeColdPipeElement.textContent = '-';
+                //console.log(`No reading available for store-cold-pipe`);
+            }
+            
+            // Update house distribution supply water temperature (dist-swt)
+            const distSwtReading = readingsMap['dist-swt'];
+            let distSwtTempF = null;
+            
+            if (distSwtReading) {
+                // Convert temperature from Celsius * 1000 to Fahrenheit
+                // Formula: °F = (°C * 9/5) + 32
+                const tempC = distSwtReading.Value / 1000; // Convert from degCx1000 to degC
+                distSwtTempF = parseFloat((tempC * 9/5 + 32).toFixed(1)); // Convert to Fahrenheit
+            } else {
+                //console.log(`No reading available for dist-swt`);
+            }
+            
+            // Update house distribution return water temperature (dist-rwt)
+            const distRwtReading = readingsMap['dist-rwt'];
+            let distRwtTempF = null;
+            
+            if (distRwtReading) {
+                // Convert temperature from Celsius * 1000 to Fahrenheit
+                // Formula: °F = (°C * 9/5) + 32
+                const tempC = distRwtReading.Value / 1000; // Convert from degCx1000 to degC
+                distRwtTempF = parseFloat((tempC * 9/5 + 32).toFixed(1)); // Convert to Fahrenheit
+            } else {
+                //console.log(`No reading available for dist-rwt`);
+            }
+            
+            // Calculate and update house drop (dist-swt - dist-rwt)
+            const houseDropElement = document.getElementById('dashboard-house-drop');
+            if (houseDropElement && distSwtTempF !== null && distRwtTempF !== null) {
+                const drop = (distSwtTempF - distRwtTempF).toFixed(1);
+                houseDropElement.innerHTML = `Drop<tspan x="720" dy="1.2em">${drop}°F</tspan>`;
+            } else if (houseDropElement) {
+                // If either temperature is not available, show placeholder
+                houseDropElement.innerHTML = `Drop<tspan x="720" dy="1.2em">-°F</tspan>`;
+                //console.log(`Cannot calculate drop - missing temperature data`);
+            }
+            
+            // Update individual distribution temperature labels
+            const distSwtElement = document.getElementById('dashboard-dist-swt');
+            if (distSwtElement) {
+                if (distSwtTempF !== null) {
+                    distSwtElement.textContent = `${distSwtTempF}°F`;
+                } else {
+                    distSwtElement.textContent = '-';
+                    //console.log(`dist-swt label: no data available`);
+                }
+            }
+            
+            const distRwtElement = document.getElementById('dashboard-dist-rwt');
+            if (distRwtElement) {
+                if (distRwtTempF !== null) {
+                    distRwtElement.textContent = `${distRwtTempF}°F`;
+                } else {
+                    distRwtElement.textContent = '-';
+                    //console.log(`dist-rwt label: no data available`);
+                }
+            }
+            
+            // Update house gradient colors based on dist-rwt and dist-swt temperatures
+            const distRwtStop = document.getElementById('dashboard-dist-rwt-stop');
+            const distSwtStop = document.getElementById('dashboard-dist-swt-stop');
+            if (distRwtStop && distSwtStop && distRwtTempF !== null && distSwtTempF !== null) {
+                const distRwtColor = updateLayerBackground(distRwtTempF);
+                const distSwtColor = updateLayerBackground(distSwtTempF);
+                
+                // Force update by removing and re-adding the style attribute
+                distRwtStop.removeAttribute('style');
+                distSwtStop.removeAttribute('style');
+                distRwtStop.setAttribute('style', `stop-color:${distRwtColor};stop-opacity:1`);
+                distSwtStop.setAttribute('style', `stop-color:${distSwtColor};stop-opacity:1`);
+                
+                // Also try setting the stop-color attribute directly
+                distRwtStop.setAttribute('stop-color', distRwtColor);
+                distSwtStop.setAttribute('stop-color', distSwtColor);
+                
+            } else if (distRwtStop && distSwtStop) {
+                // Reset to default colors if temperatures are not available
+                distRwtStop.removeAttribute('style');
+                distSwtStop.removeAttribute('style');
+                distRwtStop.setAttribute('style', 'stop-color:#888;stop-opacity:1');
+                distSwtStop.setAttribute('style', 'stop-color:#888;stop-opacity:1');
+                distRwtStop.setAttribute('stop-color', '#888');
+                distSwtStop.setAttribute('stop-color', '#888');
+                //console.log('Reset house gradient to default colors - missing temperature data');
+            } else {
+                //console.log('House gradient elements not found: distRwtStop=', !!distRwtStop, 'distSwtStop=', !!distSwtStop);
+            }
+        }
+
+        function updateLayerBackground(temp) {
+            const minTemp = 50;
+            const maxTemp = 160;
+            const normalizedTemp = (temp - minTemp) / (maxTemp - minTemp);
+            const red = Math.min(255, Math.floor(255 * normalizedTemp));
+            const blue = Math.min(255, Math.floor(255 * (1 - normalizedTemp)));
+            const backgroundColor = `rgba(${red}, 0, ${blue}, 0.86)`;
+            return backgroundColor;
+        }
+
+        function createTankSections(tankNum, maxDepth) {
+            // Tank positions
+            const tankPositions = {
+                1: { x: 460, y: 280 },
+                2: { x: 330, y: 280 },
+                3: { x: 200, y: 280 }
+            };
+            
+            const pos = tankPositions[tankNum];
+            if (!pos) return;
+            
+            const sectionHeight = 200 / maxDepth; // Divide total height by number of sections
+            
+            // Clear existing sections for this tank
+            for (let i = 1; i <= 10; i++) {
+                const existingSection = document.getElementById(`dashboard-tank${tankNum}-section${i}`);
+                const existingText = document.getElementById(`dashboard-tank${tankNum}-depth${i}`);
+                if (existingSection) existingSection.remove();
+                if (existingText) existingText.remove();
+            }
+            
+            // Create new sections
+            for (let depth = 1; depth <= maxDepth; depth++) {
+                const y = pos.y + (depth - 1) * sectionHeight;
+                const height = sectionHeight;
+                
+                // Create section element
+                let sectionElement;
+                if (depth === 1) {
+                    // Top section - rounded top corners only
+                    sectionElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const d = `M ${pos.x},${y + 10} Q ${pos.x},${y} ${pos.x + 10},${y} L ${pos.x + 110},${y} Q ${pos.x + 120},${y} ${pos.x + 120},${y + 10} L ${pos.x + 120},${y + height} L ${pos.x},${y + height} Z`;
+                    sectionElement.setAttribute('d', d);
+                } else if (depth === maxDepth) {
+                    // Bottom section - rounded bottom corners only
+                    sectionElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const d = `M ${pos.x},${y} L ${pos.x + 120},${y} L ${pos.x + 120},${y + height - 10} Q ${pos.x + 120},${y + height} ${pos.x + 110},${y + height} L ${pos.x + 10},${y + height} Q ${pos.x},${y + height} ${pos.x},${y + height - 10} Z`;
+                    sectionElement.setAttribute('d', d);
+                } else {
+                    // Middle section - no rounded corners
+                    sectionElement = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    sectionElement.setAttribute('x', pos.x);
+                    sectionElement.setAttribute('y', y);
+                    sectionElement.setAttribute('width', 120);
+                    sectionElement.setAttribute('height', height);
+                }
+                
+                sectionElement.setAttribute('id', `dashboard-tank${tankNum}-section${depth}`);
+                sectionElement.setAttribute('fill', '#444');
+                
+                // Insert after the tank background rectangle
+                const tankRect = document.querySelector(`rect[x="${pos.x}"][y="${pos.y}"]`);
+                if (tankRect) {
+                    tankRect.parentNode.insertBefore(sectionElement, tankRect.nextSibling);
+                }
+                
+                // Create text element
+                const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                textElement.setAttribute('id', `dashboard-tank${tankNum}-depth${depth}`);
+                textElement.setAttribute('x', pos.x + 60);
+                textElement.setAttribute('y', y + height / 2 + 4);
+                textElement.setAttribute('text-anchor', 'middle');
+                textElement.setAttribute('fill', 'white');
+                textElement.setAttribute('font-family', 'Montserrat, sans-serif');
+                textElement.setAttribute('font-size', '14');
+                textElement.setAttribute('font-weight', '600');
+                textElement.textContent = '-';
+                
+                sectionElement.parentNode.insertBefore(textElement, sectionElement.nextSibling);
+            }
+        }
+
+        function createBufferSections(maxDepth) {
+            const pos = { x: 860, y: 50 };
+            const sectionHeight = 200 / maxDepth; // Divide total height by number of sections
+            
+            // Clear existing sections for buffer
+            for (let i = 1; i <= 10; i++) {
+                const existingSection = document.getElementById(`dashboard-buffer-section${i}`);
+                const existingText = document.getElementById(`dashboard-buffer-depth${i}`);
+                if (existingSection) existingSection.remove();
+                if (existingText) existingText.remove();
+            }
+            
+            // Create new sections
+            for (let depth = 1; depth <= maxDepth; depth++) {
+                const y = pos.y + (depth - 1) * sectionHeight;
+                const height = sectionHeight;
+                
+                // Create section element
+                let sectionElement;
+                if (depth === 1) {
+                    // Top section - rounded top corners only
+                    sectionElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const d = `M ${pos.x},${y + 10} Q ${pos.x},${y} ${pos.x + 10},${y} L ${pos.x + 110},${y} Q ${pos.x + 120},${y} ${pos.x + 120},${y + 10} L ${pos.x + 120},${y + height} L ${pos.x},${y + height} Z`;
+                    sectionElement.setAttribute('d', d);
+                } else if (depth === maxDepth) {
+                    // Bottom section - rounded bottom corners only
+                    sectionElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const d = `M ${pos.x},${y} L ${pos.x + 120},${y} L ${pos.x + 120},${y + height - 10} Q ${pos.x + 120},${y + height} ${pos.x + 110},${y + height} L ${pos.x + 10},${y + height} Q ${pos.x},${y + height} ${pos.x},${y + height - 10} Z`;
+                    sectionElement.setAttribute('d', d);
+                } else {
+                    // Middle section - no rounded corners
+                    sectionElement = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    sectionElement.setAttribute('x', pos.x);
+                    sectionElement.setAttribute('y', y);
+                    sectionElement.setAttribute('width', 120);
+                    sectionElement.setAttribute('height', height);
+                }
+                
+                sectionElement.setAttribute('id', `dashboard-buffer-section${depth}`);
+                sectionElement.setAttribute('fill', '#444');
+                
+                // Insert after the buffer background rectangle
+                const bufferRect = document.querySelector(`rect[x="860"][y="50"]`);
+                if (bufferRect) {
+                    bufferRect.parentNode.insertBefore(sectionElement, bufferRect.nextSibling);
+                }
+                
+                // Create text element
+                const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                textElement.setAttribute('id', `dashboard-buffer-depth${depth}`);
+                textElement.setAttribute('x', pos.x + 60);
+                textElement.setAttribute('y', y + height / 2 + 4);
+                textElement.setAttribute('text-anchor', 'middle');
+                textElement.setAttribute('fill', 'white');
+                textElement.setAttribute('font-family', 'Montserrat, sans-serif');
+                textElement.setAttribute('font-size', '14');
+                textElement.setAttribute('font-weight', '600');
+                textElement.textContent = '-';
+                
+                sectionElement.parentNode.insertBefore(textElement, sectionElement.nextSibling);
+            }
+        }
+
+        // Initialize diagram with default 3 layers for each component
+        function initializeDiagram() {
+            // Initialize tanks with 3 layers each
+            for (let tankNum = 1; tankNum <= 3; tankNum++) {
+                createTankSections(tankNum, 3);
+            }
+            
+            // Initialize buffer with 3 layers
+            createBufferSections(3);
+        }
+
         // Initialize dashboard when the dashboard card becomes visible and a house is selected
         function initializeDashboard() {
             const selectedHouse = document.getElementById('selected-house').value;
             const dashboardCard = document.getElementById('dashboard-card');
             
             if (dashboardCard && !dashboardCard.classList.contains('hidden')) {
+                // Initialize the diagram with default tank sections
+                initializeDiagram();
+                
                 if (selectedHouse && selectedHouse.trim() !== '') {
                     if (selectedHouse.includes('Select a single house in the table')) {
                         // Multiple houses selected, show message
