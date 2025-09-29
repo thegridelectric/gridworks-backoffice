@@ -72,7 +72,7 @@
             color: var(--text-color);
             background-color: var(--background-color);
             line-height: 1.5;
-            min-height: 165vh;
+            min-height: 150vh;
             display: flex;
             flex-direction: column;
         }
@@ -3247,7 +3247,7 @@
             // Now button functionality
             const nowBtn = document.getElementById('now-btn');
             nowBtn.addEventListener('click', function() {
-                setNow();
+                setVisualizerNow();
             });
 
             // Data download card now button functionality
@@ -3879,6 +3879,13 @@
             nyDate.setMinutes(nyDate.getMinutes() + 1);
             document.getElementById('data-download-end-date').value = nyDate.toISOString().split('T')[0];
             document.getElementById('data-download-end-time').value = nyDate.toTimeString().split(' ')[0].substring(0, 5);
+        }
+
+        function setVisualizerNow() {
+            const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+            nyDate.setMinutes(nyDate.getMinutes() + 1);
+            document.getElementById('end-date').value = nyDate.toISOString().split('T')[0];
+            document.getElementById('end-time').value = nyDate.toTimeString().split(' ')[0].substring(0, 5);
         }
 
         function clearPlots() {
@@ -4660,8 +4667,7 @@
 
         document.getElementById('clear-btn').addEventListener('click', function() {
             clearPlots();
-            // Clear the selected house input and update button states
-            document.getElementById('selected-house').value = '';
+            // Update button states but keep selected house
             updateVisualizerButtonStates();
             initializeDashboard();
         });
