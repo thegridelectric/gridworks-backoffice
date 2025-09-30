@@ -2902,6 +2902,11 @@
                     updateInfoButtonStates();
                     updateVisualizerButtonStates();
                     updateDataDownloadButtonStates();
+                    
+                    // Reconnect WebSocket with new house selection
+                    if (dashboardWebsocket) {
+                        dashboardWebsocket.close();
+                    }
                     initializeDashboard();
                     
                     // Update map focus based on selection
@@ -4756,10 +4761,10 @@
         let dashboardCurrentUserId = 'user_' + Math.random().toString(36).substr(2, 9);
 
         function connectDashboardWebSocket() {
-            // Always use wss:// for external connections since the server requires SSL
+            // Get the selected house to determine the correct WebSocket endpoint
+            const selectedHouse = document.getElementById('selected-house').value;
             const protocol = 'wss:';
-            // Use the same host as the API (which works) instead of port 8080
-            const wsUrl = `${protocol}//visualizer.electricity.works/ws`;
+            wsUrl = `${protocol}//visualizer.electricity.works/ws${selectedHouse}`;
             
             dashboardWebsocket = new WebSocket(wsUrl);
             
