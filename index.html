@@ -2906,8 +2906,22 @@
                     // Reconnect WebSocket with new house selection
                     if (dashboardWebsocket) {
                         dashboardWebsocket.close();
+                        dashboardWebsocket = null;
                     }
-                    initializeDashboard();
+                    
+                    // If dashboard card is currently visible, reconnect WebSocket immediately
+                    const currentDashboardCard = document.getElementById('dashboard-card');
+                    if (currentDashboardCard && !currentDashboardCard.classList.contains('hidden')) {
+                        // Small delay to ensure the input values are updated
+                        setTimeout(() => {
+                            const selectedHouse = document.getElementById('selected-house').value;
+                            if (selectedHouse && selectedHouse.trim() !== '' && 
+                                !selectedHouse.includes('Select a single house in the table')) {
+                                connectDashboardWebSocket();
+                            } else {
+                            }
+                        }, 10);
+                    }
                     
                     // Update map focus based on selection
                     updateMapFocusForMultiSelection();
@@ -4761,6 +4775,12 @@
         let dashboardCurrentUserId = 'user_' + Math.random().toString(36).substr(2, 9);
 
         function connectDashboardWebSocket() {
+            // Close any existing WebSocket connection first
+            if (dashboardWebsocket) {
+                dashboardWebsocket.close();
+                dashboardWebsocket = null;
+            }
+            
             // Get the selected house to determine the correct WebSocket endpoint
             const selectedHouse = document.getElementById('selected-house').value;
             const protocol = 'wss:';
@@ -6354,7 +6374,6 @@
                 if (selectedHouse && selectedHouse.trim() !== '') {
                     if (selectedHouse.includes('Select a single house in the table')) {
                         // Multiple houses selected, show message
-                        console.log('Multiple houses selected');
                         showDashboardMultipleHousesMessage();
                     } else {
                         // A single house is selected, connect to WebSocket
