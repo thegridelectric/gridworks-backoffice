@@ -6720,6 +6720,9 @@
                 return;
             }
 
+            // Ask user if they want to update packages
+            const updatePackages = confirm("Also update packages? This might take a few minutes. Click OK to update packages, or Cancel to update only SCADA code.");
+
             // Disable button and show loading state
             updateScadaBtn.disabled = true;
             updateScadaBtn.style.opacity = '0.5';
@@ -6733,7 +6736,8 @@
                         'Authorization': `Bearer ${getAuthToken()}`
                     },
                     body: JSON.stringify({
-                        selected_short_aliases: selectedAliases
+                        selected_short_aliases: selectedAliases,
+                        update_packages: updatePackages
                     })
                 });
 
