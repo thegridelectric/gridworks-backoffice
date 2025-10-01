@@ -200,6 +200,25 @@
             background-color: var(--hover-color);
             color: var(--text-color);
         }
+
+        .snapshot-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            background-color: var(--hover-color);
+            margin-right: 0.5rem;
+        }
+
+        .snapshot-btn:hover {
+            background-color: var(--hover-color);
+            color: var(--text-color);
+        }
         
         .card-header {
             background-color: var(--card-background);
@@ -1254,6 +1273,9 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title">Dashboard</h5>
                 <div class="status-badges">
+                    <button class="snapshot-btn" id="dashboard-snapshot-btn" title="Request Snapshot">
+                        <i class="bi bi-camera"></i>
+                    </button>
                     <button class="fullscreen-btn" id="dashboard-fullscreen-btn">
                         <i class="bi bi-arrows-fullscreen"></i>
                     </button>
@@ -4768,11 +4790,33 @@
             }
         });
 
+        // Dashboard snapshot button functionality
+        const dashboardSnapshotBtn = document.getElementById('dashboard-snapshot-btn');
+        dashboardSnapshotBtn.addEventListener('click', function() {
+            sendRequestSnapshot();
+        });
+
         // Dashboard JavaScript functionality
         let dashboardWebsocket = null;
         let dashboardRelays = {};
         let dashboardThermostatNames = [];
         let dashboardCurrentUserId = 'user_' + Math.random().toString(36).substr(2, 9);
+
+        function sendRequestSnapshot() {
+            if (!dashboardWebsocket || dashboardWebsocket.readyState !== WebSocket.OPEN) {
+                console.error('Not connected to server');
+                return;
+            }
+
+            console.log('Requesting snapshot from SCADA');
+
+            const message = {
+                type: 'request_snapshot',
+                data: {}
+            };
+
+            dashboardWebsocket.send(JSON.stringify(message));
+        }
 
         function connectDashboardWebSocket() {
             // Close any existing WebSocket connection first
