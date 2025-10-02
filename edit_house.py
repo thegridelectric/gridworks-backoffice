@@ -33,8 +33,8 @@ GNODE_ALIAS = "hw1.isone.me.versant.keene.elm"
 house_to_edit = session.query(House).filter_by(g_node_alias=GNODE_ALIAS).first()
 
 if house_to_edit:
-    house_to_edit.primary_contact['last_name'] = "Dibona"
-    house_to_edit.secondary_contact['last_name'] = "Dibona"
+    house_to_edit.primary_contact['last_name'] = "DiBona"
+    house_to_edit.secondary_contact['last_name'] = "DiBona"
     session.commit()
     print(f"Done editing {GNODE_ALIAS}.")
 else:
