@@ -4896,7 +4896,7 @@
             
             if (data.relays) {
                 dashboardRelays = data.relays;
-                updateDashboardPipeColors();
+                // updateDashboardPipeColors();
             }
             
             if (data.thermostat_names) {
@@ -4910,7 +4910,7 @@
                     ...dashboardRelays[payload.relay_name],
                     state: payload.state
                 };
-                updateDashboardPipeColors();
+                // updateDashboardPipeColors();
             }
         }
 
@@ -4919,11 +4919,12 @@
             updateDashboardThermostatTable(snapshotData);
             updateDashboardPowerPumpTable(snapshotData);
             updateTankTemperatures(snapshotData);
-            updateDashboardPipeColors();
+            updateDashboardPipeColors(snapshotData);
         }
 
         function updateDashboardSnapshotTimestamp(snapshotData) {
             const timestampElement = document.getElementById('dashboard-snapshot-time');
+            const lastSnapshotText = document.getElementById('dashboard-snapshot-timestamp')
             if (!timestampElement) return;
             
             if (snapshotData && snapshotData.SnapshotTimeUnixMs) {
@@ -4939,6 +4940,31 @@
                     hour12: false
                 });
                 timestampElement.textContent = formattedTime;
+                
+                // Check if timestamp is more than 5 minutes ago and apply red color
+                const now = new Date();
+                const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
+                const dashboardLoader = document.getElementById('dashboard-loader');
+                
+                if (timestamp < twoMinutesAgo) {
+                    lastSnapshotText.style.color = 'red';
+                    lastSnapshotText.style.fontWeight = 'bold';
+                    timestampElement.style.color = 'red';
+                    timestampElement.style.fontWeight = 'bold';
+                    // Hide the "next snapshot" text and loader when data is stale
+                    if (dashboardLoader) {
+                        dashboardLoader.style.display = 'none';
+                    }
+                } else {
+                    lastSnapshotText.style.color = '';
+                    lastSnapshotText.style.fontWeight = '';
+                    timestampElement.style.color = '';
+                    timestampElement.style.fontWeight = '';
+                    // Show the "next snapshot" text and loader when data is fresh
+                    if (dashboardLoader) {
+                        dashboardLoader.style.display = 'flex';
+                    }
+                }
             } else {
                 timestampElement.textContent = 'Unknown';
             }
@@ -5201,7 +5227,7 @@
             }
         }
 
-        function updateDashboardPipeColors() {
+        function updateDashboardPipeColors(snapshotData) {
             // Check if SVG diagram is visible
             const systemDiagram = document.getElementById('dashboard-system-diagram');
             const diagramSvg = document.getElementById('dashboard-diagram-svg');
@@ -5212,15 +5238,32 @@
             
             // Check for distribution flow to animate House pipes
             const readingsMap = {};
-            if (window.lastSnapshotData && window.lastSnapshotData.LatestReadingList) {
-                window.lastSnapshotData.LatestReadingList.forEach(reading => {
+            if (snapshotData && snapshotData.LatestReadingList) {
+                snapshotData.LatestReadingList.forEach(reading => {
                     readingsMap[reading.ChannelName] = reading;
                 });
             }
             
             const distFlowReading = readingsMap['dist-flow'];
             const hasDistFlow = distFlowReading && distFlowReading.Value && parseFloat(distFlowReading.Value) > 0;
-            
+
+            const primFlowReading = readingsMap['primary-flow'];
+            const hasPrimFlow = primFlowReading && primFlowReading.Value && parseFloat(primFlowReading.Value) > 0;
+
+            const storeFlowReading = readingsMap['store-flow'];
+            const hasStoreFlow = storeFlowReading && storeFlowReading.Value && parseFloat(storeFlowReading.Value) > 0;
+
+            const hpIduReading = readingsMap['hp-idu-pwr'];
+            const hpOduReading = readingsMap['hp-odu-pwr'];
+            const hasHpPowerReading = hpIduReading && hpOduReading && hpIduReading.Value > 0 && hpOduReading.Value > 0;
+            const hpHasPower = false;
+            if (hasHpPowerReading) {
+                const totalHpKw = hpIduReading.Value/1000 + hpOduReading.Value/1000;
+                if (totalHpKw > 0.5) {
+                    const hpHasPower = true;
+                }
+            }
+
             // Check for zone relay conditions: Failsf relay with state "energized" and Scada ops relay with state "energized"
             let hasZoneRelayCondition = false;
             Object.keys(dashboardRelays).forEach(relayName => {
@@ -5252,8 +5295,8 @@
                 }
             });
             
-            // Combined condition: dist-flow > 0 OR zone relay condition
-            const shouldAnimate = hasDistFlow || hasZoneRelayCondition;
+            // Combined condition: dist-flow > 0 //OR zone relay condition
+            const shouldAnimate = hasDistFlow //|| hasZoneRelayCondition;
             
             
             // Check relay states to determine system state
@@ -5271,15 +5314,18 @@
                 const relay9State = relay9.state;
                 
                 let hpOn = false;
-                if (relay5State === 'energized' && relay6State === 'deenergized') {
+                // if (relay5State === 'energized' && relay6State === 'deenergized' && hpHasPower) {
+                if (hpHasPower) {
                     hpOn = true;
                 }
                 
                 let storeCharge = false;
                 let storeDischarge = false;
-                if (relay3State === 'energized') {
+                // if (relay3State === 'energized' && hasPrimFlow) {
+                if (hasPrimFlow) {
                     storeCharge = true;
-                } else if (relay3State === 'deenergized' && relay9State === 'energized') {
+                // } else if (relay3State === 'deenergized' && relay9State === 'energized' && hasStoreFlow) {
+                } else if (hasStoreFlow) {
                     storeDischarge = true;
                 }
                 
