@@ -26,4 +26,8 @@ class RepresentationStatus(GwStrEnum):
 
     @classmethod
     def enum_name(cls) -> str:
-        return "representation.status"
+        return "gw0.representation.status"
+
+    @classmethod
+    def version(cls) -> str:
+        return "000"
