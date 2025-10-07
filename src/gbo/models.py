@@ -1,6 +1,3 @@
-"""
-Database models for the GridWorks Backoffice application.
-"""
 from sqlalchemy import Column, Integer, String, Float, JSON, DateTime, Boolean, Text
 from sqlalchemy.sql import func
 from database import Base
@@ -53,7 +50,7 @@ class HourlyElectricity(Base):
     )
 
 class EnergyData(Base):
-    """Model for general energy data storage."""
+    """Model for general energy data"""
     __tablename__ = 'energy_data'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
