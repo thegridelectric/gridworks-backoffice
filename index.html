@@ -3719,7 +3719,19 @@
                     'Authorization': `Bearer ${getAuthToken()}`
                 }
             })
-            .then(response => response.json())
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    console.error('Failed to fetch Google Maps API key:', response.status, response.statusText);
+                    // If unauthorized, redirect to login
+                    if (response.status === 401) {
+                        console.log('Unauthorized, redirecting to login page');
+                        window.location.href = "login.html";
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+            })
             .then(data => {
                 let google_maps_api_key = data.api_key;
                 // Load Google Maps API with loading=async parameter and error handling
