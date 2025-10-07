@@ -53,11 +53,11 @@ Apply the configuration changes:
 sudo systemctl restart postgresql
 ```
 
-### 6. Add backoffice user and database
+### 6. Add backofficedb user
 ```bash
 sudo -i -u postgres
 psql
-...
+CREATE USER backofficedb WITH PASSWORD 'password';
 ```
 
 ## Local setup Instructions
