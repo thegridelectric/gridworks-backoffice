@@ -4908,7 +4908,7 @@
             
             if (data.relays) {
                 dashboardRelays = data.relays;
-                // updateDashboardPipeColors();
+                updateDashboardPipeColors(null);
             }
             
             if (data.thermostat_names) {
@@ -4922,7 +4922,7 @@
                     ...dashboardRelays[payload.relay_name],
                     state: payload.state
                 };
-                // updateDashboardPipeColors();
+                updateDashboardPipeColors(null);
             }
         }
 
