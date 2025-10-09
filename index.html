@@ -5268,11 +5268,11 @@
             const hpIduReading = readingsMap['hp-idu-pwr'];
             const hpOduReading = readingsMap['hp-odu-pwr'];
             const hasHpPowerReading = hpIduReading && hpOduReading && hpIduReading.Value > 0 && hpOduReading.Value > 0;
-            const hpHasPower = false;
+            let hpHasPower = false;
             if (hasHpPowerReading) {
                 const totalHpKw = hpIduReading.Value/1000 + hpOduReading.Value/1000;
                 if (totalHpKw > 0.5) {
-                    const hpHasPower = true;
+                    hpHasPower = true;
                 }
             }
 
@@ -5333,8 +5333,7 @@
                 
                 let storeCharge = false;
                 let storeDischarge = false;
-                // if (relay3State === 'energized' && hasPrimFlow) {
-                if (hasPrimFlow) {
+                if (relay3State === 'energized' && hasPrimFlow) {
                     storeCharge = true;
                 // } else if (relay3State === 'deenergized' && relay9State === 'energized' && hasStoreFlow) {
                 } else if (hasStoreFlow) {
