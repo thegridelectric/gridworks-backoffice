@@ -1818,6 +1818,12 @@
                 <h5 class="card-title">Visualizer</h5>
                 <div class="status-badges">
                     <div class="loader" style="display: none;"></div>
+                    <div class="form-check form-check-inline me-3 d-flex align-items-center">
+                        <input class="form-check-input" type="checkbox" id="auto-refresh-checkbox" style="margin-top: 0; margin-right:6px">
+                        <label class="form-check-label" for="auto-refresh-checkbox" style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0;">
+                            Auto-refresh
+                        </label>
+                    </div>
                     <button class="fullscreen-btn" id="fullscreen-btn">
                         <i class="bi bi-arrows-fullscreen"></i>
                     </button>
@@ -2442,6 +2448,118 @@
                 document.addEventListener('DOMContentLoaded', initializeCardVisibility);
             } else {
                 initializeCardVisibility();
+            }
+
+            // Auto-refresh functionality
+            let autoRefreshInterval = null;
+            let isPageFocused = true;
+
+            // Check if page is actively focused and visualizer card is visible
+            function checkPageFocus() {
+                isPageFocused = document.hasFocus();
+                const visualizerCard = document.getElementById('visualizer-card');
+                const isVisualizerVisible = visualizerCard && !visualizerCard.classList.contains('hidden');
+                // console.log("isPageFocused", isPageFocused, "isVisualizerVisible", isVisualizerVisible);
+                
+                // If page becomes focused and auto-refresh is enabled and visualizer is visible, restart the interval
+                if (isPageFocused && document.getElementById('auto-refresh-checkbox').checked && isVisualizerVisible) {
+                    startAutoRefresh();
+                }
+                // If page loses focus or visualizer becomes hidden, clear the interval and uncheck the checkbox
+                else if (!isPageFocused || !isVisualizerVisible) {
+                    clearAutoRefresh();
+                    // Uncheck the auto-refresh checkbox
+                    document.getElementById('auto-refresh-checkbox').checked = false;
+                }
+            }
+
+            // Listen for focus and blur events to detect when user actively clicks on/off the page
+            window.addEventListener('focus', checkPageFocus);
+            window.addEventListener('blur', checkPageFocus);
+            
+            // Also listen for visibility changes as a backup
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    // When tab becomes visible, check if it's also focused
+                    setTimeout(checkPageFocus, 100); // Small delay to ensure focus state is updated
+                } else {
+                    // When tab becomes hidden, definitely not focused
+                    isPageFocused = false;
+                    clearAutoRefresh();
+                }
+            });
+
+            // Listen for card visibility changes using MutationObserver
+            const visualizerCard = document.getElementById('visualizer-card');
+            if (visualizerCard) {
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                            const target = mutation.target;
+                            const oldClasses = mutation.oldValue || '';
+                            const newClasses = target.className;
+                            
+                            // Only trigger if the 'hidden' class was added or removed
+                            const wasHidden = oldClasses.includes('hidden');
+                            const isHidden = newClasses.includes('hidden');
+                            
+                            if (wasHidden !== isHidden) {
+                                // console.log('Visualizer card visibility changed, checking focus...');
+                                checkPageFocus();
+                            }
+                        }
+                    });
+                });
+                
+                observer.observe(visualizerCard, {
+                    attributes: true,
+                    attributeFilter: ['class'],
+                    attributeOldValue: true // This allows us to see the old class value
+                });
+            }
+
+            // Auto-refresh checkbox event listener
+            document.getElementById('auto-refresh-checkbox').addEventListener('change', function() {
+                const visualizerCard = document.getElementById('visualizer-card');
+                const isVisualizerVisible = visualizerCard && !visualizerCard.classList.contains('hidden');
+                
+                if (this.checked && isPageFocused && isVisualizerVisible) {
+                    startAutoRefresh();
+                } else {
+                    clearAutoRefresh();
+                }
+            });
+
+            function startAutoRefresh() {
+                // Clear any existing interval first
+                clearAutoRefresh();
+                
+                // Run setVisualizerNow() after 500ms if page is focused and visualizer is visible
+                setTimeout(function() {
+                    const visualizerCard = document.getElementById('visualizer-card');
+                    const isVisualizerVisible = visualizerCard && !visualizerCard.classList.contains('hidden');
+                    
+                    if (isPageFocused && document.getElementById('auto-refresh-checkbox').checked && isVisualizerVisible) {
+                        setVisualizerNow();
+                    }
+                }, 10);
+                
+                // Set up new interval to run setVisualizerNow() every minute
+                autoRefreshInterval = setInterval(function() {
+                    const visualizerCard = document.getElementById('visualizer-card');
+                    const isVisualizerVisible = visualizerCard && !visualizerCard.classList.contains('hidden');
+                    
+                    if (isPageFocused && document.getElementById('auto-refresh-checkbox').checked && isVisualizerVisible) {
+                        setVisualizerNow();
+                    }
+                }, 30000);
+            }
+
+            function clearAutoRefresh() {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
             }
         })();
         </script>
@@ -3935,6 +4053,11 @@
         }
 
         function setVisualizerNow() {
+            // Check if the now-btn is enabled, if not return early to prevent double calls
+            const nowBtn = document.getElementById('now-btn');
+            if (nowBtn.disabled) {
+                return;
+            }
             document.getElementById('start-date').value = getDefaultDate(true);
             document.getElementById('start-time').value = getDefaultTime(true);
             document.getElementById('end-date').value = getDefaultDate(false);
