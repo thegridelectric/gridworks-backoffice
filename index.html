@@ -1856,8 +1856,8 @@
                 <div class="d-flex gap-2 align-items-center">
                     <button class="btn btn-sm btn-outline-secondary" id="plot-btn">Plot</button>
                     <button class="btn btn-sm btn-outline-secondary" id="csv-btn" style="display: none;">CSV</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="now-btn">8pm-Now</button>
                     <button class="btn btn-sm btn-outline-secondary" id="flo-btn">FLO</button>
-                    <button class="btn btn-sm btn-outline-secondary" id="now-btn">Now</button>
                     <button class="btn btn-sm btn-outline-secondary" id="options-btn">Options</button>
                 </div>
             </div>
@@ -3935,10 +3935,15 @@
         }
 
         function setVisualizerNow() {
-            const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-            nyDate.setMinutes(nyDate.getMinutes() + 1);
-            document.getElementById('end-date').value = nyDate.toISOString().split('T')[0];
-            document.getElementById('end-time').value = nyDate.toTimeString().split(' ')[0].substring(0, 5);
+            document.getElementById('start-date').value = getDefaultDate(true);
+            document.getElementById('start-time').value = getDefaultTime(true);
+            document.getElementById('end-date').value = getDefaultDate(false);
+            document.getElementById('end-time').value = getDefaultTime(false);
+            // const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+            // nyDate.setMinutes(nyDate.getMinutes() + 1);
+            // document.getElementById('end-date').value = nyDate.toISOString().split('T')[0];
+            // document.getElementById('end-time').value = nyDate.toTimeString().split(' ')[0].substring(0, 5);
+            getData();
         }
 
         function clearPlots() {
@@ -4301,7 +4306,9 @@
 
         // Update getData function to use selected channels
         async function getData(event) {
-            event.preventDefault();
+            if (event) {
+                event.preventDefault();
+            }
             const houseAlias = document.getElementById('selected-house').value;
             
             // Check if a house is selected
@@ -4324,8 +4331,10 @@
                 .map(checkbox => checkbox.value);
 
             disableButton('plot-btn');
+            disableButton('now-btn');
             await fetchPlots(houseAlias, startUnixMilliseconds, endUnixMilliseconds, selectedChannels);
             enableButton('plot-btn');
+            enableButton('now-btn');
         }
 
         // Update fetchPlots function to show/hide loader
