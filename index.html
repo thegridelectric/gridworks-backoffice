@@ -2465,11 +2465,9 @@
                 if (isPageFocused && document.getElementById('auto-refresh-checkbox').checked && isVisualizerVisible) {
                     startAutoRefresh();
                 }
-                // If page loses focus or visualizer becomes hidden, clear the interval and uncheck the checkbox
+                // If page loses focus or visualizer becomes hidden, clear the interval
                 else if (!isPageFocused || !isVisualizerVisible) {
                     clearAutoRefresh();
-                    // Uncheck the auto-refresh checkbox
-                    document.getElementById('auto-refresh-checkbox').checked = false;
                 }
             }
 
@@ -2542,7 +2540,7 @@
                     if (isPageFocused && document.getElementById('auto-refresh-checkbox').checked && isVisualizerVisible) {
                         setVisualizerNow();
                     }
-                }, 10);
+                }, 500);
                 
                 // Set up new interval to run setVisualizerNow() every minute
                 autoRefreshInterval = setInterval(function() {
@@ -2552,7 +2550,7 @@
                     if (isPageFocused && document.getElementById('auto-refresh-checkbox').checked && isVisualizerVisible) {
                         setVisualizerNow();
                     }
-                }, 30000);
+                }, 60000); // 60 seconds = 1 minute
             }
 
             function clearAutoRefresh() {
