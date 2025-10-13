@@ -2,12 +2,11 @@
 ASL Codec - Self-contained serialization system
 Generated for: gridworks-backoffice
 Generated on: 2025-10-07
-Selected types: 12
 """
 import re
 import json
 import logging
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Optional, TypeVar
 from collections import defaultdict
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -31,11 +30,10 @@ def recursively_pascal(d: dict) -> bool:
     """
     if isinstance(d, dict):
         # Check if all keys in the dictionary are in PascalCase
-        for key in d:
+        for key, value in d.items():
             if not is_pascal_case(key):
                 return False
-            # Recursively check nested dictionaries or lists
-            if not recursively_pascal(d[key]):
+            if not recursively_pascal(value):
                 return False
     elif isinstance(d, list):
         # Recursively check if dictionaries or lists inside a list pass the test
@@ -95,20 +93,20 @@ class AslType(BaseModel):
     def to_bytes(self) -> bytes:
         return self.model_dump_json(exclude_none=True, by_alias=True).encode()
 
-    def to_dict(self) -> Dict[str, Any]:
-        bytes = self.model_dump_json(exclude_none=True, by_alias=True)
-        return json.loads(bytes)
+    def to_dict(self) -> dict[str, Any]:
+        json_bytes = self.model_dump_json(exclude_none=True, by_alias=True)
+        return json.loads(json_bytes)
 
     @classmethod
-    def from_bytes(cls, bytes) -> T:
+    def from_bytes(cls: type[T], json_bytes: bytes) -> T:
         try:
-            d = json.loads(bytes)
+            d = json.loads(json_bytes)
         except TypeError as e:
             raise AslError("Type must be string or bytes!") from e
         return cls.from_dict(d)
 
     @classmethod
-    def from_dict(cls: Type[T], d: dict) -> T:
+    def from_dict(cls: type[T], d: dict) -> T:
         if not recursively_pascal(d):
             raise AslError(
                 f"Dictionary keys must be recursively PascalCase. "
@@ -121,7 +119,7 @@ class AslType(BaseModel):
         return t
 
     @classmethod
-    def get_schema_info(cls) -> Dict[str, Any]:
+    def get_schema_info(cls) -> dict[str, Any]:
         """Return schema information for this type."""
         return {
             "type_name": cls.type_name_value(),
@@ -146,6 +144,21 @@ class AslType(BaseModel):
     def version_value(cls) -> str | None:
         # return the Version defined in the subclass
         return cls.model_fields["version"].default
+
+    def to_latest(self) -> "AslType":
+        """
+        Convert to the latest version of this type.
+
+        Override this method in old version classes to provide
+        migration logic to the current version.
+
+        Raises:
+            NotImplementedError: This is not an old version class
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement to_latest(). "
+            "This method should only be called on old version types."
+        )
 
 
 # ============================================================================
@@ -213,8 +226,8 @@ class AslCodec:
         data["Version"] = current_version
         try:
             return current_cls.from_dict(data)
-        except (ValidationError, AslError) as e:
-            logger.warning(f"Stripping unknown fields and retrying")
+        except (ValidationError, AslError):
+            logger.warning("Stripping unknown fields and retrying")
             data = self._strip_unknown_fields(data, current_cls)
             return current_cls.from_dict(data)
 
@@ -231,7 +244,7 @@ class AslCodec:
         """Encode an AslType to JSON bytes"""
         return msg.to_bytes()
 
-    def _strip_unknown_fields(self, data: dict, cls: Type[AslType]) -> dict:
+    def _strip_unknown_fields(self, data: dict, cls: type[AslType]) -> dict:
         """Remove fields not recognized by the target class."""
         valid_fields = set()
         for field_name, field_info in cls.model_fields.items():
@@ -252,7 +265,7 @@ class AslCodec:
 # AUTO-DISCOVERY OF TYPES IN THIS REPO
 # ============================================================================
 
-def get_current_types() -> Dict[str, Type[AslType]]:
+def get_current_types() -> dict[str, type[AslType]]:
     """
     Returns the types declared in `asl/types/__init__.py`
     """
@@ -265,7 +278,7 @@ def get_current_types() -> Dict[str, Type[AslType]]:
     
     return registry
 
-def get_old_versions() -> Dict[str, Dict[Optional[str], Type[AslType]]]:
+def get_old_versions() -> dict[str, dict[Optional[str], type[AslType]]]:
     """
      Returns a registry of old versions organized by type_name and version.
     Structure: {type_name: {version: class}}
@@ -273,7 +286,7 @@ def get_old_versions() -> Dict[str, Dict[Optional[str], Type[AslType]]]:
     from gbo.asl.types import old_versions
     old_types = [getattr(old_versions, name) for name in old_versions.__all__]
 
-    old_registry: Dict[str, Dict[Optional[str], Type[AslType]]] = defaultdict(dict)
+    old_registry: dict[str, dict[Optional[str], type[AslType]]] = defaultdict(dict)
 
     for cls in old_types:
         type_name = cls.type_name_value()
