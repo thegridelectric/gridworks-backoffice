@@ -1496,9 +1496,11 @@
                         </g>
                         
                         <!-- House (bottom right, left of buffer) -->
-                        <rect x="660" y="280" width="120" height="200" rx="10" fill="#888"/>
-                        <text x="720" y="500" text-anchor="middle" fill="var(--text-color)" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">House</text>
-                        <text id="dashboard-house-drop" x="720" y="380" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="16" font-weight="600">Drop<tspan x="720" dy="1.2em">-°F</tspan>
+                        <rect x="660" y="335" width="120" height="90" rx="0" fill="#888"/>
+                        <!-- Triangle roof for the house -->
+                        <polygon points="657,336 783,336 720,290" fill="#888"/>
+                        <text x="720" y="450" text-anchor="middle" fill="var(--text-color)" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">House</text>
+                        <text id="dashboard-house-drop" x="720" y="375" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="16" font-weight="600">Drop<tspan x="720" dy="1.2em">-°F</tspan>
                         </text>
                         
                         <!-- Tank 3 (bottom left) -->
@@ -1621,8 +1623,11 @@
                         
                         <!-- House animation group (moved to end to ensure visibility) -->
                         <g id="dashboard-house-animation" style="display: none;">
-                            <rect x="660" y="280" width="120" height="200" rx="10" fill="url(#dashboardHouseHeatGradient)"/>
-                            <rect x="660" y="280" width="120" height="200" rx="10" fill="url(#dashboardHouseHeatLinesPattern)"/>
+                            
+                            <rect x="660" y="335" width="120" height="90" rx="0" fill="url(#dashboardHouseHeatGradient)"/>
+                            <polygon points="657,336 783,336 720,290" fill="url(#dashboardHouseHeatGradient)"/>
+                            <!-- <rect x="660" y="280" width="120" height="200" rx="10" fill="url(#dashboardHouseHeatGradient)"/> -->
+                            <rect x="660" y="335" width="120" height="90" rx="10" fill="url(#dashboardHouseHeatLinesPattern)"/>
                         </g>
                         
                     </svg>
@@ -5395,7 +5400,7 @@
             const hasDistFlow = distFlowReading && distFlowReading.Value && parseFloat(distFlowReading.Value) > 0;
 
             const primFlowReading = readingsMap['primary-flow'];
-            const hasPrimFlow = primFlowReading && primFlowReading.Value && parseFloat(primFlowReading.Value) > 0;
+            const hasPrimFlow = true //primFlowReading && primFlowReading.Value && parseFloat(primFlowReading.Value) > 0;
 
             const storeFlowReading = readingsMap['store-flow'];
             const hasStoreFlow = storeFlowReading && storeFlowReading.Value && parseFloat(storeFlowReading.Value) > 0;
@@ -6082,6 +6087,22 @@
                             houseBufferBottomPipe.removeAttribute('stroke');
                             houseBufferBottomPipe.parentNode.appendChild(houseBufferBottomPipe);
                         }
+                        if (hasPrimFlow) {
+                            // Update pipe colors for HpOnStoreOff state
+                            const hpBufferTopPipe = document.getElementById('dashboard-hp-buffer-top-pipe');
+                            const hpBufferBottomPipe = document.getElementById('dashboard-hp-buffer-bottom-pipe');
+                                            
+                            if (hpBufferTopPipe) {
+                                hpBufferTopPipe.setAttribute('fill', 'url(#dashboardFlowPattern)');
+                                hpBufferTopPipe.removeAttribute('stroke');
+                                hpBufferTopPipe.parentNode.appendChild(hpBufferTopPipe);
+                            }
+                            if (hpBufferBottomPipe) {
+                                hpBufferBottomPipe.setAttribute('fill', 'url(#dashboardLeftFlowPattern)');
+                                hpBufferBottomPipe.removeAttribute('stroke');
+                                hpBufferBottomPipe.parentNode.appendChild(hpBufferBottomPipe);
+                            }
+                        }
                         
                         // Show buffer animation - bottom to top flow (same as HpOnStoreCharge)
                         const bufferAnimation = document.getElementById('dashboard-buffer-animation');
@@ -6107,6 +6128,23 @@
                         const bufferAnimation = document.getElementById('dashboard-buffer-animation');
                         if (bufferAnimation) {
                             bufferAnimation.style.display = 'none';
+                        }
+                    }
+
+                    if (hasPrimFlow) {
+                        // Update pipe colors for HpOnStoreOff state
+                        const hpBufferTopPipe = document.getElementById('dashboard-hp-buffer-top-pipe');
+                        const hpBufferBottomPipe = document.getElementById('dashboard-hp-buffer-bottom-pipe');
+                                        
+                        if (hpBufferTopPipe) {
+                            hpBufferTopPipe.setAttribute('fill', 'url(#dashboardFlowPattern)');
+                            hpBufferTopPipe.removeAttribute('stroke');
+                            hpBufferTopPipe.parentNode.appendChild(hpBufferTopPipe);
+                        }
+                        if (hpBufferBottomPipe) {
+                            hpBufferBottomPipe.setAttribute('fill', 'url(#dashboardLeftFlowPattern)');
+                            hpBufferBottomPipe.removeAttribute('stroke');
+                            hpBufferBottomPipe.parentNode.appendChild(hpBufferBottomPipe);
                         }
                     }
                 }
