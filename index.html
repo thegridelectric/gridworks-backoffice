@@ -5400,7 +5400,7 @@
             const hasDistFlow = distFlowReading && distFlowReading.Value && parseFloat(distFlowReading.Value) > 0;
 
             const primFlowReading = readingsMap['primary-flow'];
-            const hasPrimFlow = true //primFlowReading && primFlowReading.Value && parseFloat(primFlowReading.Value) > 0;
+            const hasPrimFlow = primFlowReading && primFlowReading.Value && parseFloat(primFlowReading.Value) > 0;
 
             const storeFlowReading = readingsMap['store-flow'];
             const hasStoreFlow = storeFlowReading && storeFlowReading.Value && parseFloat(storeFlowReading.Value) > 0;
