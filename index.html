@@ -1473,13 +1473,59 @@
 
                         <!-- Heat pump -->
                         <rect x="20" y="50" width="120" height="200" rx="10" fill="#888"/>
+                        <!-- Fan grilles for heat pump -->
+                        <!-- Top fan grille -->
+                        <g id="dashboard-hp-fan-top" transform="translate(70,105)">
+                            <!-- Outer ring -->
+                            <circle cx="0" cy="0" r="32" fill="#ddd" stroke="#bbb" stroke-width="1"/>
+                            <!-- Middle ring -->
+                            <circle cx="0" cy="0" r="24" fill="#ccc" stroke="#aaa" stroke-width="1"/>
+                            <!-- Inner ring -->
+                            <circle cx="0" cy="0" r="16" fill="#bbb" stroke="#999" stroke-width="1"/>
+                            <!-- Center circle -->
+                            <circle cx="0" cy="0" r="8" fill="#222" stroke="#fff" stroke-width="1"/>
+                            <!-- Radial spokes -->
+                            <g stroke="#666" stroke-width="1">
+                                <line x1="0" y1="0" x2="0" y2="-32"/>
+                                <line x1="0" y1="0" x2="22.6" y2="-22.6"/>
+                                <line x1="0" y1="0" x2="32" y2="0"/>
+                                <line x1="0" y1="0" x2="22.6" y2="22.6"/>
+                                <line x1="0" y1="0" x2="0" y2="32"/>
+                                <line x1="0" y1="0" x2="-22.6" y2="22.6"/>
+                                <line x1="0" y1="0" x2="-32" y2="0"/>
+                                <line x1="0" y1="0" x2="-22.6" y2="-22.6"/>
+                            </g>
+                        </g>
+                        
+                        <!-- Bottom fan grille -->
+                        <g id="dashboard-hp-fan-bottom" transform="translate(70,195)">
+                            <!-- Outer ring -->
+                            <circle cx="0" cy="0" r="32" fill="#ddd" stroke="#bbb" stroke-width="1"/>
+                            <!-- Middle ring -->
+                            <circle cx="0" cy="0" r="24" fill="#ccc" stroke="#aaa" stroke-width="1"/>
+                            <!-- Inner ring -->
+                            <circle cx="0" cy="0" r="16" fill="#bbb" stroke="#999" stroke-width="1"/>
+                            <!-- Center circle -->
+                            <circle cx="0" cy="0" r="8" fill="#222" stroke="#fff" stroke-width="1"/>
+                            <!-- Radial spokes -->
+                            <g stroke="#666" stroke-width="1">
+                                <line x1="0" y1="0" x2="0" y2="-32"/>
+                                <line x1="0" y1="0" x2="22.6" y2="-22.6"/>
+                                <line x1="0" y1="0" x2="32" y2="0"/>
+                                <line x1="0" y1="0" x2="22.6" y2="22.6"/>
+                                <line x1="0" y1="0" x2="0" y2="32"/>
+                                <line x1="0" y1="0" x2="-22.6" y2="22.6"/>
+                                <line x1="0" y1="0" x2="-32" y2="0"/>
+                                <line x1="0" y1="0" x2="-22.6" y2="-22.6"/>
+                            </g>
+                        </g>
                         <g id="dashboard-hp-animation" style="display: none;">
                             <rect x="20" y="50" width="120" height="200" rx="10" fill="url(#dashboardHeatGradient)"/>
                             <rect x="20" y="50" width="120" height="200" rx="10" fill="url(#dashboardHeatLinesPattern)"/>
+                            <text id="dashboard-hp-lift" x="80" y="150" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="16" font-weight="600">Lift<tspan x="80" dy="1.2em">-°F</tspan>
+                            </text>
                         </g>
                         <text x="80" y="270" text-anchor="middle" fill="var(--text-color)" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">Heat pump</text>
-                        <text id="dashboard-hp-lift" x="80" y="150" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="16" font-weight="600">Lift<tspan x="80" dy="1.2em">-°F</tspan>
-                        </text>
                         
                         <!-- Buffer -->
                         <rect x="860" y="50" width="120" height="200" rx="10" fill="transparent"/>
@@ -1500,8 +1546,8 @@
                         <!-- Triangle roof for the house -->
                         <polygon points="657,336 783,336 720,290" fill="#888"/>
                         <text x="720" y="450" text-anchor="middle" fill="var(--text-color)" font-family="Montserrat, sans-serif" font-size="14" font-weight="600">House</text>
-                        <text id="dashboard-house-drop" x="720" y="375" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="16" font-weight="600">Drop<tspan x="720" dy="1.2em">-°F</tspan>
-                        </text>
+                        <!-- <text id="dashboard-house-drop" x="720" y="375" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="16" font-weight="600">Drop<tspan x="720" dy="1.2em">-°F</tspan>
+                        </text> -->
                         
                         <!-- Tank 3 (bottom left) -->
                         <rect x="200" y="280" width="120" height="200" rx="10" fill="transparent"/>
@@ -1623,11 +1669,12 @@
                         
                         <!-- House animation group (moved to end to ensure visibility) -->
                         <g id="dashboard-house-animation" style="display: none;">
-                            
                             <rect x="660" y="335" width="120" height="90" rx="0" fill="url(#dashboardHouseHeatGradient)"/>
                             <polygon points="657,336 783,336 720,290" fill="url(#dashboardHouseHeatGradient)"/>
                             <!-- <rect x="660" y="280" width="120" height="200" rx="10" fill="url(#dashboardHouseHeatGradient)"/> -->
                             <rect x="660" y="335" width="120" height="90" rx="10" fill="url(#dashboardHouseHeatLinesPattern)"/>
+                            <text id="dashboard-house-drop" x="720" y="375" text-anchor="middle" fill="white" font-family="Montserrat, sans-serif" font-size="16" font-weight="600">Drop<tspan x="720" dy="1.2em">-°F</tspan>
+                            </text>
                         </g>
                         
                     </svg>
