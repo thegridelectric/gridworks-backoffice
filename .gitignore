@@ -16,5 +16,7 @@ wheels/
 
 # CSV data
 *energy_data*
+*pico_reliability_data*
+*/data
 
 add_house.py
