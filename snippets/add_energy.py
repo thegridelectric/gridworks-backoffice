@@ -770,26 +770,9 @@ def generate(
     s.generate_dataset()
 
 if __name__ == '__main__':
-    generate(
-        house_alias='beech',
-        yesterday=False,
-        start_year=2025,
-        start_month=10,
-        start_day=1,
-        end_year=2025,
-        end_month=11,
-        end_day=12,
-    )
-
     houses_to_generate = ['beech', 'oak', 'fir', 'maple', 'elm']
     for house in houses_to_generate:
         generate(
             house_alias=house, 
-            yesterday=False,
-            start_year=2024,
-            start_month=10,
-            start_day=15,
-            end_year=2025,
-            end_month=5,
-            end_day=15,
+            yesterday=True
         )
