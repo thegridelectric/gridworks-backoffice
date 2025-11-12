@@ -759,8 +759,18 @@ class EnergyDataset():
     def to_fahrenheit(self, t):
         return round(t*9/5+32,1)
     
-def generate(house_alias, start_year, start_month, start_day, end_year, end_month, end_day):
+def generate(
+    house_alias, yesterday=False,
+    start_year=None, start_month=None, start_day=None, end_year=None, end_month=None, end_day=None, 
+):
     timezone = 'America/New_York'
+    if yesterday:
+        start_year = pendulum.now(timezone).subtract(days=1).year
+        start_month = pendulum.now(timezone).subtract(days=1).month
+        start_day = pendulum.now(timezone).subtract(days=1).day
+        end_year = pendulum.now(timezone).year
+        end_month = pendulum.now(timezone).month
+        end_day = pendulum.now(timezone).day
     start_ms = pendulum.datetime(start_year, start_month, start_day, tz=timezone).timestamp()*1000
     end_ms = pendulum.datetime(end_year, end_month, end_day, tz=timezone).timestamp()*1000
     s = EnergyDataset(house_alias, start_ms, end_ms, timezone)
@@ -769,12 +779,4 @@ def generate(house_alias, start_year, start_month, start_day, end_year, end_mont
 if __name__ == '__main__':
     houses_to_generate = ['beech', 'oak', 'fir', 'maple', 'elm']
     for house in houses_to_generate:
-        generate(
-            house_alias=house, 
-            start_year=2025, 
-            start_month=10, 
-            start_day=1,
-            end_year=2025,
-            end_month=11,
-            end_day=12
-        )
+        generate(house_alias=house, yesterday=True)
