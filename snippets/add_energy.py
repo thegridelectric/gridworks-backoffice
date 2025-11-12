@@ -9,9 +9,11 @@ from typing import List
 import pandas as pd
 import numpy as np
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, BigInteger, UniqueConstraint
+from sqlalchemy import create_engine, Column, String, Float, BigInteger, UniqueConstraint
 from sqlalchemy.orm import declarative_base, sessionmaker
 import matplotlib.pyplot as plt
+
+DROP_EXISTING_DATA = True
 
 dotenv.load_dotenv()
 
@@ -67,18 +69,24 @@ class HourlyElectricity(Base):
     )
 
 # Drop existing tables
-Base.metadata.drop_all(engine_gbo)
-Base.metadata.create_all(engine_gbo)
-if os.path.exists(f"energy_data_beech.csv"):
-    os.remove(f"energy_data_beech.csv")
+if DROP_EXISTING_DATA:
+    print("\nWARNING: Continuing will drop existing data")
+    continue_dropping = input("Continue? (y/n): ")
+    if continue_dropping != 'y':
+        print("Exiting...\n")
+        exit()
+    Base.metadata.drop_all(engine_gbo)
+    print("Existing data dropped")
+    Base.metadata.create_all(engine_gbo)
+    if os.path.exists(f"energy_data_beech.csv"):
+        os.remove(f"energy_data_beech.csv")
 
 SessionGbo = sessionmaker(bind=engine_gbo)
 session = SessionGbo()
 session.query(HourlyElectricity).filter(HourlyElectricity.short_alias == "beech").delete()
 session.commit()
 session.close()
-if os.path.exists(f"energy_data_beech.csv"):
-    os.remove(f"energy_data_beech.csv")
+
 
 class EnergyDataset():
     def __init__(self, house_alias, start_ms, end_ms, timezone):
@@ -767,6 +775,6 @@ if __name__ == '__main__':
             start_month=10, 
             start_day=1,
             end_year=2025,
-            end_month=10,
-            end_day=22
+            end_month=11,
+            end_day=12
         )
