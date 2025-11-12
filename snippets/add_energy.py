@@ -13,7 +13,7 @@ from sqlalchemy import create_engine, Column, String, Float, BigInteger, UniqueC
 from sqlalchemy.orm import declarative_base, sessionmaker
 import matplotlib.pyplot as plt
 
-DROP_EXISTING_DATA = True
+DROP_EXISTING_DATA = False
 
 dotenv.load_dotenv()
 
