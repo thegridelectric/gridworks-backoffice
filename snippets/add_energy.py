@@ -68,7 +68,6 @@ class HourlyElectricity(Base):
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
     )
 
-# Drop existing tables
 if DROP_EXISTING_DATA:
     print("\nWARNING: Continuing will drop existing data")
     continue_dropping = input("Continue? (y/n): ")
@@ -80,12 +79,6 @@ if DROP_EXISTING_DATA:
     Base.metadata.create_all(engine_gbo)
     if os.path.exists(f"energy_data_beech.csv"):
         os.remove(f"energy_data_beech.csv")
-
-SessionGbo = sessionmaker(bind=engine_gbo)
-session = SessionGbo()
-session.query(HourlyElectricity).filter(HourlyElectricity.short_alias == "beech").delete()
-session.commit()
-session.close()
 
 
 class EnergyDataset():
@@ -172,10 +165,10 @@ class EnergyDataset():
         print("\nGenerating dataset...")
         self.find_first_date()
         existing_dataset_dates = []
-        if os.path.exists(self.dataset_file):
-            print(f"Found existing dataset: {self.dataset_file}")
-            df = pd.read_csv(self.dataset_file)
-            existing_dataset_dates = [int(x) for x in list(df['hour_start_ms'])]
+        # if os.path.exists(self.dataset_file):
+        #     print(f"Found existing dataset: {self.dataset_file}")
+        #     df = pd.read_csv(self.dataset_file)
+        #     existing_dataset_dates = [int(x) for x in list(df['hour_start_ms'])]
 
         # Add data in batches of BATCH_SIZE hours
         SMALL_BATCH_SIZE = 20
@@ -779,4 +772,13 @@ def generate(
 if __name__ == '__main__':
     houses_to_generate = ['beech', 'oak', 'fir', 'maple', 'elm']
     for house in houses_to_generate:
-        generate(house_alias=house, yesterday=True)
+        generate(
+            house_alias=house, 
+            yesterday=False,
+            start_year=2024,
+            start_month=10,
+            start_day=15,
+            end_year=2025,
+            end_month=5,
+            end_day=15,
+        )
