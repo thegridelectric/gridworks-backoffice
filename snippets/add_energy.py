@@ -188,13 +188,19 @@ class EnergyDataset():
             else:
                 # We are processing all the data: small batches
                 if batch_start_ms < self.stop_flow_processing_date_ms:
-                    self.add_data(batch_start_ms, batch_end_ms)
+                    try:
+                        self.add_data(batch_start_ms, batch_end_ms)
+                    except Exception as e:
+                        print(f"Error adding data from {self.unix_ms_to_date(batch_start_ms)} to {self.unix_ms_to_date(batch_end_ms)}: {e}")
                     batch_start_ms += SMALL_BATCH_SIZE*3600*1000
                     batch_end_ms += SMALL_BATCH_SIZE*3600*1000
                 
                 # All the necessary data has been processed: move to large batches
                 elif batch_start_ms >= self.stop_flow_processing_date_ms:
-                    self.add_data(batch_start_ms, batch_end_ms)
+                    try:
+                        self.add_data(batch_start_ms, batch_end_ms)
+                    except Exception as e:
+                        print(f"Error adding data from {self.unix_ms_to_date(batch_start_ms)} to {self.unix_ms_to_date(batch_end_ms)}: {e}")
                     if using_small_batches:
                         batch_start_ms += SMALL_BATCH_SIZE*3600*1000
                         batch_end_ms += LARGE_BATCH_SIZE*3600*1000
@@ -770,9 +776,15 @@ def generate(
     s.generate_dataset()
 
 if __name__ == '__main__':
-    houses_to_generate = ['beech', 'oak', 'fir', 'maple', 'elm']
+    houses_to_generate = ['oak', 'fir', 'maple', 'elm', 'beech']
     for house in houses_to_generate:
         generate(
             house_alias=house, 
-            yesterday=True
+            yesterday=False,
+            start_year=2024,
+            start_month=10,
+            start_day=15,
+            end_year=2025,
+            end_month=5,
+            end_day=15,
         )
