@@ -2,7 +2,7 @@ import os
 import time
 import dotenv
 import pendulum
-from sqlalchemy import create_engine, asc, or_
+from sqlalchemy import create_engine, asc, or_, and_
 from sqlalchemy.orm import sessionmaker
 from gjk.models import MessageSql
 from typing import List
@@ -63,6 +63,10 @@ class HourlyElectricity(Base):
     zone2_heatcall_fraction = Column(Float, nullable=True)
     zone3_heatcall_fraction = Column(Float, nullable=True)
     zone4_heatcall_fraction = Column(Float, nullable=True)
+
+    oat_f = Column(Float, nullable=True)
+    ws_mph = Column(Float, nullable=True)
+    total_usd_per_mwh = Column(Float, nullable=True)
     
     __table_args__ = (
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
@@ -146,6 +150,9 @@ class EnergyDataset():
             'zone2_heatcall_fraction': [],
             'zone3_heatcall_fraction': [],
             'zone4_heatcall_fraction': [],
+            'oat_f': [],
+            'ws_mph': [],
+            'total_usd_per_mwh': [],
         }
 
     def find_first_date(self):
@@ -163,7 +170,7 @@ class EnergyDataset():
 
     def generate_dataset(self):
         print("\nGenerating dataset...")
-        self.find_first_date()
+        # self.find_first_date()
         existing_dataset_dates = []
         # if os.path.exists(self.dataset_file):
         #     print(f"Found existing dataset: {self.dataset_file}")
@@ -213,15 +220,23 @@ class EnergyDataset():
         st = time.time()
         print(f"\nGathering reports from: {self.unix_ms_to_date(batch_start_ms)} to {self.unix_ms_to_date(batch_end_ms)}...")
         
-        reports: List[MessageSql] = self.session.query(MessageSql).filter(
-            MessageSql.from_alias.like(f'%{self.house_alias}%'),
+        messages: List[MessageSql] = self.session.query(MessageSql).filter(
             or_(
-                MessageSql.message_type_name == "batched.readings",
-                MessageSql.message_type_name == "report"
+                and_(
+                    MessageSql.from_alias == f"hw1.isone.me.versant.keene.{self.house_alias}.scada",
+                    or_(
+                        MessageSql.message_type_name == "batched.readings",
+                        MessageSql.message_type_name == "report"
+                    )
+                ),
+                MessageSql.message_type_name == "flo.params.house0"
             ),
             MessageSql.message_persisted_ms >= batch_start_ms - 7*60*1000,
             MessageSql.message_persisted_ms <= batch_end_ms + 7*60*1000,
         ).order_by(asc(MessageSql.message_persisted_ms)).all()
+
+        reports = [m for m in messages if m.message_type_name in ['report', 'batched.readings']]
+        flo_params = [m for m in messages if m.message_type_name == 'flo.params.house0']
         
         print(f"Found {len(reports)} reports in database in {int(time.time()-st)} seconds")
         st = time.time()
@@ -337,6 +352,9 @@ class EnergyDataset():
             zone2_heatcall_fraction = None
             zone3_heatcall_fraction = None
             zone4_heatcall_fraction = None
+            oat_f = None
+            ws_mph = None
+            total_usd_per_mwh = None
 
             # Heat pump energy
             if not [c for c in hp_critical_channels if c not in csv_values]:
@@ -634,7 +652,14 @@ class EnergyDataset():
             #     plt.legend()
             #     plt.show()
 
-            print(f"{self.unix_ms_to_date(hour_start_ms)} - HP: {hp_elec_in} kWh_e, {hp_heat_out} kWh_th")
+            # Get weather and price data
+            for f in flo_params:
+                if f.payload['StartUnixS'] == hour_start_ms/1000:
+                    oat_f = f.payload['OatForecastF'][0]
+                    ws_mph = f.payload['WindSpeedForecastMph'][0]
+                    total_usd_per_mwh = f.payload['LmpForecast'][0] + f.payload['DistPriceForecast'][0]
+                    total_usd_per_mwh = round(total_usd_per_mwh, 3)
+                    break
 
             row = [
                 reports[0].from_alias, 
@@ -672,6 +697,9 @@ class EnergyDataset():
                 zone2_heatcall_fraction,
                 zone3_heatcall_fraction,
                 zone4_heatcall_fraction,
+                oat_f,
+                ws_mph,
+                total_usd_per_mwh,
             ]
             row = [x if x is not None else np.nan for x in row]
             formatted_data.loc[len(formatted_data)] = row 
@@ -712,6 +740,9 @@ class EnergyDataset():
                 zone2_heatcall_fraction=zone2_heatcall_fraction,
                 zone3_heatcall_fraction=zone3_heatcall_fraction,
                 zone4_heatcall_fraction=zone4_heatcall_fraction,
+                oat_f=oat_f,
+                ws_mph=ws_mph,
+                total_usd_per_mwh=total_usd_per_mwh,
             )
             rows.append(row)
         
@@ -776,9 +807,15 @@ def generate(
     s.generate_dataset()
 
 if __name__ == '__main__':
-    houses_to_generate = ['oak', 'fir', 'maple', 'elm', 'beech']
+    houses_to_generate = ['fir', 'maple', 'elm', 'beech']
     for house in houses_to_generate:
         generate(
             house_alias=house, 
-            yesterday=True
+            yesterday=False,
+            start_year=2025,
+            start_month=10,
+            start_day=15,
+            end_year=2025,
+            end_month=11,
+            end_day=17,
         )
