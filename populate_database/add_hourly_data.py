@@ -811,11 +811,5 @@ if __name__ == '__main__':
     for house in houses_to_generate:
         generate(
             house_alias=house, 
-            yesterday=False,
-            start_year=2025,
-            start_month=10,
-            start_day=15,
-            end_year=2025,
-            end_month=11,
-            end_day=17,
+            yesterday=True
         )
