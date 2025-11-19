@@ -321,11 +321,11 @@ class EnergyDataset():
                     csv_values[channel] = list(merged['values'])
 
                 except Exception as e:
-                    print(f"Error merging: {e}")
-                    if sorted(csv_times_dt) != csv_times_dt:
-                        print(f"\ncsv_times_dt: {csv_times_dt}\n")
-                    elif sorted(channels[channel]['times']) != channels[channel]['times']:
-                        print(f"\nchannels[channel]['times']: {channels[channel]['times']}\n")
+                    print(f"Error merging data around {csv_times_dt[0]} : {e}")
+                    # if sorted(csv_times_dt) != csv_times_dt:
+                    #     print(f"\ncsv_times_dt: {csv_times_dt}\n")
+                    # elif sorted(channels[channel]['times']) != channels[channel]['times']:
+                    #     print(f"\nchannels[channel]['times']: {channels[channel]['times']}\n")
                     merged = pd.merge_asof(
                         pd.DataFrame({'times': csv_times_dt}).sort_values('times'),
                         pd.DataFrame(channels[channel]).sort_values('times'),
@@ -570,7 +570,7 @@ class EnergyDataset():
                 df['pipe_cumulative_heat_kWh'] = df['pipe_cumulative_heat_kWh'] / 3600 * timestep_seconds
             else:
                 print(f"Missing store required channels: {[c for c in store_required_channels if c not in csv_values]}")
-                print(f"Missing store pump power: {'store-pump-pwr' not in csv_values}")
+                # print(f"Missing store pump power: {'store-pump-pwr' not in csv_values}")
 
             # Buffer temperatures
             buffer_channels = ['buffer-depth1', 'buffer-depth2', 'buffer-depth3', 'buffer-depth4']
@@ -807,7 +807,7 @@ def generate(
     s.generate_dataset()
 
 if __name__ == '__main__':
-    houses_to_generate = ['fir', 'maple', 'elm', 'beech']
+    houses_to_generate = ['oak', 'fir', 'maple', 'elm', 'beech']
     for house in houses_to_generate:
         generate(
             house_alias=house, 
