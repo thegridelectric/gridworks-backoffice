@@ -688,23 +688,23 @@ class EnergyDataset():
                     ws_mph = f.payload['WindSpeedForecastMph'][0]
                     total_usd_per_mwh = f.payload['LmpForecast'][0] + f.payload['DistPriceForecast'][0]
                     total_usd_per_mwh = round(total_usd_per_mwh, 3)
-
-                    alpha = f.payload['AlphaTimes10']/10
-                    beta = f.payload['BetaTimes100']/100
-                    gamma = f.payload['GammaEx6']/10**6
-                    intermediate_power_kw = f.payload['IntermediatePowerKw']
-                    intermediate_rswt = f.payload['IntermediateRswtF']
-                    dd_power_kw = f.payload['DdPowerKw']
-                    dd_rswt = f.payload['DdRswtF']
-                    dd_delta_t = f.payload['DdDeltaTF']
                     break
 
-            # Determine if FLO or HomeAlone
+            # Determine if FLO or HomeAlone and get house parameters
             flo_tf = False
             for f in flo_params:
-                if f.payload['StartUnixS'] == hour_start_ms/1000 and f.from_alias == f"hw1.isone.me.versant.keene.{self.house_alias}.scada":
-                    flo_tf = True
-                    break
+                if f.payload['StartUnixS'] == hour_start_ms/1000: 
+                    if f.from_alias == f"hw1.isone.me.versant.keene.{self.house_alias}.scada":
+                        flo_tf = True
+                        alpha = f.payload['AlphaTimes10']/10
+                        beta = f.payload['BetaTimes100']/100
+                        gamma = f.payload['GammaEx6']/10**6
+                        intermediate_power_kw = f.payload['IntermediatePowerKw']
+                        intermediate_rswt = f.payload['IntermediateRswtF']
+                        dd_power_kw = f.payload['DdPowerKw']
+                        dd_rswt = f.payload['DdRswtF']
+                        dd_delta_t = f.payload['DdDeltaTF']
+                        break
 
             row = [
                 reports[0].from_alias, 
