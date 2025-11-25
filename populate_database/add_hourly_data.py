@@ -9,7 +9,7 @@ from typing import List
 import pandas as pd
 import numpy as np
 import os
-from sqlalchemy import create_engine, Column, String, Float, BigInteger, UniqueConstraint
+from sqlalchemy import create_engine, Column, String, Float, BigInteger, UniqueConstraint, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker
 import matplotlib.pyplot as plt
 
@@ -67,6 +67,16 @@ class HourlyElectricity(Base):
     oat_f = Column(Float, nullable=True)
     ws_mph = Column(Float, nullable=True)
     total_usd_per_mwh = Column(Float, nullable=True)
+    flo = Column(Boolean, nullable=True)
+
+    alpha = Column(Float, nullable=True)
+    beta = Column(Float, nullable=True)
+    gamma = Column(Float, nullable=True)
+    intermediate_power_kw = Column(Float, nullable=True)
+    intermediate_rswt = Column(Float, nullable=True)
+    dd_power_kw = Column(Float, nullable=True)
+    dd_rswt = Column(Float, nullable=True)
+    dd_delta_t = Column(Float, nullable=True)
     
     __table_args__ = (
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
@@ -153,6 +163,15 @@ class EnergyDataset():
             'oat_f': [],
             'ws_mph': [],
             'total_usd_per_mwh': [],
+            'flo': [],
+            'alpha': [],
+            'beta': [],
+            'gamma': [],
+            'intermediate_power_kw': [],
+            'intermediate_rswt': [],
+            'dd_power_kw': [],
+            'dd_rswt': [],
+            'dd_delta_t': [],
         }
 
     def find_first_date(self):
@@ -305,7 +324,7 @@ class EnergyDataset():
             csv_values = {'times': csv_times}
             for channel in required_channels:
                 if channel not in channels or not channels[channel]['times']:
-                    print(f"Missing channel data: {channel}")
+                    # print(f"Missing channel data: {channel}")
                     continue
                 channels[channel]['times'] = pd.to_datetime(channels[channel]['times'], unit='ms', utc=True)
                 channels[channel]['times'] = [x.tz_convert(self.timezone_str) for x in channels[channel]['times']]
@@ -355,13 +374,21 @@ class EnergyDataset():
             oat_f = None
             ws_mph = None
             total_usd_per_mwh = None
+            alpha = None
+            beta = None
+            gamma = None
+            intermediate_power_kw = None
+            intermediate_rswt = None
+            dd_power_kw = None
+            dd_rswt = None
+            dd_delta_t = None
 
             # Heat pump energy
             if not [c for c in hp_critical_channels if c not in csv_values]:
                 df['hp_power'] = df['hp-idu-pwr'] + df['hp-odu-pwr']
                 hp_elec_in = round(float(np.mean(df['hp_power'])/1000),2)
             else:
-                print(f"Missing critical channels: {hp_critical_channels}")
+                # print(f"Missing critical channels: {hp_critical_channels}")
                 continue
             if (not [c for c in hp_required_channels if c not in csv_values]
                 or ('primary-pump-pwr' in csv_values and not [c for c in hp_required_channels if c not in csv_values and 'primary-flow' not in c])):
@@ -446,12 +473,13 @@ class EnergyDataset():
                     last_non_nan_cumulative_heat = non_nan_cumulative_heat[-1]
                     hp_heat_out = round(last_non_nan_cumulative_heat - first_non_nan_cumulative_heat,2)
                 else:
-                    print("There are no non-NaN cumulative heat values")
+                    # print("There are no non-NaN cumulative heat values")
                     hp_heat_out = None
                 hp_avg_lwt = self.to_fahrenheit(float(np.mean(df['hp-lwt'])/1000))
                 hp_avg_ewt = self.to_fahrenheit(float(np.mean(df['hp-ewt'])/1000))
             else:
-                print(f"Missing HP required channels: {[c for c in hp_required_channels if c not in csv_values]}")
+                # print(f"Missing HP required channels: {[c for c in hp_required_channels if c not in csv_values]}")
+                ...
 
             # Distribution energy
             if not [c for c in dist_required_channels if c not in csv_values]:
@@ -569,8 +597,9 @@ class EnergyDataset():
                 df['pipe_cumulative_heat_kWh'] = df['pipe_heat_power_kW'].cumsum()
                 df['pipe_cumulative_heat_kWh'] = df['pipe_cumulative_heat_kWh'] / 3600 * timestep_seconds
             else:
-                print(f"Missing store required channels: {[c for c in store_required_channels if c not in csv_values]}")
+                # print(f"Missing store required channels: {[c for c in store_required_channels if c not in csv_values]}")
                 # print(f"Missing store pump power: {'store-pump-pwr' not in csv_values}")
+                ...
 
             # Buffer temperatures
             buffer_channels = ['buffer-depth1', 'buffer-depth2', 'buffer-depth3', 'buffer-depth4']
@@ -659,6 +688,22 @@ class EnergyDataset():
                     ws_mph = f.payload['WindSpeedForecastMph'][0]
                     total_usd_per_mwh = f.payload['LmpForecast'][0] + f.payload['DistPriceForecast'][0]
                     total_usd_per_mwh = round(total_usd_per_mwh, 3)
+
+                    alpha = f.payload['AlphaTimes10']/10
+                    beta = f.payload['BetaTimes100']/100
+                    gamma = f.payload['GammaEx6']/10**6
+                    intermediate_power_kw = f.payload['IntermediatePowerKw']
+                    intermediate_rswt = f.payload['IntermediateRswtF']
+                    dd_power_kw = f.payload['DdPowerKw']
+                    dd_rswt = f.payload['DdRswtF']
+                    dd_delta_t = f.payload['DdDeltaTF']
+                    break
+
+            # Determine if FLO or HomeAlone
+            flo_tf = False
+            for f in flo_params:
+                if f.payload['StartUnixS'] == hour_start_ms/1000 and f.from_alias == f"hw1.isone.me.versant.keene.{self.house_alias}.scada":
+                    flo_tf = True
                     break
 
             row = [
@@ -700,6 +745,15 @@ class EnergyDataset():
                 oat_f,
                 ws_mph,
                 total_usd_per_mwh,
+                flo_tf,
+                alpha,
+                beta,
+                gamma,
+                intermediate_power_kw,
+                intermediate_rswt,
+                dd_power_kw,
+                dd_rswt,
+                dd_delta_t,
             ]
             row = [x if x is not None else np.nan for x in row]
             formatted_data.loc[len(formatted_data)] = row 
@@ -743,6 +797,15 @@ class EnergyDataset():
                 oat_f=oat_f,
                 ws_mph=ws_mph,
                 total_usd_per_mwh=total_usd_per_mwh,
+                flo=flo_tf,
+                alpha=alpha,
+                beta=beta,
+                gamma=gamma,
+                intermediate_power_kw=intermediate_power_kw,
+                intermediate_rswt=intermediate_rswt,
+                dd_power_kw=dd_power_kw,
+                dd_rswt=dd_rswt,
+                dd_delta_t=dd_delta_t,
             )
             rows.append(row)
         
@@ -809,7 +872,15 @@ def generate(
 if __name__ == '__main__':
     houses_to_generate = ['oak', 'fir', 'maple', 'elm', 'beech']
     for house in houses_to_generate:
+        print(f"\nGenerating data for {house}")
         generate(
             house_alias=house, 
-            yesterday=True
+            yesterday=False,
+            start_year=2025,
+            start_month=10,
+            start_day=15,
+            end_year=2025,
+            end_month=11,
+            end_day=25,
         )
+        print(f"Done.")
