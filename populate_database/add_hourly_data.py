@@ -694,7 +694,7 @@ class EnergyDataset():
             flo_tf = False
             for f in flo_params:
                 if f.payload['StartUnixS'] == hour_start_ms/1000: 
-                    if f.from_alias == f"hw1.isone.me.versant.keene.{self.house_alias}.scada":
+                    if f.from_alias == f"hw1.isone.me.versant.keene.{self.house_alias}":
                         flo_tf = True
                         alpha = f.payload['AlphaTimes10']/10
                         beta = f.payload['BetaTimes100']/100
@@ -872,7 +872,7 @@ def generate(
 if __name__ == '__main__':
     houses_to_generate = ['oak', 'fir', 'maple', 'elm', 'beech']
     for house in houses_to_generate:
-        print(f"\nGenerating data for {house}")
+        print(f"\nGenerating this year's data for {house}")
         generate(
             house_alias=house, 
             yesterday=False,
@@ -882,5 +882,18 @@ if __name__ == '__main__':
             end_year=2025,
             end_month=11,
             end_day=25,
+        )
+        print(f"Done.")
+    for house in houses_to_generate:
+        print(f"\nGenerating past year's data for {house}")
+        generate(
+            house_alias=house, 
+            yesterday=False,
+            start_year=2024,
+            start_month=10,
+            start_day=15,
+            end_year=2025,
+            end_month=5,
+            end_day=15,
         )
         print(f"Done.")
