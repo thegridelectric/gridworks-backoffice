@@ -204,7 +204,7 @@
                 }
             } catch (error) {
                 // Show error message
-                errorMessage.textContent = "An error occurred. Please try again.";
+                errorMessage.innerHTML = "<b>Querying visualizer API failed!</b><br>Debug <a href='https://github.com/thegridelectric/gridworks-infra/blob/main/observability/custom-tools/backoffice.md'>here</a>";
                 errorMessage.style.display = "block";
                 console.error('Login error:', error);
             }

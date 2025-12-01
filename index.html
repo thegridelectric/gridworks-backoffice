@@ -2424,6 +2424,8 @@
                     } catch (error) {
                         console.error('Error fetching messages:', error);
                         alert(`Error fetching messages.`);
+                        // Refresh the page on API failure
+                        location.reload();
                     } finally {
                         enable_plot_buttons();
                         hideLoader();
@@ -2713,7 +2715,12 @@
             // Add event listener for the update SCADA button
             const updateScadaBtn = document.getElementById('update-scada-btn');
             if (updateScadaBtn) {
-                updateScadaBtn.addEventListener('click', updateScadaCode);
+                // Hide button if not running locally
+                if (!isRunningLocally) {
+                    updateScadaBtn.style.display = 'none';
+                } else {
+                    updateScadaBtn.addEventListener('click', updateScadaCode);
+                }
             }
 
             // Fullscreen toggle functionality
@@ -2802,8 +2809,9 @@
                     tableBody.innerHTML = `
                         <tr>
                             <td colspan="6" class="text-center text-muted">
-                                <i class="bi bi-exclamation-triangle"></i>
-                                Network error: ${error.message}
+                                <b><i class="bi bi-exclamation-triangle"></i>
+                                Querying visualizer API failed!</b><br>
+                                Debug <a href='https://github.com/thegridelectric/gridworks-infra/blob/main/observability/custom-tools/backoffice.md'>here</a>
                             </td>
                         </tr>
                     `;
@@ -4254,6 +4262,8 @@
                 }
             } catch (error) {
                 console.error('Error getting CSV:', error);
+                // Refresh the page on API failure
+                location.reload();
             } finally {
                 enableButton('csv-btn');
             }
@@ -4338,6 +4348,8 @@
                 }
             } catch (error) {
                 console.error('Error getting CSV:', error);
+                // Refresh the page on API failure
+                location.reload();
             } finally {
                 enableButton('data-download-csv-btn');
             }
@@ -4404,6 +4416,8 @@
                 window.URL.revokeObjectURL(url);
             } catch (error) {
                 console.error('Error getting FLO excel file:', error);
+                // Refresh the page on API failure
+                location.reload();
             } finally {
                 enableButton('flo-btn');
             }
@@ -4599,6 +4613,8 @@
                 }
             } catch (error) {
                 console.error('Error getting plots:', error);
+                // Refresh the page on API failure
+                location.reload();
             } finally {
                 plotBtn.disabled = false;
                 plotBtn.style.opacity = '1';
@@ -6871,11 +6887,8 @@
                 }
             } catch (error) {
                 console.error('Error getting electricity plots:', error);
-                clearElectricityPlots();
-                const plotContainer = document.getElementById('electricity-plot-container');
-                const plotDiv = document.getElementById('electricity-plot');
-                plotContainer.style.display = 'block';
-                plotDiv.innerHTML = '<div style="color: var(--danger-color); text-align: center; padding: 2rem; font-size: 0.875rem;">Could not find data for this house and time frame</div>';
+                // Refresh the page on API failure
+                location.reload();
             } finally {
                 plotBtn.disabled = false;
                 plotBtn.style.opacity = '1';
@@ -6937,6 +6950,8 @@
                 window.URL.revokeObjectURL(url);
             } catch (error) {
                 console.error('Error getting electricity use CSV:', error);
+                // Refresh the page on API failure
+                location.reload();
             } finally {
                 csvBtn.disabled = false;
                 csvBtn.style.opacity = '1';
@@ -7026,11 +7041,8 @@
                 window.location.reload();
             } catch (error) {
                 console.error('Error updating SCADA code:', error);
-                alert('Failed to update SCADA code. Please try again.');
-                // Re-enable button and restore original state
-                updateScadaBtn.disabled = false;
-                updateScadaBtn.style.opacity = '1';
-                updateScadaBtn.innerHTML = '<span>Pull</span>';
+                // Refresh the page on API failure
+                location.reload();
             }
         }
 
