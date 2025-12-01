@@ -875,12 +875,6 @@ if __name__ == '__main__':
         print(f"\nGenerating this year's data for {house}")
         generate(
             house_alias=house, 
-            yesterday=False,
-            start_year=2025,
-            start_month=11,
-            start_day=26,
-            end_year=2025,
-            end_month=12,
-            end_day=1,
+            yesterday=True
         )
         print(f"Done.")
