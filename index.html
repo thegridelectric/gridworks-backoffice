@@ -4243,6 +4243,7 @@
                             }
                         } else {
                             console.error('Error:', data.message);
+                            alert(data.message);
                         }
                     }
                 } else {
@@ -4329,6 +4330,7 @@
                             }
                         } else {
                             console.error('Error:', data.message);
+                            alert(data.message);
                         }
                     }
                 } else {
@@ -4562,6 +4564,7 @@
                     const data = await response.json();
                     if ('success' in data && data.success === false) {
                         console.error('Error:', data.message);
+                        alert(data.message);
                     }
                 } else {
                     const blob = await response.blob();
@@ -6848,6 +6851,7 @@
                     const data = await response.json();
                     if ('success' in data && data.success === false) {
                         console.error('Error:', data.message);
+                        alert(data.message);
                         clearElectricityPlots();
                         const plotContainer = document.getElementById('electricity-plot-container');
                         const plotDiv = document.getElementById('electricity-plot');
