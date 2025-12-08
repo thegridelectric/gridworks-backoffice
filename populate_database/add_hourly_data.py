@@ -873,7 +873,7 @@ def generate(
 if __name__ == '__main__':
     houses_to_generate = ['oak', 'fir', 'maple', 'elm', 'beech']
     for house in houses_to_generate:
-        print(f"\nGenerating this year's data for {house}")
+        print(f"\nGenerating data for {house}")
         generate(
             house_alias=house, 
             yesterday=True
