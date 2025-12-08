@@ -181,10 +181,10 @@ class EnergyDataset():
                 MessageSql.message_type_name == "batched.readings",
                 MessageSql.message_type_name == "report"
             ),
-            MessageSql.message_persisted_ms >= self.start_ms,
-            MessageSql.message_persisted_ms <= self.end_ms,
-        ).order_by(asc(MessageSql.message_persisted_ms)).first()
-        self.start_ms = first_report.message_persisted_ms
+            MessageSql.message_created_ms >= self.start_ms,
+            MessageSql.message_created_ms <= self.end_ms,
+        ).order_by(asc(MessageSql.message_created_ms)).first()
+        self.start_ms = first_report.message_created_ms
         print(f"Data for {self.house_alias} starts at {self.unix_ms_to_date(self.start_ms)}")
 
     def generate_dataset(self):
@@ -250,9 +250,9 @@ class EnergyDataset():
                 ),
                 MessageSql.message_type_name == "flo.params.house0"
             ),
-            MessageSql.message_persisted_ms >= batch_start_ms - 7*60*1000,
-            MessageSql.message_persisted_ms <= batch_end_ms + 7*60*1000,
-        ).order_by(asc(MessageSql.message_persisted_ms)).all()
+            MessageSql.message_created_ms >= batch_start_ms - 7*60*1000,
+            MessageSql.message_created_ms <= batch_end_ms + 7*60*1000,
+        ).order_by(asc(MessageSql.message_created_ms)).all()
 
         reports = [m for m in messages if m.message_type_name in ['report', 'batched.readings']]
         flo_params = [m for m in messages if m.message_type_name == 'flo.params.house0']
@@ -274,12 +274,13 @@ class EnergyDataset():
 
             # Sort data by channels
             channels = {}
-            for message in [
+            selected_messages = [
                 m for m in reports
                 if self.house_alias in m.from_alias
-                and m.message_persisted_ms >= hour_start_ms - 7*60*1000
-                and m.message_persisted_ms <= hour_end_ms + 7*60*1000
-                ]:
+                and m.message_created_ms >= hour_start_ms - 7*60*1000
+                and m.message_created_ms <= hour_end_ms + 7*60*1000
+                ]
+            for message in selected_messages:
                 for channel in message.payload['ChannelReadingList']:
                     if message.message_type_name == 'report':
                         channel_name = channel['ChannelName']
@@ -292,7 +293,7 @@ class EnergyDataset():
                     channels[channel_name]['times'].extend(channel['ScadaReadTimeUnixMsList'])
                     channels[channel_name]['values'].extend(channel['ValueList'])
             if not channels:
-                print(f"No channels found in reports")
+                print(f"No channels found in reports for hour {self.unix_ms_to_date(hour_start_ms)}: {channels}")
                 continue
             for channel in channels.keys():
                 sorted_times_values = sorted(zip(channels[channel]['times'], channels[channel]['values']))
