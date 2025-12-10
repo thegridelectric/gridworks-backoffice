@@ -201,6 +201,14 @@
             color: var(--text-color);
         }
 
+        .admin-btn {
+            color: var(--text-muted);
+        }
+
+        .admin-btn:hover {
+            color: var(--text-color);
+        }
+
         .snapshot-btn {
             background: none;
             border: none;
@@ -1742,6 +1750,22 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Admin panel (integrated from admin.html) -->
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 2.5rem auto 1.5rem auto; max-width: 1200px;">
+                <h5 style="text-align: center; margin-top: 0; margin-bottom: 1rem; font-size: 1rem">Admin panel</h5>
+                <div id="dashboard-control-panel" style="text-align: center; max-width: 770px; margin: 0 auto 1.5rem auto; background-color: transparent; border: 0px solid #ddd; border-radius: 3px; padding: 0 0 1rem 0;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
+                        <div id="timer-display" style="font-family: monospace; font-size: 20px; color: #333; font-weight: bold; min-width: 110px; text-align: center;">00:00:00</div>
+                        <div style="display: inline-block;">
+                            <label for="timeout-input">Timeout (minutes):</label>
+                            <input type="number" id="timeout-input" value="5" min="1" max="1440" style="width: 70px; margin: 0 5px; padding: 8px 14px; border: 1px solid var(--border-color); border-radius: 0.25rem; background-color: white; font-family: inherit; font-size: inherit;">
+                        </div>
+                        <button id="keep-alive-btn" class="admin-btn" onclick="sendKeepAlive()" style="margin: 0 5px; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 0.25rem; background-color: var(--hover-color); cursor: pointer; font-size: 0.85rem;">Keep alive</button>
+                        <button id="release-control-btn" class="admin-btn" onclick="sendReleaseControl()" style="margin: 0 5px; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 0.25rem; background-color: var(--hover-color); cursor: pointer; font-size: 0.85rem;">Release control</button>
+                    </div>
+                </div>
+                <div id="relays" style="margin-bottom: 10px;"></div>
             </div>
         </div>
 
@@ -5019,6 +5043,7 @@
         let dashboardRelays = {};
         let dashboardThermostatNames = [];
         let dashboardCurrentUserId = 'user_' + Math.random().toString(36).substr(2, 9);
+        let dashboardTimerColorActive = '#CC1616';
 
         function sendRequestSnapshot() {
             if (!dashboardWebsocket || dashboardWebsocket.readyState !== WebSocket.OPEN) {
@@ -5083,6 +5108,8 @@
         function handleDashboardMessage(data) {
             if (data.type === 'status') {
                 updateDashboardStatus(data);
+            } else if (data.type === 'timer_update') {
+                updateDashboardTimer(data);
             } else if (data.type === 'mqtt_message') {
                 if (data.message_type === 'single.reading') {
                     updateDashboardRelayState(data.payload);
@@ -5114,11 +5141,16 @@
             
             if (data.relays) {
                 dashboardRelays = data.relays;
+                updateDashboardRelayButtons();
                 updateDashboardPipeColors(null);
             }
             
             if (data.thermostat_names) {
                 dashboardThermostatNames = data.thermostat_names;
+            }
+
+            if (data.time_remaining !== undefined) {
+                updateDashboardTimer({ time_remaining: data.time_remaining, controller: data.controller });
             }
         }
 
@@ -5128,6 +5160,7 @@
                     ...dashboardRelays[payload.relay_name],
                     state: payload.state
                 };
+                updateDashboardRelayButtons();
                 updateDashboardPipeColors(null);
             }
         }
@@ -5314,6 +5347,178 @@
                 <td style="border: 1px solid var(--border-color); padding: 6px; font-size: 0.8rem; color: var(--text-muted);">${storePowerReading && storePowerReading.Value > 0 ? storePowerReading.Value.toFixed(1) : '0.0'}</td>
             `;
             tbody.appendChild(row3);
+        }
+
+        function updateDashboardRelayButtons() {
+            const relaysDiv = document.getElementById('relays');
+            if (!relaysDiv) return;
+
+            relaysDiv.innerHTML = '';
+
+            const table = document.createElement('table');
+            table.style.border = '1px solid var(--border-color)';
+            table.style.borderCollapse = 'collapse';
+            table.style.borderRadius = '0.25rem';
+            table.style.maxWidth = '1000px';
+            table.style.margin = '0 auto';
+            table.style.backgroundColor = 'var(--card-background)';
+            table.style.fontSize = '0.8rem';
+
+            const headerRow = document.createElement('tr');
+            const headers = ['Relay', 'Name', 'Current State', 'Action', 'Energized'];
+            headers.forEach((headerText, index) => {
+                const th = document.createElement('th');
+                th.textContent = headerText;
+                th.style.padding = '6px 8px';
+                th.style.backgroundColor = 'var(--hover-color)';
+                if (index === 2) th.style.width = '170px';
+                headerRow.appendChild(th);
+            });
+            table.appendChild(headerRow);
+
+            const sortedRelays = Object.entries(dashboardRelays).sort((a, b) => {
+                const relayNumberA = parseInt(a[0].replace('relay', ''), 10);
+                const relayNumberB = parseInt(b[0].replace('relay', ''), 10);
+                return relayNumberA - relayNumberB;
+            });
+
+            for (const [relayName, relayInfo] of sortedRelays) {
+                const row = document.createElement('tr');
+                const relayNumber = relayName.replace('relay', '');
+                const currentState = relayInfo.state || 'unknown';
+
+                let currentStateDescription = 'unknown';
+                if (currentState === 'energized') {
+                    currentStateDescription = relayInfo.energized_state || 'energized';
+                } else if (currentState === 'deenergized') {
+                    currentStateDescription = relayInfo.deenergized_state || 'deenergized';
+                }
+
+                let actionText = 'unknown';
+                if (currentState === 'energized') {
+                    actionText = relayInfo.de_energizing_event || 'De-energize';
+                } else if (currentState === 'deenergized') {
+                    actionText = relayInfo.energizing_event || 'Energize';
+                }
+
+                const energizedIcon = currentState === 'energized' ? '🔴' : '⚪';
+
+                const cells = [
+                    relayNumber,
+                    relayInfo.display_name ? relayInfo.display_name.replace(/Relay\s*/i, '') : relayName,
+                    currentStateDescription,
+                    actionText,
+                    energizedIcon
+                ];
+
+                cells.forEach((cellText, index) => {
+                    const td = document.createElement('td');
+                    td.style.padding = '4px 10px';
+
+                    if (index === 3) {
+                        const button = document.createElement('button');
+                        button.textContent = cellText;
+                        button.className = 'admin-btn';
+                        button.onclick = () => toggleRelay(relayName);
+                        button.style.width = '160px';
+                        button.style.padding = '4px 10px';
+                        button.style.border = '1px solid var(--border-color)';
+                        button.style.borderRadius = '0.25rem';
+                        button.style.backgroundColor = 'var(--hover-color)';
+                        button.style.cursor = 'pointer';
+                        button.style.fontFamily = 'inherit';
+                        button.style.fontSize = '0.8rem';
+                        td.appendChild(button);
+                    } else if (index === 4) {
+                        td.textContent = cellText;
+                        td.style.textAlign = 'center';
+                    } else {
+                        td.textContent = cellText;
+                    }
+
+                    row.appendChild(td);
+                });
+
+                table.appendChild(row);
+            }
+
+            if (sortedRelays.length > 0) {
+                const lastRow = table.rows[table.rows.length - 1];
+                for (let i = 0; i < lastRow.cells.length; i++) {
+                    lastRow.cells[i].style.borderBottom = '1px solid var(--border-color)';
+                }
+            }
+
+            relaysDiv.appendChild(table);
+        }
+
+        function updateDashboardTimer(data) {
+            const timerElement = document.getElementById('timer-display');
+            if (!timerElement || data.time_remaining === undefined) return;
+
+            const hours = Math.floor(data.time_remaining / 3600);
+            const minutes = Math.floor((data.time_remaining % 3600) / 60);
+            const seconds = Math.floor(data.time_remaining % 60);
+
+            timerElement.textContent =
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+            timerElement.style.color = data.time_remaining > 0 ? dashboardTimerColorActive : '#333';
+        }
+
+        function toggleRelay(relayName) {
+            if (!dashboardWebsocket || dashboardWebsocket.readyState !== WebSocket.OPEN) {
+                console.error('Not connected to server');
+                return;
+            }
+
+            const timeoutMinutes = parseInt(document.getElementById('timeout-input').value, 10) || 5;
+            const timeoutSeconds = timeoutMinutes * 60;
+
+            const message = {
+                type: 'relay_control',
+                data: {
+                    relay_name: relayName,
+                    timeout_seconds: timeoutSeconds,
+                    user_id: dashboardCurrentUserId
+                }
+            };
+
+            dashboardWebsocket.send(JSON.stringify(message));
+        }
+
+        function sendKeepAlive() {
+            if (!dashboardWebsocket || dashboardWebsocket.readyState !== WebSocket.OPEN) {
+                console.error('Not connected to server');
+                return;
+            }
+
+            const timeoutMinutes = parseInt(document.getElementById('timeout-input').value, 10) || 5;
+            const timeoutSeconds = timeoutMinutes * 60;
+
+            const message = {
+                type: 'keepalive',
+                data: {
+                    timeout_seconds: timeoutSeconds,
+                    user_id: dashboardCurrentUserId
+                }
+            };
+
+            dashboardWebsocket.send(JSON.stringify(message));
+        }
+
+        function sendReleaseControl() {
+            if (!dashboardWebsocket || dashboardWebsocket.readyState !== WebSocket.OPEN) {
+                console.error('Not connected to server');
+                return;
+            }
+
+            const message = {
+                type: 'release_control',
+                data: {}
+            };
+
+            dashboardWebsocket.send(JSON.stringify(message));
         }
 
         function updateDashboardLayerBackground(temp) {
