@@ -77,6 +77,7 @@ class HourlyElectricity(Base):
     dd_power_kw = Column(Float, nullable=True)
     dd_rswt = Column(Float, nullable=True)
     dd_delta_t = Column(Float, nullable=True)
+    banana = Column(Float, nullable=True)
     
     __table_args__ = (
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
@@ -172,6 +173,7 @@ class EnergyDataset():
             'dd_power_kw': [],
             'dd_rswt': [],
             'dd_delta_t': [],
+            'banana': [],
         }
 
     def find_first_date(self):
@@ -383,6 +385,7 @@ class EnergyDataset():
             dd_power_kw = None
             dd_rswt = None
             dd_delta_t = None
+            banana = None
 
             # Heat pump energy
             if not [c for c in hp_critical_channels if c not in csv_values]:
@@ -705,6 +708,7 @@ class EnergyDataset():
                         dd_power_kw = f.payload['DdPowerKw']
                         dd_rswt = f.payload['DdRswtF']
                         dd_delta_t = f.payload['DdDeltaTF']
+                        bid = f.payload.get('Banana')  # Use .get() to handle missing key gracefully
                         break
 
             row = [
@@ -755,6 +759,7 @@ class EnergyDataset():
                 dd_power_kw,
                 dd_rswt,
                 dd_delta_t,
+                banana,
             ]
             row = [x if x is not None else np.nan for x in row]
             formatted_data.loc[len(formatted_data)] = row 
@@ -807,6 +812,7 @@ class EnergyDataset():
                 dd_power_kw=dd_power_kw,
                 dd_rswt=dd_rswt,
                 dd_delta_t=dd_delta_t,
+                banana=banana,
             )
             rows.append(row)
         

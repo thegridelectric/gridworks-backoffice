@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heating Power Approximations - Interactive</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            align-items: center;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+        }
+        label {
+            font-weight: bold;
+            margin: 0;
+            color: #555;
+            font-size: 12px;
+            min-width: 180px;
+            flex-shrink: 0;
+        }
+        input[type="number"] {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 80px;
+            flex-shrink: 0;
+        }
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        input[type="number"][readonly] {
+            color: #6b6b6b;
+            cursor: not-allowed;
+        }
+        input[type="range"] {
+            flex: 1;
+            margin: 0 5px;
+        }
+        .plot-container {
+            width: 100%;
+            max-width: 900px;
+            height: 450px;
+            /* min-height: 500px; */
+        }
+        .ytitle {
+            font-weight: bold !important;
+        }
+        .error {
+            color: red;
+            padding: 10px;
+            background-color: #ffe6e6;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <div class="error" id="errorMessage"></div>
+        
+        <div class="main-content">
+            <div class="plot-container" id="plotContainer"></div>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <label for="alpha">ALPHA</label>
+                    <input type="range" id="alpha-slider" min="0" max="30" step="0.1" value="12">
+                    <input type="number" id="alpha" value="12" step="0.1">
+                </div>
+                <div class="control-group">
+                    <label for="beta">BETA</label>
+                    <input type="range" id="beta-slider" min="-1" max="0" step="0.01" value="-0.22">
+                    <input type="number" id="beta" value="-0.22" step="0.01">
+                </div>
+                <div class="control-group">
+                    <label for="gamma">GAMMA</label>
+                    <input type="range" id="gamma-slider" min="0" max="0.01" step="0.0001" value="0.002">
+                    <input type="number" id="gamma" value="0.002" step="0.0001">
+                </div>
+                <div class="control-group">
+                    <label for="intermediate_power">INTERMEDIATE_POWER</label>
+                    <input type="range" id="intermediate_power-slider" min="0" max="10" step="0.1" value="1.5">
+                    <input type="number" id="intermediate_power" value="1.5" step="0.1">
+                </div>
+                <div class="control-group">
+                    <label for="intermediate_rswt">INTERMEDIATE_RSWT</label>
+                    <input type="range" id="intermediate_rswt-slider" min="100" max="200" step="1" value="130">
+                    <input type="number" id="intermediate_rswt" value="130" step="1">
+                </div>
+                <div class="control-group">
+                    <label for="dd_power">DD_POWER</label>
+                    <input type="range" id="dd_power-slider" min="0" max="30" step="0.1" value="12">
+                    <input type="number" id="dd_power" value="12" step="0.1">
+                </div>
+                <div class="control-group">
+                    <label for="dd_rswt">DD_RSWT</label>
+                    <input type="range" id="dd_rswt-slider" min="150" max="250" step="1" value="180">
+                    <input type="number" id="dd_rswt" value="180" step="1">
+                </div>
+                <div class="control-group">
+                    <label for="dd_delta_t">DD_DELTA_T</label>
+                    <input type="range" id="dd_delta_t-slider" min="0" max="50" step="0.1" value="20">
+                    <input type="number" id="dd_delta_t" value="20" step="0.1">
+                </div>
+                <div class="control-group">
+                    <label for="no_power_rswt">NO_POWER_RSWT</label>
+                    <input type="number" id="no_power_rswt" value="" step="0.1" readonly style="background-color: #e0e0e0; width: 80px;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get all input elements
+        const inputs = {
+            alpha: document.getElementById('alpha'),
+            beta: document.getElementById('beta'),
+            gamma: document.getElementById('gamma'),
+            intermediate_power: document.getElementById('intermediate_power'),
+            intermediate_rswt: document.getElementById('intermediate_rswt'),
+            dd_power: document.getElementById('dd_power'),
+            dd_rswt: document.getElementById('dd_rswt'),
+            dd_delta_t: document.getElementById('dd_delta_t'),
+            no_power_rswt: document.getElementById('no_power_rswt')
+        };
+
+        // Get all slider elements
+        const sliders = {
+            alpha: document.getElementById('alpha-slider'),
+            beta: document.getElementById('beta-slider'),
+            gamma: document.getElementById('gamma-slider'),
+            intermediate_power: document.getElementById('intermediate_power-slider'),
+            intermediate_rswt: document.getElementById('intermediate_rswt-slider'),
+            dd_power: document.getElementById('dd_power-slider'),
+            dd_rswt: document.getElementById('dd_rswt-slider'),
+            dd_delta_t: document.getElementById('dd_delta_t-slider')
+        };
+
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Sync slider to input
+        function syncSliderToInput(slider, input) {
+            input.value = slider.value;
+        }
+
+        // Sync input to slider (clamp to slider range)
+        function syncInputToSlider(input, slider) {
+            const value = parseFloat(input.value);
+            const min = parseFloat(slider.min);
+            const max = parseFloat(slider.max);
+            const clampedValue = Math.max(min, Math.min(max, value));
+            slider.value = clampedValue;
+            if (value !== clampedValue) {
+                input.value = clampedValue;
+            }
+        }
+
+        // Calculate coefficients
+        function calculateCoefficients(params) {
+            const x0 = params.no_power_rswt;
+            const xi = params.intermediate_rswt;
+            const xd = params.dd_rswt;
+            const y0 = 0;
+            const yi = params.intermediate_power;
+            const yd = params.dd_power;
+
+            const c = (xi * xd) / (xi - xd) * ((yd * x0) / (xd * (x0 - xd)) - (yi * x0) / (xi * (x0 - xi)));
+            const b = (yi * x0) / (xi * (x0 - xi)) - (x0 + xi) / (x0 * xi) * c;
+            const a = -b / x0 - c / (x0 * x0);
+
+            return { a, b, c };
+        }
+
+        // Required heating power function
+        function requiredHeatingPower(oat, ws, params) {
+            const r = params.alpha + params.beta * oat + params.gamma * ws * (65 - oat);
+            return r > 0 ? r : 0;
+        }
+
+        // Delivered heating power function
+        function deliveredHeatingPower(swt, coeffs) {
+            const d = coeffs.a * swt * swt + coeffs.b * swt + coeffs.c;
+            return d > 0 ? d : 0;
+        }
+
+        // Required SWT function
+        function requiredSWT(hp, coeffs) {
+            const c2 = coeffs.c - hp;
+            const discriminant = coeffs.b * coeffs.b - 4 * coeffs.a * c2;
+            if (discriminant < 0) return null;
+            return (-coeffs.b + Math.sqrt(discriminant)) / (2 * coeffs.a);
+        }
+
+        // Delta T function
+        function deltaT(swt, coeffs, params) {
+            const d = params.dd_delta_t / params.dd_power * deliveredHeatingPower(swt, coeffs);
+            if (swt < params.no_power_rswt) return 0;
+            return d > 0 ? d : 0;
+        }
+
+        // Get current parameters
+        function getParams() {
+            const alpha = parseFloat(inputs.alpha.value);
+            const beta = parseFloat(inputs.beta.value);
+            const no_power_rswt = -alpha / beta;
+
+            return {
+                alpha: alpha,
+                beta: beta,
+                gamma: parseFloat(inputs.gamma.value),
+                intermediate_power: parseFloat(inputs.intermediate_power.value),
+                intermediate_rswt: parseFloat(inputs.intermediate_rswt.value),
+                dd_power: parseFloat(inputs.dd_power.value),
+                dd_rswt: parseFloat(inputs.dd_rswt.value),
+                dd_delta_t: parseFloat(inputs.dd_delta_t.value),
+                no_power_rswt: no_power_rswt
+            };
+        }
+
+        // Update plot
+        function updatePlot() {
+            try {
+                errorMessage.style.display = 'none';
+                
+                const params = getParams();
+                
+                // Validate ALPHA == DD_POWER
+                if (Math.abs(params.alpha - params.dd_power) > 0.001) {
+                    throw new Error('ALPHA and DD_POWER must be equal');
+                }
+
+                // Update NO_POWER_RSWT display
+                inputs.no_power_rswt.value = params.no_power_rswt.toFixed(2);
+
+                // Calculate coefficients
+                const coeffs = calculateCoefficients(params);
+
+                // Generate data
+                const oats = [];
+                for (let i = 70; i >= -10; i -= 5) {
+                    oats.push(i);
+                }
+
+                // Calculate for wind speed = 0
+                const kw_0 = [];
+                const rswt_0 = [];
+                for (const oat of oats) {
+                    const kw = requiredHeatingPower(oat, 0, params);
+                    kw_0.push(kw);
+                    const rswt = requiredSWT(kw, coeffs);
+                    rswt_0.push(rswt !== null ? rswt : null);
+                }
+
+                // Calculate for wind speed = 10
+                const kw_10 = [];
+                const rswt_10 = [];
+                for (const oat of oats) {
+                    const kw = requiredHeatingPower(oat, 10, params);
+                    kw_10.push(kw);
+                    const rswt = requiredSWT(kw, coeffs);
+                    rswt_10.push(rswt !== null ? rswt : null);
+                }
+
+                // Create Plotly traces
+                const traces = [
+                    {
+                        x: oats,
+                        y: kw_0,
+                        name: '0 mph wind',
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: 'rgb(31, 119, 180)', width: 2 },
+                        yaxis: 'y',
+                        opacity: 0.7,
+                        hovertemplate: '%{y:.1f} kW<extra></extra>'
+                    },
+                    {
+                        x: oats,
+                        y: kw_10,
+                        name: '10 mph wind',
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: 'rgb(31, 119, 180)', width: 2, dash: 'dash' },
+                        yaxis: 'y',
+                        opacity: 0.7,
+                        hovertemplate: '%{y:.1f} kW<extra></extra>'
+                    },
+                    {
+                        x: oats,
+                        y: rswt_0,
+                        name: '0 mph wind',
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: 'rgb(255, 127, 14)', width: 2 },
+                        yaxis: 'y2',
+                        opacity: 0.7,
+                        hovertemplate: '%{y:.1f}°F<extra></extra>'
+                    },
+                    {
+                        x: oats,
+                        y: rswt_10,
+                        name: '10 mph wind',
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: 'rgb(255, 127, 14)', width: 2, dash: 'dash' },
+                        yaxis: 'y2',
+                        opacity: 0.7,
+                        hovertemplate: '%{y:.1f}°F<extra></extra>'
+                    }
+                ];
+
+                const layout = {
+                    // title: 'Required heating power and RSWT as a function of OAT',
+                    xaxis: {
+                        title: 'OAT [F]',
+                        gridcolor: 'rgba(0,0,0,0.1)',
+                        zeroline: false,
+                        showline: true,
+                        mirror: true,
+                        hoverformat: '.0f'
+                    },
+                    yaxis: {
+                        title: 'Required heating power [kW]',
+                        side: 'left',
+                        showgrid: false,
+                        showline: true,
+                        zeroline: false,
+                        linecolor: 'rgb(31, 119, 180)',
+                        tickcolor: 'rgb(31, 119, 180)',
+                        tickfont: { color: 'rgb(31, 119, 180)' },
+                        titlefont: { color: 'rgb(31, 119, 180)' }
+                    },
+                    yaxis2: {
+                        title: 'RSWT [F]',
+                        side: 'right',
+                        overlaying: 'y',
+                        showgrid: false,
+                        showline: true,
+                        zeroline: false,
+                        linecolor: 'rgb(255, 127, 14)',
+                        tickcolor: 'rgb(255, 127, 14)',
+                        tickfont: { color: 'rgb(255, 127, 14)' },
+                        titlefont: { color: 'rgb(255, 127, 14)' }
+                    },
+                    legend: {
+                        x: 0.98,
+                        y: 0.98,
+                        xanchor: 'right',
+                        yanchor: 'top',
+                        bgcolor: 'rgba(255,255,255,0.8)'
+                    },
+                    plot_bgcolor: 'white',
+                    paper_bgcolor: 'white',
+                    hovermode: 'x unified',
+                    margin: { l: 50, r: 50, t: 20, b: 50 }
+                };
+
+                Plotly.newPlot('plotContainer', traces, layout, {
+                    responsive: true,
+                    displayModeBar: false
+                });
+
+                // Make axis labels bold
+                const plotContainer = document.getElementById('plotContainer');
+                const makeAxisLabelsBold = function() {
+                    const axisTitles = plotContainer.querySelectorAll('.ytitle, .y2title');
+                    axisTitles.forEach(title => {
+                        title.style.fontWeight = 'bold';
+                    });
+                };
+                makeAxisLabelsBold();
+                
+                // Re-apply after plot updates
+                plotContainer.on('plotly_redraw', makeAxisLabelsBold);
+
+                // Customize the x-axis hover label
+                const updateHoverLabel = function() {
+                    requestAnimationFrame(() => {
+                        const hoverLayer = document.querySelector('.hoverlayer');
+                        if (hoverLayer) {
+                            // In unified hover mode, the x value is typically in the first text element
+                            const textElements = Array.from(hoverLayer.querySelectorAll('text, tspan, div'));
+                            textElements.forEach(el => {
+                                const text = el.textContent.trim();
+                                // Check if it's just a number (the x-axis value)
+                                if (text && /^-?\d+$/.test(text)) {
+                                    // Make sure it's not already formatted
+                                    if (!text.includes('OAT:')) {
+                                        el.textContent = `OAT: ${text}°F`;
+                                    }
+                                }
+                            });
+                        }
+                    });
+                };
+
+                // Update on hover events
+                plotContainer.on('plotly_hover', updateHoverLabel);
+                
+                // Use MutationObserver to catch DOM changes
+                const observer = new MutationObserver(updateHoverLabel);
+                observer.observe(plotContainer, {
+                    childList: true,
+                    subtree: true,
+                    characterData: true
+                });
+
+            } catch (error) {
+                errorMessage.textContent = 'Error: ' + error.message;
+                errorMessage.style.display = 'block';
+            }
+        }
+
+        // Function to sync ALPHA and DD_POWER
+        function syncAlphaAndDdPower(sourceKey) {
+            const value = parseFloat(inputs[sourceKey].value);
+            // Update the other parameter
+            const otherKey = sourceKey === 'alpha' ? 'dd_power' : 'alpha';
+            inputs[otherKey].value = value;
+            syncInputToSlider(inputs[otherKey], sliders[otherKey]);
+        }
+
+        // Add event listeners to sync sliders and inputs
+        Object.keys(sliders).forEach(key => {
+            const slider = sliders[key];
+            const input = inputs[key];
+            
+            // When slider changes, update input and plot
+            slider.addEventListener('input', () => {
+                syncSliderToInput(slider, input);
+                // If ALPHA or DD_POWER, sync the other one
+                if (key === 'alpha' || key === 'dd_power') {
+                    syncAlphaAndDdPower(key);
+                }
+                updatePlot();
+            });
+            
+            // When input changes, update slider and plot
+            input.addEventListener('input', () => {
+                syncInputToSlider(input, slider);
+                // If ALPHA or DD_POWER, sync the other one
+                if (key === 'alpha' || key === 'dd_power') {
+                    syncAlphaAndDdPower(key);
+                }
+                updatePlot();
+            });
+        });
+
+        // Initial plot
+        updatePlot();
+    </script>
+</body>
+</html>

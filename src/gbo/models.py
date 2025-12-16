@@ -17,6 +17,7 @@ class House(Base):
     representation_status = Column(JSON, nullable=True)
     scada_ip_address = Column(String(45), nullable=True)  # IPv4/IPv6
     scada_git_commit = Column(String(40), nullable=True)  # Git commit hash
+    house_parameters = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

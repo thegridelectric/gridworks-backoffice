@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1/build/global/luxon.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
     <style>
         :root {
@@ -1018,7 +1019,8 @@
         #selected-house,
         #info-selected-house,
         #electricity-selected-house,
-        #data-download-selected-house {
+        #data-download-selected-house,
+        #parameters-selected-house {
             border: none;
             cursor: pointer;
             background-color: var(--selected-house-bg) !important;
@@ -1029,7 +1031,8 @@
         #selected-house::placeholder,
         #info-selected-house::placeholder,
         #electricity-selected-house::placeholder,
-        #data-download-selected-house::placeholder {
+        #data-download-selected-house::placeholder,
+        #parameters-selected-house::placeholder {
             color: var(--text-muted) !important;
             font-size: 0.875rem;
             opacity: 0.7;
@@ -1043,6 +1046,57 @@
             font-size: 0.875rem !important;
             padding: 0.25rem 0.5rem !important;
             height: auto !important;
+        }
+
+        /* Range input slider styling for parameters card */
+        .parameters-controls input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: var(--border-color);
+            border-radius: 3px;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .parameters-controls input[type="range"]:hover {
+            opacity: 1;
+        }
+
+        .parameters-controls input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .parameters-controls input[type="range"]::-webkit-slider-thumb:hover {
+            background: var(--text-color);
+        }
+
+        .parameters-controls input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s;
+        }
+
+        .parameters-controls input[type="range"]::-moz-range-thumb:hover {
+            background: var(--text-color);
+        }
+
+        .parameters-controls input[type="range"]::-moz-range-track {
+            background: var(--border-color);
+            height: 6px;
+            border-radius: 3px;
         }
 
         /* Add these styles */
@@ -1265,6 +1319,7 @@
             <button type="button" class="card-toggle-btn" id="show-electricity" data-card="electricity-card">Hourly data</button>
             <button type="button" class="card-toggle-btn" id="show-information" data-card="information-card">Information</button>
             <button type="button" class="card-toggle-btn" id="show-morning-report" data-card="morning-report-card">Morning report</button>
+            <button type="button" class="card-toggle-btn" id="show-parameters" data-card="parameters-card">Parameters</button>
             <button type="button" class="card-toggle-btn" id="show-map" data-card="map-card" style="display: none;">Map</button>
         </div>
 
@@ -2154,6 +2209,76 @@
                 </div>
             </div>
         </div>
+
+        <!-- Parameters Card -->
+        <div class="card" id="parameters-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title">Parameters</h5>
+                <div class="status-badges">
+                    <button class="filter-toggle" id="parameters-reset-btn">
+                        <span>Reset</span>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4">
+                <div class="mb-4">
+                    <label class="form-label" style="font-size: 0.875rem; color: var(--text-muted);">Selected House</label>
+                    <input type="text" class="form-control text-light border-secondary" style="background-color: rgba(56, 77, 164, 0.2);" id="parameters-selected-house" placeholder="Select a house in the table" readonly>
+                </div>
+                <div id="parameters-error-message" style="display: none; color: var(--danger-color); padding: 10px; background-color: rgba(255, 68, 68, 0.1); border-radius: 4px; margin-bottom: 20px;"></div>
+                <div id="parameters-no-house-message" style="display: none; text-align: center; color: var(--text-muted); padding: 3rem; font-size: 0.875rem;">
+                    Select a house in the table to view and edit parameters
+                </div>
+                <div id="parameters-plot-container" style="width: 100%; max-width: 750px; height: 400px; margin: 0 auto; display: none;"></div>
+                <div class="parameters-controls" style="display: none; flex-direction: column; gap: 10px; padding: 3rem; max-width: 800px; margin: 0 auto;">
+                    <div class="parameters-control-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                        <label for="param-alpha" style="font-weight: 500; margin: 0; color: var(--text-color); font-size: 0.875rem; min-width: 180px; flex-shrink: 0;">ALPHA</label>
+                        <input type="range" id="param-alpha-slider" min="0" max="30" step="0.1" value="12" style="flex: 1; margin: 0 5px;">
+                        <input type="number" id="param-alpha" value="12" step="0.1" style="padding: 5px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.875rem; width: 80px; flex-shrink: 0; background-color: var(--input-bg); color: var(--input-text);">
+                    </div>
+                    <div class="parameters-control-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                        <label for="param-beta" style="font-weight: 500; margin: 0; color: var(--text-color); font-size: 0.875rem; min-width: 180px; flex-shrink: 0;">BETA</label>
+                        <input type="range" id="param-beta-slider" min="-1" max="0" step="0.01" value="-0.22" style="flex: 1; margin: 0 5px;">
+                        <input type="number" id="param-beta" value="-0.22" step="0.01" style="padding: 5px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.875rem; width: 80px; flex-shrink: 0; background-color: var(--input-bg); color: var(--input-text);">
+                    </div>
+                    <div class="parameters-control-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                        <label for="param-gamma" style="font-weight: 500; margin: 0; color: var(--text-color); font-size: 0.875rem; min-width: 180px; flex-shrink: 0;">GAMMA</label>
+                        <input type="range" id="param-gamma-slider" min="0" max="0.01" step="0.0001" value="0.002" style="flex: 1; margin: 0 5px;">
+                        <input type="number" id="param-gamma" value="0.002" step="0.0001" style="padding: 5px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.875rem; width: 80px; flex-shrink: 0; background-color: var(--input-bg); color: var(--input-text);">
+                    </div>
+                    <div class="parameters-control-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                        <label for="param-intermediate_power" style="font-weight: 500; margin: 0; color: var(--text-color); font-size: 0.875rem; min-width: 180px; flex-shrink: 0;">INTERMEDIATE_POWER</label>
+                        <input type="range" id="param-intermediate_power-slider" min="0" max="10" step="0.1" value="1.5" style="flex: 1; margin: 0 5px;">
+                        <input type="number" id="param-intermediate_power" value="1.5" step="0.1" style="padding: 5px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.875rem; width: 80px; flex-shrink: 0; background-color: var(--input-bg); color: var(--input-text);">
+                    </div>
+                    <div class="parameters-control-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                        <label for="param-intermediate_rswt" style="font-weight: 500; margin: 0; color: var(--text-color); font-size: 0.875rem; min-width: 180px; flex-shrink: 0;">INTERMEDIATE_RSWT</label>
+                        <input type="range" id="param-intermediate_rswt-slider" min="100" max="200" step="1" value="130" style="flex: 1; margin: 0 5px;">
+                        <input type="number" id="param-intermediate_rswt" value="130" step="1" style="padding: 5px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.875rem; width: 80px; flex-shrink: 0; background-color: var(--input-bg); color: var(--input-text);">
+                    </div>
+                    <div class="parameters-control-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                        <label for="param-dd_power" style="font-weight: 500; margin: 0; color: var(--text-color); font-size: 0.875rem; min-width: 180px; flex-shrink: 0;">DD_POWER</label>
+                        <input type="range" id="param-dd_power-slider" min="0" max="30" step="0.1" value="12" style="flex: 1; margin: 0 5px;">
+                        <input type="number" id="param-dd_power" value="12" step="0.1" style="padding: 5px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.875rem; width: 80px; flex-shrink: 0; background-color: var(--input-bg); color: var(--input-text);">
+                    </div>
+                    <div class="parameters-control-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                        <label for="param-dd_rswt" style="font-weight: 500; margin: 0; color: var(--text-color); font-size: 0.875rem; min-width: 180px; flex-shrink: 0;">DD_RSWT</label>
+                        <input type="range" id="param-dd_rswt-slider" min="150" max="250" step="1" value="180" style="flex: 1; margin: 0 5px;">
+                        <input type="number" id="param-dd_rswt" value="180" step="1" style="padding: 5px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.875rem; width: 80px; flex-shrink: 0; background-color: var(--input-bg); color: var(--input-text);">
+                    </div>
+                    <div class="parameters-control-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                        <label for="param-dd_delta_t" style="font-weight: 500; margin: 0; color: var(--text-color); font-size: 0.875rem; min-width: 180px; flex-shrink: 0;">DD_DELTA_T</label>
+                        <input type="range" id="param-dd_delta_t-slider" min="0" max="50" step="0.1" value="20" style="flex: 1; margin: 0 5px;">
+                        <input type="number" id="param-dd_delta_t" value="20" step="0.1" style="padding: 5px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.875rem; width: 80px; flex-shrink: 0; background-color: var(--input-bg); color: var(--input-text);">
+                    </div>
+                    <!-- <div class="parameters-control-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                        <label for="param-no_power_rswt" style="font-weight: 500; margin: 0; color: var(--text-color); font-size: 0.875rem; min-width: 180px; flex-shrink: 0;">NO_POWER_RSWT</label>
+                        <input type="number" id="param-no_power_rswt" value="" step="0.1" readonly style="padding: 5px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.875rem; width: 80px; flex-shrink: 0; background-color: var(--input-bg); color: var(--input-text); cursor: not-allowed;">
+                    </div> -->
+                </div>
+            </div>
+        </div>
+
         <style>
             #morning-table-container table {
                 width: 100%;
@@ -2442,7 +2567,8 @@
                     'show-information': 'information-card',
                     'show-visualizer': 'visualizer-card',
                     'show-data-download': 'data-download-card',
-                    'show-morning-report': 'morning-report-card'
+                    'show-morning-report': 'morning-report-card',
+                    'show-parameters': 'parameters-card'
                 };
 
                 // Set initial visibility based on button states
@@ -3068,10 +3194,12 @@
                     const dashboardCard = document.getElementById('dashboard-card');
                     const visualizerCard = document.getElementById('visualizer-card');
                     const informationCard = document.getElementById('information-card');
+                    const parametersCard = document.getElementById('parameters-card');
                     
                     const isSingleSelectionCard = (dashboardCard && !dashboardCard.classList.contains('hidden')) ||
                                                 (visualizerCard && !visualizerCard.classList.contains('hidden')) ||
-                                                (informationCard && !informationCard.classList.contains('hidden'));
+                                                (informationCard && !informationCard.classList.contains('hidden')) ||
+                                                (parametersCard && !parametersCard.classList.contains('hidden'));
                     
                     // If this is a single-selection card, unselect all other rows first
                     if (isSingleSelectionCard) {
@@ -3489,12 +3617,7 @@
                     document.getElementById('info-details').style.display = 'none';
                     
                     // Update selected house inputs
-                    const selectedHouseInput = document.getElementById('selected-house');
-                    const infoSelectedHouseInput = document.getElementById('info-selected-house');
-                    const electricitySelectedHouseInput = document.getElementById('electricity-selected-house');
-                    selectedHouseInput.value = this.cells[0].textContent.trim();
-                    infoSelectedHouseInput.value = this.cells[0].textContent.trim();
-                    electricitySelectedHouseInput.value = this.cells[0].textContent.trim();
+                    updateSelectedHouseInputs();
                     
                     // Update button states
                     updateInfoButtonStates();
@@ -3554,8 +3677,7 @@
                     const row = document.querySelector(`.expandable-row[data-home-id="${homeId}"]`);
                     
                     // Update selected house input
-                    const selectedHouseInput = document.getElementById('selected-house');
-                    selectedHouseInput.value = row.cells[0].textContent.trim();
+                    updateSelectedHouseInputs();
                     
                     // Hide the details row in the table
                     const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
@@ -3578,12 +3700,7 @@
                     const detailsRow = document.querySelector(`.details-row[data-home-id="${homeId}"]`);
                     
                     // Update selected house inputs
-                    const selectedHouseInput = document.getElementById('selected-house');
-                    const infoSelectedHouseInput = document.getElementById('info-selected-house');
-                    const electricitySelectedHouseInput = document.getElementById('electricity-selected-house');
-                    selectedHouseInput.value = row.cells[0].textContent.trim();
-                    infoSelectedHouseInput.value = row.cells[0].textContent.trim();
-                    electricitySelectedHouseInput.value = row.cells[0].textContent.trim();
+                    updateSelectedHouseInputs();
                     
                     // Update button states
                     updateInfoButtonStates();
@@ -4001,6 +4118,7 @@
             const electricitySelectedHouseInput = document.getElementById('electricity-selected-house');
             const morningSelectedHouseInput = document.getElementById('morning-selected-house');
             const dataDownloadSelectedHouseInput = document.getElementById('data-download-selected-house');
+            const parametersSelectedHouseInput = document.getElementById('parameters-selected-house');
             
             if (selectedHouses.length === 0) {
                 // No houses selected
@@ -4009,6 +4127,7 @@
                 electricitySelectedHouseInput.value = '';
                 morningSelectedHouseInput.value = '';
                 dataDownloadSelectedHouseInput.value = '';
+                parametersSelectedHouseInput.value = '';
             } else if (selectedHouses.length === 1) {
                 // Single house selected
                 const houseAlias = selectedHouses[0];
@@ -4017,6 +4136,7 @@
                 electricitySelectedHouseInput.value = houseAlias;
                 morningSelectedHouseInput.value = houseAlias;
                 dataDownloadSelectedHouseInput.value = houseAlias;
+                parametersSelectedHouseInput.value = houseAlias;
             } else {
                 // Multiple houses selected
                 const houseList = selectedHouses.join(', ');
@@ -4025,6 +4145,21 @@
                 electricitySelectedHouseInput.value = houseList;
                 morningSelectedHouseInput.value = houseList;
                 dataDownloadSelectedHouseInput.value = 'Select a single house in the table';
+                parametersSelectedHouseInput.value = 'Select a single house in the table';
+            }
+
+            // Load house parameters if parameters card is visible
+            const parametersCard = document.getElementById('parameters-card');
+            if (parametersCard && !parametersCard.classList.contains('hidden')) {
+                // Use setTimeout to ensure the input value is updated first
+                setTimeout(() => {
+                    if (typeof window.updateParametersCardVisibility === 'function') {
+                        window.updateParametersCardVisibility();
+                    }
+                    if (typeof window.loadHouseParameters === 'function') {
+                        window.loadHouseParameters();
+                    }
+                }, 10);
             }
         }
 
@@ -4937,6 +5072,13 @@
             // Clear the selected house input and update button states
             document.getElementById('data-download-selected-house').value = '';
             updateDataDownloadButtonStates();
+        });
+
+        document.getElementById('parameters-reset-btn').addEventListener('click', function() {
+            // Reset parameters back to the selected house's values
+            if (typeof window.loadHouseParameters === 'function') {
+                window.loadHouseParameters();
+            }
         });
 
         async function login(username, password) {
@@ -7089,6 +7231,462 @@
         document.addEventListener('DOMContentLoaded', function() {
             updateLoaderProgress();
         });
+
+        // Parameters card functionality
+        (function() {
+            // Get all input elements
+            const paramInputs = {
+                alpha: document.getElementById('param-alpha'),
+                beta: document.getElementById('param-beta'),
+                gamma: document.getElementById('param-gamma'),
+                intermediate_power: document.getElementById('param-intermediate_power'),
+                intermediate_rswt: document.getElementById('param-intermediate_rswt'),
+                dd_power: document.getElementById('param-dd_power'),
+                dd_rswt: document.getElementById('param-dd_rswt'),
+                dd_delta_t: document.getElementById('param-dd_delta_t'),
+                no_power_rswt: document.getElementById('param-no_power_rswt')
+            };
+
+            // Get all slider elements
+            const paramSliders = {
+                alpha: document.getElementById('param-alpha-slider'),
+                beta: document.getElementById('param-beta-slider'),
+                gamma: document.getElementById('param-gamma-slider'),
+                intermediate_power: document.getElementById('param-intermediate_power-slider'),
+                intermediate_rswt: document.getElementById('param-intermediate_rswt-slider'),
+                dd_power: document.getElementById('param-dd_power-slider'),
+                dd_rswt: document.getElementById('param-dd_rswt-slider'),
+                dd_delta_t: document.getElementById('param-dd_delta_t-slider')
+            };
+
+            const paramErrorMessage = document.getElementById('parameters-error-message');
+            const paramPlotContainer = document.getElementById('parameters-plot-container');
+
+            // Sync slider to input
+            function syncSliderToInput(slider, input) {
+                input.value = slider.value;
+            }
+
+            // Sync input to slider (clamp to slider range)
+            function syncInputToSlider(input, slider) {
+                const value = parseFloat(input.value);
+                const min = parseFloat(slider.min);
+                const max = parseFloat(slider.max);
+                const clampedValue = Math.max(min, Math.min(max, value));
+                slider.value = clampedValue;
+                if (value !== clampedValue) {
+                    input.value = clampedValue;
+                }
+            }
+
+            // Calculate coefficients
+            function calculateCoefficients(params) {
+                const x0 = params.no_power_rswt;
+                const xi = params.intermediate_rswt;
+                const xd = params.dd_rswt;
+                const y0 = 0;
+                const yi = params.intermediate_power;
+                const yd = params.dd_power;
+
+                const c = (xi * xd) / (xi - xd) * ((yd * x0) / (xd * (x0 - xd)) - (yi * x0) / (xi * (x0 - xi)));
+                const b = (yi * x0) / (xi * (x0 - xi)) - (x0 + xi) / (x0 * xi) * c;
+                const a = -b / x0 - c / (x0 * x0);
+
+                return { a, b, c };
+            }
+
+            // Required heating power function
+            function requiredHeatingPower(oat, ws, params) {
+                const r = params.alpha + params.beta * oat + params.gamma * ws * (65 - oat);
+                return r > 0 ? r : 0;
+            }
+
+            // Delivered heating power function
+            function deliveredHeatingPower(swt, coeffs) {
+                const d = coeffs.a * swt * swt + coeffs.b * swt + coeffs.c;
+                return d > 0 ? d : 0;
+            }
+
+            // Required SWT function
+            function requiredSWT(hp, coeffs) {
+                const c2 = coeffs.c - hp;
+                const discriminant = coeffs.b * coeffs.b - 4 * coeffs.a * c2;
+                if (discriminant < 0) return null;
+                return (-coeffs.b + Math.sqrt(discriminant)) / (2 * coeffs.a);
+            }
+
+            // Get current parameters
+            function getParams() {
+                const alpha = parseFloat(paramInputs.alpha.value);
+                const beta = parseFloat(paramInputs.beta.value);
+                const no_power_rswt = -alpha / beta;
+
+                return {
+                    alpha: alpha,
+                    beta: beta,
+                    gamma: parseFloat(paramInputs.gamma.value),
+                    intermediate_power: parseFloat(paramInputs.intermediate_power.value),
+                    intermediate_rswt: parseFloat(paramInputs.intermediate_rswt.value),
+                    dd_power: parseFloat(paramInputs.dd_power.value),
+                    dd_rswt: parseFloat(paramInputs.dd_rswt.value),
+                    dd_delta_t: parseFloat(paramInputs.dd_delta_t.value),
+                    no_power_rswt: no_power_rswt
+                };
+            }
+
+            // Update plot
+            function updateParametersPlot() {
+                try {
+                    paramErrorMessage.style.display = 'none';
+                    
+                    const params = getParams();
+                    
+                    // Validate ALPHA == DD_POWER
+                    if (Math.abs(params.alpha - params.dd_power) > 0.001) {
+                        throw new Error('ALPHA and DD_POWER must be equal');
+                    }
+
+                    // Update NO_POWER_RSWT display (if element exists)
+                    if (paramInputs.no_power_rswt) {
+                        paramInputs.no_power_rswt.value = params.no_power_rswt.toFixed(2);
+                    }
+
+                    // Calculate coefficients
+                    const coeffs = calculateCoefficients(params);
+
+                    // Generate data
+                    const oats = [];
+                    for (let i = 70; i >= -10; i -= 5) {
+                        oats.push(i);
+                    }
+
+                    // Calculate for wind speed = 0
+                    const kw_0 = [];
+                    const rswt_0 = [];
+                    for (const oat of oats) {
+                        const kw = requiredHeatingPower(oat, 0, params);
+                        kw_0.push(kw);
+                        const rswt = requiredSWT(kw, coeffs);
+                        rswt_0.push(rswt !== null ? rswt : null);
+                    }
+
+                    // Calculate for wind speed = 10
+                    const kw_10 = [];
+                    const rswt_10 = [];
+                    for (const oat of oats) {
+                        const kw = requiredHeatingPower(oat, 10, params);
+                        kw_10.push(kw);
+                        const rswt = requiredSWT(kw, coeffs);
+                        rswt_10.push(rswt !== null ? rswt : null);
+                    }
+
+                    // Determine colors based on theme
+                    const rootElement = document.documentElement;
+                    const isDarkMode = rootElement.getAttribute('data-theme') === 'dark' || 
+                        (rootElement.getAttribute('data-theme') === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                    
+                    const powerColor = isDarkMode ? 'rgb(100, 149, 237)' : 'rgb(31, 119, 180)';
+                    const rswtColor = isDarkMode ? 'rgb(255, 165, 0)' : 'rgb(255, 127, 14)';
+                    const bgColor = isDarkMode ? '#1b1b1c' : '#ffffff';
+                    const textColor = isDarkMode ? '#d4d4d4' : '#212529';
+                    const gridColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+                    // Create Plotly traces
+                    const traces = [
+                        {
+                            x: oats,
+                            y: kw_0,
+                            name: 'RHP 0 mph wind',
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: { color: powerColor, width: 2 },
+                            yaxis: 'y',
+                            opacity: 0.7,
+                            hovertemplate: '%{y:.1f} kW<extra></extra>'
+                        },
+                        {
+                            x: oats,
+                            y: kw_10,
+                            name: 'RHP, 10 mph wind',
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: { color: powerColor, width: 2, dash: 'dash' },
+                            yaxis: 'y',
+                            opacity: 0.7,
+                            hovertemplate: '%{y:.1f} kW<extra></extra>'
+                        },
+                        {
+                            x: oats,
+                            y: rswt_0,
+                            name: 'RSWT, 0 mph wind',
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: { color: rswtColor, width: 2 },
+                            yaxis: 'y2',
+                            opacity: 0.7,
+                            hovertemplate: '%{y:.1f}°F<extra></extra>'
+                        },
+                        {
+                            x: oats,
+                            y: rswt_10,
+                            name: 'RSWT, 10 mph wind',
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: { color: rswtColor, width: 2, dash: 'dash' },
+                            yaxis: 'y2',
+                            opacity: 0.7,
+                            hovertemplate: '%{y:.1f}°F<extra></extra>'
+                        }
+                    ];
+
+                    const layout = {
+                        xaxis: {
+                            title: 'OAT [F]',
+                            gridcolor: gridColor,
+                            zeroline: false,
+                            showline: true,
+                            mirror: true,
+                            hoverformat: '.0f',
+                            titlefont: { color: textColor },
+                            tickfont: { color: textColor }
+                        },
+                        yaxis: {
+                            title: 'Required heating power [kW]',
+                            side: 'left',
+                            showgrid: false,
+                            showline: true,
+                            zeroline: false,
+                            linecolor: powerColor,
+                            tickcolor: powerColor,
+                            tickfont: { color: powerColor },
+                            titlefont: { color: powerColor }
+                        },
+                        yaxis2: {
+                            title: 'RSWT [F]',
+                            side: 'right',
+                            overlaying: 'y',
+                            showgrid: false,
+                            showline: true,
+                            zeroline: false,
+                            linecolor: rswtColor,
+                            tickcolor: rswtColor,
+                            tickfont: { color: rswtColor },
+                            titlefont: { color: rswtColor }
+                        },
+                        legend: {
+                            x: 0.98,
+                            y: 0.98,
+                            xanchor: 'right',
+                            yanchor: 'top',
+                            bgcolor: isDarkMode ? 'rgba(27, 27, 28, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                            font: { color: textColor }
+                        },
+                        plot_bgcolor: bgColor,
+                        paper_bgcolor: bgColor,
+                        hovermode: 'x unified',
+                        margin: { l: 50, r: 50, t: 20, b: 50 }
+                    };
+
+                    Plotly.newPlot(paramPlotContainer, traces, layout, {
+                        responsive: true,
+                        displayModeBar: false
+                    });
+
+                } catch (error) {
+                    paramErrorMessage.textContent = 'Error: ' + error.message;
+                    paramErrorMessage.style.display = 'block';
+                }
+            }
+
+            // Function to sync ALPHA and DD_POWER
+            function syncAlphaAndDdPower(sourceKey) {
+                const value = parseFloat(paramInputs[sourceKey].value);
+                // Update the other parameter
+                const otherKey = sourceKey === 'alpha' ? 'dd_power' : 'alpha';
+                paramInputs[otherKey].value = value;
+                syncInputToSlider(paramInputs[otherKey], paramSliders[otherKey]);
+            }
+
+            // Function to show/hide parameters content based on house selection
+            function updateParametersCardVisibility() {
+                const selectedHouseInput = document.getElementById('parameters-selected-house');
+                const noHouseMessage = document.getElementById('parameters-no-house-message');
+                const plotContainer = document.getElementById('parameters-plot-container');
+                const controlsContainer = document.querySelector('.parameters-controls');
+                
+                if (!selectedHouseInput) {
+                    return;
+                }
+                
+                const selectedHouseAlias = selectedHouseInput.value.trim();
+                const hasValidHouse = selectedHouseAlias && 
+                    selectedHouseAlias !== '' && 
+                    selectedHouseAlias !== 'Select a house in the table' && 
+                    selectedHouseAlias !== 'Select a single house in the table';
+                
+                if (hasValidHouse) {
+                    // Show plot and controls, hide message
+                    if (noHouseMessage) noHouseMessage.style.display = 'none';
+                    if (plotContainer) plotContainer.style.display = 'block';
+                    if (controlsContainer) controlsContainer.style.display = 'flex';
+                } else {
+                    // Hide plot and controls, show message
+                    if (noHouseMessage) noHouseMessage.style.display = 'block';
+                    if (plotContainer) plotContainer.style.display = 'none';
+                    if (controlsContainer) controlsContainer.style.display = 'none';
+                }
+            }
+
+            // Function to load house parameters from selected house
+            function loadHouseParameters() {
+                const selectedHouseInput = document.getElementById('parameters-selected-house');
+                
+                if (!selectedHouseInput) {
+                    return;
+                }
+                
+                // Update visibility first
+                updateParametersCardVisibility();
+                
+                if (!window.houses) {
+                    return;
+                }
+                
+                const selectedHouseAlias = selectedHouseInput.value.trim();
+                
+                if (!selectedHouseAlias || selectedHouseAlias === 'Select a house in the table' || selectedHouseAlias === 'Select a single house in the table') {
+                    return;
+                }
+
+                // Find the house in window.houses
+                const house = window.houses.find(h => h.short_alias === selectedHouseAlias);
+                
+                if (!house || !house.house_parameters) {
+                    return;
+                }
+
+                const params = house.house_parameters;
+
+                // Update all parameter inputs and sliders
+                // Map database field names to slider names
+                if (params.alpha !== undefined) {
+                    paramInputs.alpha.value = params.alpha;
+                    syncInputToSlider(paramInputs.alpha, paramSliders.alpha);
+                }
+                if (params.beta !== undefined) {
+                    paramInputs.beta.value = params.beta;
+                    syncInputToSlider(paramInputs.beta, paramSliders.beta);
+                }
+                if (params.gamma !== undefined) {
+                    paramInputs.gamma.value = params.gamma;
+                    syncInputToSlider(paramInputs.gamma, paramSliders.gamma);
+                }
+                if (params.intermediate_power_kw !== undefined) {
+                    paramInputs.intermediate_power.value = params.intermediate_power_kw;
+                    syncInputToSlider(paramInputs.intermediate_power, paramSliders.intermediate_power);
+                }
+                if (params.intermediate_rswt !== undefined) {
+                    paramInputs.intermediate_rswt.value = params.intermediate_rswt;
+                    syncInputToSlider(paramInputs.intermediate_rswt, paramSliders.intermediate_rswt);
+                }
+                if (params.dd_power_kw !== undefined) {
+                    paramInputs.dd_power.value = params.dd_power_kw;
+                    syncInputToSlider(paramInputs.dd_power, paramSliders.dd_power);
+                    // Also sync ALPHA since they must be equal
+                    paramInputs.alpha.value = params.dd_power_kw;
+                    syncInputToSlider(paramInputs.alpha, paramSliders.alpha);
+                }
+                if (params.dd_rswt !== undefined) {
+                    paramInputs.dd_rswt.value = params.dd_rswt;
+                    syncInputToSlider(paramInputs.dd_rswt, paramSliders.dd_rswt);
+                }
+                if (params.dd_delta_t !== undefined) {
+                    paramInputs.dd_delta_t.value = params.dd_delta_t;
+                    syncInputToSlider(paramInputs.dd_delta_t, paramSliders.dd_delta_t);
+                }
+
+                // Update the plot with the new values
+                updateParametersPlot();
+            }
+
+            // Expose functions globally so they can be called from updateSelectedHouseInputs
+            window.loadHouseParameters = loadHouseParameters;
+            window.updateParametersCardVisibility = updateParametersCardVisibility;
+            
+            // Initial visibility update
+            updateParametersCardVisibility();
+
+            // Add event listeners to sync sliders and inputs
+            Object.keys(paramSliders).forEach(key => {
+                const slider = paramSliders[key];
+                const input = paramInputs[key];
+                
+                // When slider changes, update input and plot
+                slider.addEventListener('input', () => {
+                    syncSliderToInput(slider, input);
+                    // If ALPHA or DD_POWER, sync the other one
+                    if (key === 'alpha' || key === 'dd_power') {
+                        syncAlphaAndDdPower(key);
+                    }
+                    updateParametersPlot();
+                });
+                
+                // When input changes, update slider and plot
+                input.addEventListener('input', () => {
+                    syncInputToSlider(input, slider);
+                    // If ALPHA or DD_POWER, sync the other one
+                    if (key === 'alpha' || key === 'dd_power') {
+                        syncAlphaAndDdPower(key);
+                    }
+                    updateParametersPlot();
+                });
+            });
+
+            // Initialize plot when parameters card becomes visible
+            let parametersPlotInitialized = false;
+            const parametersCard = document.getElementById('parameters-card');
+            if (parametersCard) {
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                            const isVisible = !parametersCard.classList.contains('hidden');
+                            if (isVisible && !parametersPlotInitialized) {
+                                updateParametersPlot();
+                                parametersPlotInitialized = true;
+                            }
+                            // Load house parameters when card becomes visible
+                            if (isVisible) {
+                                updateParametersCardVisibility();
+                                loadHouseParameters();
+                            }
+                        }
+                    });
+                });
+                observer.observe(parametersCard, { attributes: true });
+                
+                // Also initialize on page load if card is already visible
+                if (!parametersCard.classList.contains('hidden')) {
+                    updateParametersCardVisibility();
+                    updateParametersPlot();
+                    parametersPlotInitialized = true;
+                    loadHouseParameters();
+                }
+            }
+
+
+            // Update plot when theme changes
+            const rootElement = document.documentElement;
+            const themeObserver = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+                        if (parametersPlotInitialized && parametersCard && !parametersCard.classList.contains('hidden')) {
+                            updateParametersPlot();
+                        }
+                    }
+                });
+            });
+            themeObserver.observe(rootElement, { attributes: true, attributeFilter: ['data-theme'] });
+        })();
     </script>
 </body>
 </html> 
