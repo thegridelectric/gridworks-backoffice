@@ -7528,6 +7528,38 @@
                         displayModeBar: false
                     });
 
+                    // Customize the x-axis hover label to show "OAT: xx°F"
+                    const updateHoverLabel = function() {
+                        requestAnimationFrame(() => {
+                            const hoverLayer = paramPlotContainer.querySelector('.hoverlayer');
+                            if (hoverLayer) {
+                                // In unified hover mode, the x value is typically in the first text element
+                                const textElements = Array.from(hoverLayer.querySelectorAll('text, tspan, div'));
+                                textElements.forEach(el => {
+                                    const text = el.textContent.trim();
+                                    // Check if it's just a number (the x-axis value)
+                                    if (text && /^-?\d+$/.test(text)) {
+                                        // Make sure it's not already formatted
+                                        if (!text.includes('OAT:') && !text.includes('°F')) {
+                                            el.textContent = `OAT: ${text}°F`;
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    };
+
+                    // Update on hover events
+                    paramPlotContainer.on('plotly_hover', updateHoverLabel);
+                    
+                    // Use MutationObserver to catch DOM changes
+                    const observer = new MutationObserver(updateHoverLabel);
+                    observer.observe(paramPlotContainer, {
+                        childList: true,
+                        subtree: true,
+                        characterData: true
+                    });
+
                 } catch (error) {
                     paramErrorMessage.textContent = 'Error: ' + error.message;
                     paramErrorMessage.style.display = 'block';
