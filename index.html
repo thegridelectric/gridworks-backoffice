@@ -7541,9 +7541,9 @@
                                 textElements.forEach(el => {
                                     const text = el.textContent.trim();
                                     // Check if it's just a number (the x-axis value)
-                                    if (text && /^-?\d+$/.test(text)) {
+                                    if (text) {
                                         // Make sure it's not already formatted
-                                        if (!text.includes('OAT:') && !text.includes('°F')) {
+                                        if (!text.includes('OAT:') && !text.includes('°F') && !text.includes('kW')) {
                                             el.textContent = `OAT: ${text}°F`;
                                         }
                                     }
