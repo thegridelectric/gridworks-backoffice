@@ -7392,7 +7392,7 @@
 
                     // Generate data
                     const oats = [];
-                    for (let i = 70; i >= -10; i -= 5) {
+                    for (let i = 70; i >= -10; i -= 1) {
                         oats.push(i);
                     }
 
@@ -7479,6 +7479,7 @@
                         xaxis: {
                             title: 'OAT [F]',
                             gridcolor: gridColor,
+                            showgrid: false,
                             zeroline: false,
                             showline: true,
                             mirror: true,
@@ -7490,6 +7491,7 @@
                             title: 'Required heating power [kW]',
                             side: 'left',
                             showgrid: false,
+                            gridcolor: gridColor,
                             showline: true,
                             zeroline: false,
                             linecolor: powerColor,
@@ -7501,7 +7503,8 @@
                             title: 'RSWT [F]',
                             side: 'right',
                             overlaying: 'y',
-                            showgrid: false,
+                            showgrid: true,
+                            gridcolor: gridColor,
                             showline: true,
                             zeroline: false,
                             linecolor: rswtColor,
