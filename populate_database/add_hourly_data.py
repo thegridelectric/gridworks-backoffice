@@ -12,6 +12,7 @@ import os
 from sqlalchemy import create_engine, Column, String, Float, BigInteger, UniqueConstraint, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker
 import matplotlib.pyplot as plt
+from add_bid_column import AtnBid, extract_pq_pairs
 
 DROP_EXISTING_DATA = False
 
@@ -77,7 +78,7 @@ class HourlyElectricity(Base):
     dd_power_kw = Column(Float, nullable=True)
     dd_rswt = Column(Float, nullable=True)
     dd_delta_t = Column(Float, nullable=True)
-    banana = Column(Float, nullable=True)
+    bid = Column(String, nullable=True)
     
     __table_args__ = (
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
@@ -173,7 +174,7 @@ class EnergyDataset():
             'dd_power_kw': [],
             'dd_rswt': [],
             'dd_delta_t': [],
-            'banana': [],
+            'bid': [],
         }
 
     def find_first_date(self):
@@ -250,7 +251,11 @@ class EnergyDataset():
                         MessageSql.message_type_name == "report"
                     )
                 ),
-                MessageSql.message_type_name == "flo.params.house0"
+                MessageSql.message_type_name == "flo.params.house0",
+                and_(
+                    MessageSql.message_type_name == "atn.bid",
+                    MessageSql.from_alias == f"hw1.isone.me.versant.keene.{self.house_alias}"
+                )
             ),
             MessageSql.message_created_ms >= batch_start_ms - 7*60*1000,
             MessageSql.message_created_ms <= batch_end_ms + 7*60*1000,
@@ -258,6 +263,7 @@ class EnergyDataset():
 
         reports = [m for m in messages if m.message_type_name in ['report', 'batched.readings']]
         flo_params = [m for m in messages if m.message_type_name == 'flo.params.house0']
+        atn_bids = [m for m in messages if m.message_type_name == 'atn.bid']
         
         print(f"Found {len(reports)} reports in database in {int(time.time()-st)} seconds")
         st = time.time()
@@ -385,7 +391,7 @@ class EnergyDataset():
             dd_power_kw = None
             dd_rswt = None
             dd_delta_t = None
-            banana = None
+            bid = None
 
             # Heat pump energy
             if not [c for c in hp_critical_channels if c not in csv_values]:
@@ -708,8 +714,14 @@ class EnergyDataset():
                         dd_power_kw = f.payload['DdPowerKw']
                         dd_rswt = f.payload['DdRswtF']
                         dd_delta_t = f.payload['DdDeltaTF']
-                        bid = f.payload.get('Banana')  # Use .get() to handle missing key gracefully
                         break
+            
+            for b in atn_bids:
+                bid_hour_start_ms = int((b.message_persisted_ms + 3599_999) // 3_600_000 * 3_600) * 1000
+                if bid_hour_start_ms == hour_start_ms:
+                    atn_bid = AtnBid(**b.payload)
+                    bid = str(extract_pq_pairs(atn_bid))
+                    break
 
             row = [
                 reports[0].from_alias, 
@@ -759,7 +771,7 @@ class EnergyDataset():
                 dd_power_kw,
                 dd_rswt,
                 dd_delta_t,
-                banana,
+                bid,
             ]
             row = [x if x is not None else np.nan for x in row]
             formatted_data.loc[len(formatted_data)] = row 
@@ -812,7 +824,7 @@ class EnergyDataset():
                 dd_power_kw=dd_power_kw,
                 dd_rswt=dd_rswt,
                 dd_delta_t=dd_delta_t,
-                banana=banana,
+                bid=bid,
             )
             rows.append(row)
         
