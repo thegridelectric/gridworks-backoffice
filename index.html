@@ -2230,6 +2230,7 @@
                     Select a house in the table to view and edit parameters
                 </div>
                 <div id="parameters-plot-container" style="width: 100%; max-width: 750px; height: 400px; margin: 0 auto; display: none;"></div>
+                <div id="parameters-plot-container-2" style="width: 100%; max-width: 750px; height: 400px; margin: 0 auto; display: none;"></div>
                 <div class="parameters-controls" style="display: none; flex-direction: column; gap: 10px; padding: 3rem; max-width: 800px; margin: 0 auto;">
                     <div class="parameters-control-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
                         <label for="param-alpha" style="font-weight: 500; margin: 0; color: var(--text-color); font-size: 0.875rem; min-width: 180px; flex-shrink: 0;">ALPHA</label>
@@ -7261,6 +7262,7 @@
 
             const paramErrorMessage = document.getElementById('parameters-error-message');
             const paramPlotContainer = document.getElementById('parameters-plot-container');
+            const paramPlotContainer2 = document.getElementById('parameters-plot-container-2');
 
             // Sync slider to input
             function syncSliderToInput(slider, input) {
@@ -7423,6 +7425,7 @@
                     
                     const powerColor = isDarkMode ? 'rgb(100, 149, 237)' : 'rgb(31, 119, 180)';
                     const rswtColor = isDarkMode ? 'rgb(255, 165, 0)' : 'rgb(255, 127, 14)';
+                    const deltaTColor = isDarkMode ? 'rgb(76, 175, 80)' : 'rgb(46, 125, 50)';
                     const bgColor = isDarkMode ? '#1b1b1c' : '#ffffff';
                     const textColor = isDarkMode ? '#d4d4d4' : '#212529';
                     const gridColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
@@ -7563,6 +7566,104 @@
                         characterData: true
                     });
 
+                    // Create second plot: deltaT as a function of SWT (fixed range, not parameter-dependent)
+                    if (paramPlotContainer2) {
+                        const swtValues = [];
+                        const deltaTValues = [];
+                        for (let swt = 90; swt <= 190; swt += 1) {
+                            swtValues.push(swt);
+                            // Calculate deltaT using the formula: DdDeltaTF/DdPowerKw * (a*swt^2 + b*swt + c)
+                            // SWT is a fixed range, not calculated from parameters like RSWT
+                            const deliveredPower = deliveredHeatingPower(swt, coeffs);
+                            const deltaT = params.dd_delta_t / params.dd_power * deliveredPower;
+                            deltaTValues.push(deltaT > 0 ? deltaT : 0);
+                        }
+
+                        const trace2 = {
+                            x: swtValues,
+                            y: deltaTValues,
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: { color: deltaTColor, width: 2 },
+                            hovertemplate: 'SWT: %{x:.0f}°F<br>Delta T: %{y:.1f}°F<extra></extra>'
+                        };
+
+                        const layout2 = {
+                            xaxis: {
+                                title: 'SWT [F]',
+                                gridcolor: gridColor,
+                                showgrid: false,
+                                zeroline: false,
+                                showline: true,
+                                mirror: true,
+                                hoverformat: '.0f',
+                                titlefont: { color: textColor, weight: 'bold' },
+                                tickfont: { color: textColor }
+                            },
+                            yaxis: {
+                                title: 'Delta T [F]',
+                                side: 'left',
+                                showgrid: true,
+                                gridcolor: gridColor,
+                                showline: true,
+                                zeroline: false,
+                                linecolor: deltaTColor,
+                                tickcolor: deltaTColor,
+                                tickfont: { color: deltaTColor },
+                                titlefont: { color: deltaTColor, weight: 'bold' }
+                            },
+                            legend: {
+                                x: 0.98,
+                                y: 0.98,
+                                xanchor: 'right',
+                                yanchor: 'top',
+                                bgcolor: isDarkMode ? 'rgba(27, 27, 28, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                                font: { color: textColor }
+                            },
+                            plot_bgcolor: bgColor,
+                            paper_bgcolor: bgColor,
+                            hovermode: 'x unified',
+                            margin: { l: 50, r: 50, t: 20, b: 50 }
+                        };
+
+                        Plotly.newPlot(paramPlotContainer2, [trace2], layout2, {
+                            responsive: true,
+                            displayModeBar: false
+                        });
+
+                        // Customize the x-axis hover label to show "SWT: xx°F"
+                        const updateHoverLabel2 = function() {
+                            requestAnimationFrame(() => {
+                                const hoverLayer = paramPlotContainer2.querySelector('.hoverlayer');
+                                if (hoverLayer) {
+                                    // In unified hover mode, the x value is typically in the first text element
+                                    const textElements = Array.from(hoverLayer.querySelectorAll('text, tspan, div'));
+                                    textElements.forEach(el => {
+                                        const text = el.textContent.trim();
+                                        // Check if it's just a number (the x-axis value)
+                                        if (text) {
+                                            // Make sure it's not already formatted
+                                            if (!text.includes('SWT:') && !text.includes('°F') && !text.includes('Delta T')) {
+                                                el.textContent = `SWT: ${text}°F`;
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                        };
+
+                        // Update on hover events
+                        paramPlotContainer2.on('plotly_hover', updateHoverLabel2);
+                        
+                        // Use MutationObserver to catch DOM changes
+                        const observer2 = new MutationObserver(updateHoverLabel2);
+                        observer2.observe(paramPlotContainer2, {
+                            childList: true,
+                            subtree: true,
+                            characterData: true
+                        });
+                    }
+
                 } catch (error) {
                     paramErrorMessage.textContent = 'Error: ' + error.message;
                     paramErrorMessage.style.display = 'block';
@@ -7583,6 +7684,7 @@
                 const selectedHouseInput = document.getElementById('parameters-selected-house');
                 const noHouseMessage = document.getElementById('parameters-no-house-message');
                 const plotContainer = document.getElementById('parameters-plot-container');
+                const plotContainer2 = document.getElementById('parameters-plot-container-2');
                 const controlsContainer = document.querySelector('.parameters-controls');
                 
                 if (!selectedHouseInput) {
@@ -7599,11 +7701,13 @@
                     // Show plot and controls, hide message
                     if (noHouseMessage) noHouseMessage.style.display = 'none';
                     if (plotContainer) plotContainer.style.display = 'block';
+                    if (plotContainer2) plotContainer2.style.display = 'block';
                     if (controlsContainer) controlsContainer.style.display = 'flex';
                 } else {
                     // Hide plot and controls, show message
                     if (noHouseMessage) noHouseMessage.style.display = 'block';
                     if (plotContainer) plotContainer.style.display = 'none';
+                    if (plotContainer2) plotContainer2.style.display = 'none';
                     if (controlsContainer) controlsContainer.style.display = 'none';
                 }
             }
