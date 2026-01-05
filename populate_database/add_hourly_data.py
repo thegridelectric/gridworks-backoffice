@@ -78,6 +78,7 @@ class HourlyElectricity(Base):
     dd_rswt = Column(Float, nullable=True)
     dd_delta_t = Column(Float, nullable=True)
     bid = Column(String, nullable=True)
+    buffer_available_kwh = Column(Float, nullable=True)
     
     __table_args__ = (
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
@@ -317,6 +318,7 @@ class HourlyData:
             dd_rswt = None
             dd_delta_t = None
             bid = None
+            buffer_available_kwh = None
 
             # ------------------------------------------------------------------------------------------------
             # Heat pump: hp_elec_in, hp_heat_out, hp_avg_lwt, hp_avg_ewt
@@ -593,6 +595,7 @@ class HourlyData:
                         dd_power_kw = f.payload['DdPowerKw']
                         dd_rswt = f.payload['DdRswtF']
                         dd_delta_t = f.payload['DdDeltaTF']
+                        buffer_available_kwh = f.payload['BufferAvailableKwh']
                         break
             
             for b in atn_bids:
@@ -651,6 +654,7 @@ class HourlyData:
                 dd_rswt=dd_rswt,
                 dd_delta_t=dd_delta_t,
                 bid=bid,
+                buffer_available_kwh=buffer_available_kwh,
             )
             batch_rows.append(row)
         
@@ -661,23 +665,23 @@ class HourlyData:
 
         except Exception as e:
             if 'hour_house_unique' in str(e) or "hourly_electricity_pkey" in str(e):
-                print("Some batch_rows already exist in the database, filtering them out...")
+                print("Some batch_rows already exist in the database, deleting and replacing them...")
                 self.session_gbo.rollback()
-                conflicting_rows = []
-                for row in batch_rows:
-                    try:
-                        self.session_gbo.add(row)
-                        self.session_gbo.commit()
-                    except Exception:
-                        self.session_gbo.rollback()
-                        conflicting_rows.append(row)
-                non_conflicting_batch_rows = [row for row in batch_rows if row not in conflicting_rows]
-                if non_conflicting_batch_rows:
-                    self.session_gbo.add_all(non_conflicting_batch_rows)
+                # Delete all existing rows that conflict with batch_rows in a single query
+                conditions = [
+                    and_(
+                        HourlyElectricity.g_node_alias == row.g_node_alias,
+                        HourlyElectricity.hour_start_s == row.hour_start_s
+                    )
+                    for row in batch_rows
+                ]
+                if conditions:
+                    self.session_gbo.query(HourlyElectricity).filter(or_(*conditions)).delete(synchronize_session=False)
                     self.session_gbo.commit()
-                    print(f"Successfully inserted {len(non_conflicting_batch_rows)} new batch_rows")
-                else:
-                    print("All batch_rows already existed in the database")
+                # Insert all batch_rows (now that conflicting rows are deleted)
+                self.session_gbo.add_all(batch_rows)
+                self.session_gbo.commit()
+                print(f"Successfully deleted and replaced {len(batch_rows)} batch_rows")
             else:
                 self.session_gbo.rollback()
                 raise Exception(f"Unexpected error: {e}")
@@ -700,6 +704,10 @@ if __name__ == '__main__':
         end_year = pendulum.now(timezone).year
         end_month = pendulum.now(timezone).month
         end_day = pendulum.now(timezone).day
+
+        start_year = 2025
+        start_month = 12
+        start_day = 1
         
         start_ms = pendulum.datetime(start_year, start_month, start_day, tz=timezone).timestamp()*1000
         end_ms = pendulum.datetime(end_year, end_month, end_day, tz=timezone).timestamp()*1000
