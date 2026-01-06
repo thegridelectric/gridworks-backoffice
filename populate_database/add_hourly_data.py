@@ -10,16 +10,16 @@ import pandas as pd
 import numpy as np
 import os
 from sqlalchemy import create_engine, Column, String, Float, BigInteger, UniqueConstraint, Boolean
-from sqlalchemy.orm import declarative_base, sessionmaker
-import matplotlib.pyplot as plt
+from sqlalchemy.orm import declarative_base, sessionmaker, DeclarativeMeta
 from add_bid_column import AtnBid, extract_pq_pairs
 
-DROP_EXISTING_DATA = False
+WRITING_TO_DATABASE = False
+DROP_EXISTING_TABLE = False
 
 dotenv.load_dotenv()
 gbo_db_url = os.getenv("GBO_DB_URL")
 engine_gbo = create_engine(gbo_db_url.replace("postgresql+asyncpg://", "postgresql+psycopg://"))
-Base = declarative_base()
+Base: DeclarativeMeta = declarative_base()
 
 class HourlyElectricity(Base):
     __tablename__ = 'hourly_electricity'
@@ -79,22 +79,21 @@ class HourlyElectricity(Base):
     dd_delta_t = Column(Float, nullable=True)
     bid = Column(String, nullable=True)
     buffer_available_kwh = Column(Float, nullable=True)
+    buffer_used_kwh_before_charge = Column(Float, nullable=True)
     
     __table_args__ = (
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
     )
 
-if DROP_EXISTING_DATA:
-    print("\nWARNING: Continuing will drop existing data")
+if DROP_EXISTING_TABLE:
+    print("\nWARNING: Continuing will drop existing hourly table")
     continue_dropping = input("Continue? (y/n): ")
     if continue_dropping != 'y':
         print("Exiting...\n")
         exit()
     Base.metadata.drop_all(engine_gbo)
-    print("Existing data dropped")
+    print("Existing hourly table dropped")
     Base.metadata.create_all(engine_gbo)
-    if os.path.exists(f"energy_data_beech.csv"):
-        os.remove(f"energy_data_beech.csv")
 
 
 class HourlyData:
@@ -319,6 +318,7 @@ class HourlyData:
             dd_delta_t = None
             bid = None
             buffer_available_kwh = None
+            buffer_used_kwh_before_charge = None
 
             # ------------------------------------------------------------------------------------------------
             # Heat pump: hp_elec_in, hp_heat_out, hp_avg_lwt, hp_avg_ewt
@@ -528,6 +528,56 @@ class HourlyData:
                 storage_temps[channel] = self.to_fahrenheit(channels[channel]['values'][closest_index]/1000)
 
             # ------------------------------------------------------------------------------------------------
+            # Buffer: buffer_used_kwh_before_charge
+            # ------------------------------------------------------------------------------------------------
+
+            # Buffer average temperature at hour start
+            temporary_buffer_temps = {}
+            for channel in [x for x in buffer_channels if x in channels]:
+                times_from_start = [abs(time-hour_start_ms) for time in channels[channel]['times']]
+                closest_index = times_from_start.index(min(times_from_start))
+                if channels[channel]['values'][closest_index] is not None:
+                    temporary_buffer_temps[channel] = self.to_fahrenheit(channels[channel]['values'][closest_index]/1000)
+            buffer_avg_temp_hour_start = np.mean(list(temporary_buffer_temps.values()))
+
+            # When the HP started charging the buffer
+            hp_start_charging_buffer_ms = None
+            for i in range(len(df)):
+                if df['charge-discharge-relay3'][i]==0 and df['hp-failsafe-relay5'][i]==1 and df['hp-scada-ops-relay6'][i]==0:
+                    hp_start_charging_buffer_ms = df['times'][i]
+                    break
+
+            # When the store started charging the buffer
+            store_start_charging_buffer_ms = None
+            for i in range(len(df)):
+                if df['store-pump-failsafe-relay9'][i]==1:
+                    store_start_charging_buffer_ms = df['times'][i]
+                    break
+
+            # When the buffer started charging
+            if hp_start_charging_buffer_ms is None and store_start_charging_buffer_ms is None:
+                start_charging_buffer_ms = None
+            elif hp_start_charging_buffer_ms is None:
+                start_charging_buffer_ms = store_start_charging_buffer_ms
+            elif store_start_charging_buffer_ms is None:
+                start_charging_buffer_ms = hp_start_charging_buffer_ms
+            else:
+                start_charging_buffer_ms = min(store_start_charging_buffer_ms, hp_start_charging_buffer_ms)
+
+            if start_charging_buffer_ms:
+                # Buffer average temperature when started charging
+                temporary_buffer_temps = {}
+                for channel in [x for x in buffer_channels if x in channels]:
+                    times_from_start = [abs(time-start_charging_buffer_ms) for time in channels[channel]['times']]
+                    closest_index = times_from_start.index(min(times_from_start))
+                    if channels[channel]['values'][closest_index] is not None:
+                        temporary_buffer_temps[channel] = self.to_fahrenheit(channels[channel]['values'][closest_index]/1000)
+                buffer_avg_temp_before_charge = np.mean(list(temporary_buffer_temps.values()))
+
+                # Buffer used kWh before charge
+                buffer_used_kwh_before_charge = round(120*3.79 * 4.187/3600 * (buffer_avg_temp_hour_start-buffer_avg_temp_before_charge)*5/9, 2)
+
+            # ------------------------------------------------------------------------------------------------
             # Relays and zones
             # ------------------------------------------------------------------------------------------------
 
@@ -655,8 +705,12 @@ class HourlyData:
                 dd_delta_t=dd_delta_t,
                 bid=bid,
                 buffer_available_kwh=buffer_available_kwh,
+                buffer_used_kwh_before_charge=buffer_used_kwh_before_charge
             )
             batch_rows.append(row)
+
+        if not WRITING_TO_DATABASE:
+            return
         
         try:
             self.session_gbo.add_all(batch_rows)
