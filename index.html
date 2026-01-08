@@ -5474,6 +5474,8 @@
         function updateDashboardTankTemperatures(snapshotData) {
             if (!snapshotData || !snapshotData.LatestReadingList) return;
             
+            const housealias = document.getElementById('selected-house').value || '';
+            
             const readingsMap = {};
             snapshotData.LatestReadingList.forEach(reading => {
                 readingsMap[reading.ChannelName] = reading;
@@ -5488,8 +5490,7 @@
                     const element = document.getElementById(elementId);
                     
                     if (element && reading) {
-                        const tempC = reading.Value / 1000;
-                        const tempF = (tempC * 9/5 + 32).toFixed(1);
+                        const tempF = tempValueToFahrenheit(channelName, reading.Value, housealias);
                         element.textContent = `${tempF}°F`;
                         
                         const sectionElement = document.getElementById(`dashboard-tank${tankNum}-section${depth}`);
@@ -5512,8 +5513,7 @@
                 const element = document.getElementById(elementId);
                 
                 if (element && reading) {
-                    const tempC = reading.Value / 1000;
-                    const tempF = (tempC * 9/5 + 32).toFixed(1);
+                    const tempF = tempValueToFahrenheit(channelName, reading.Value, housealias);
                     element.textContent = `${tempF}°F`;
                     
                     const sectionElement = document.getElementById(`dashboard-buffer-section${depth}`);
@@ -6365,6 +6365,8 @@
         function updateTankTemperatures(snapshotData) {
             if (!snapshotData || !snapshotData.LatestReadingList) return;
             
+            const housealias = document.getElementById('selected-house').value || '';
+            
             // Create a lookup map for readings
             const readingsMap = {};
             snapshotData.LatestReadingList.forEach(reading => {
@@ -6397,10 +6399,7 @@
                     const element = document.getElementById(elementId);
                     
                     if (element && reading) {
-                        // Convert temperature from Celsius * 1000 to Fahrenheit
-                        // Formula: °F = (°C * 9/5) + 32
-                        const tempC = reading.Value / 1000; // Convert from degCx1000 to degC
-                        const tempF = (tempC * 9/5 + 32).toFixed(1); // Convert to Fahrenheit
+                        const tempF = tempValueToFahrenheit(channelName, reading.Value, housealias);
                         element.textContent = `${tempF}°F`;
                         
                         // Update background color based on temperature
@@ -6432,10 +6431,7 @@
                 const element = document.getElementById(elementId);
                 
                 if (element && reading) {
-                    // Convert temperature from Celsius * 1000 to Fahrenheit
-                    // Formula: °F = (°C * 9/5) + 32
-                    const tempC = reading.Value / 1000; // Convert from degCx1000 to degC
-                    const tempF = (tempC * 9/5 + 32).toFixed(1); // Convert to Fahrenheit
+                    const tempF = tempValueToFahrenheit(channelName, reading.Value, housealias);
                     element.textContent = `${tempF}°F`;
                     
                     // Update background color based on temperature
@@ -6697,6 +6693,26 @@
             const blue = Math.min(255, Math.floor(255 * (1 - normalizedTemp)));
             const backgroundColor = `rgba(${red}, 0, ${blue}, 0.86)`;
             return backgroundColor;
+        }
+
+        // TEMP UNIT HOTFIX (JM / 2026-01)
+        // Depth channels (buffer-depth*, tank*-depth*) are now Fahrenheit × 100.
+        // This helper normalizes values for display only.
+        // REMOVE once channel units are sourced from registry metadata.
+        function tempValueToFahrenheit(channelName, rawValue, housealias) {
+            if (rawValue === null || rawValue === undefined) {
+                return null;
+            }
+
+            const isDepthChannel =
+                /^(buffer|tank\d+)-depth\d+$/.test(channelName);
+
+            if (isDepthChannel && housealias === 'beech') {
+                return (rawValue / 100).toFixed(1);
+            }
+
+            const tempC = rawValue / 1000;
+            return ((tempC * 9/5) + 32).toFixed(1);
         }
 
         function createTankSections(tankNum, maxDepth) {
