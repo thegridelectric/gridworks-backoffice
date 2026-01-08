@@ -759,10 +759,6 @@ if __name__ == '__main__':
         end_month = pendulum.now(timezone).month
         end_day = pendulum.now(timezone).day
 
-        start_year = 2025
-        start_month = 12
-        start_day = 1
-        
         start_ms = pendulum.datetime(start_year, start_month, start_day, tz=timezone).timestamp()*1000
         end_ms = pendulum.datetime(end_year, end_month, end_day, tz=timezone).timestamp()*1000
         
