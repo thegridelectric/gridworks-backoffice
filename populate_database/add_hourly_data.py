@@ -13,7 +13,7 @@ from sqlalchemy import create_engine, Column, String, Float, BigInteger, UniqueC
 from sqlalchemy.orm import declarative_base, sessionmaker, DeclarativeMeta
 from add_bid_column import AtnBid, extract_pq_pairs
 
-WRITING_TO_DATABASE = False
+WRITING_TO_DATABASE = True
 DROP_EXISTING_TABLE = False
 
 dotenv.load_dotenv()
@@ -637,14 +637,14 @@ class HourlyData:
                 if f.payload['StartUnixS'] == hour_start_ms/1000: 
                     if f.from_alias == f"hw1.isone.me.versant.keene.{self.house_alias}":
                         flo_tf = True
-                        alpha = f.payload['AlphaTimes10']/10
-                        beta = f.payload['BetaTimes100']/100
-                        gamma = f.payload['GammaEx6']/10**6
-                        intermediate_power_kw = f.payload['IntermediatePowerKw']
-                        intermediate_rswt = f.payload['IntermediateRswtF']
-                        dd_power_kw = f.payload['DdPowerKw']
-                        dd_rswt = f.payload['DdRswtF']
-                        dd_delta_t = f.payload['DdDeltaTF']
+                        # alpha = f.payload['AlphaTimes10']/10
+                        # beta = f.payload['BetaTimes100']/100
+                        # gamma = f.payload['GammaEx6']/10**6
+                        # intermediate_power_kw = f.payload['IntermediatePowerKw']
+                        # intermediate_rswt = f.payload['IntermediateRswtF']
+                        # dd_power_kw = f.payload['DdPowerKw']
+                        # dd_rswt = f.payload['DdRswtF']
+                        # dd_delta_t = f.payload['DdDeltaTF']
                         buffer_available_kwh = f.payload['BufferAvailableKwh']
                         break
             
@@ -710,6 +710,7 @@ class HourlyData:
             batch_rows.append(row)
 
         if not WRITING_TO_DATABASE:
+            print(f"Not writing to database, just printing batch_rows")
             return
         
         try:
@@ -748,7 +749,7 @@ class HourlyData:
     
 
 if __name__ == '__main__':
-    houses_to_generate = ['oak', 'fir', 'maple', 'elm', 'beech']
+    houses_to_generate = ['beech', 'oak', 'fir', 'maple', 'elm']
     timezone = 'America/New_York'
 
     for house in houses_to_generate:        
