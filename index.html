@@ -6707,7 +6707,7 @@
             const isDepthChannel =
                 /^(buffer|tank\d+)-depth\d+$/.test(channelName);
 
-            if (isDepthChannel && housealias === 'beech') {
+            if (isDepthChannel && (housealias === 'beech' || housealias === 'oak')) {
                 return (rawValue / 100).toFixed(1);
             }
 
