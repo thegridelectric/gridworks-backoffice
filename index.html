@@ -5474,8 +5474,6 @@
         function updateDashboardTankTemperatures(snapshotData) {
             if (!snapshotData || !snapshotData.LatestReadingList) return;
             
-            const housealias = document.getElementById('selected-house').value || '';
-            
             const readingsMap = {};
             snapshotData.LatestReadingList.forEach(reading => {
                 readingsMap[reading.ChannelName] = reading;
@@ -5490,7 +5488,7 @@
                     const element = document.getElementById(elementId);
                     
                     if (element && reading) {
-                        const tempF = tempValueToFahrenheit(channelName, reading.Value, housealias);
+                        const tempF = tempValueToFahrenheit(channelName, reading.Value);
                         element.textContent = `${tempF}°F`;
                         
                         const sectionElement = document.getElementById(`dashboard-tank${tankNum}-section${depth}`);
@@ -5513,7 +5511,7 @@
                 const element = document.getElementById(elementId);
                 
                 if (element && reading) {
-                    const tempF = tempValueToFahrenheit(channelName, reading.Value, housealias);
+                    const tempF = tempValueToFahrenheit(channelName, reading.Value);
                     element.textContent = `${tempF}°F`;
                     
                     const sectionElement = document.getElementById(`dashboard-buffer-section${depth}`);
@@ -6399,7 +6397,7 @@
                     const element = document.getElementById(elementId);
                     
                     if (element && reading) {
-                        const tempF = tempValueToFahrenheit(channelName, reading.Value, housealias);
+                        const tempF = tempValueToFahrenheit(channelName, reading.Value);
                         element.textContent = `${tempF}°F`;
                         
                         // Update background color based on temperature
@@ -6431,7 +6429,7 @@
                 const element = document.getElementById(elementId);
                 
                 if (element && reading) {
-                    const tempF = tempValueToFahrenheit(channelName, reading.Value, housealias);
+                    const tempF = tempValueToFahrenheit(channelName, reading.Value);
                     element.textContent = `${tempF}°F`;
                     
                     // Update background color based on temperature
@@ -6699,7 +6697,7 @@
         // Depth channels (buffer-depth*, tank*-depth*) are now Fahrenheit × 100.
         // This helper normalizes values for display only.
         // REMOVE once channel units are sourced from registry metadata.
-        function tempValueToFahrenheit(channelName, rawValue, housealias) {
+        function tempValueToFahrenheit(channelName, rawValue) {
             if (rawValue === null || rawValue === undefined) {
                 return null;
             }
@@ -6707,7 +6705,7 @@
             const isDepthChannel =
                 /^(buffer|tank\d+)-depth\d+$/.test(channelName);
 
-            if (isDepthChannel && (housealias === 'beech' || housealias === 'oak')) {
+            if (isDepthChannel) {
                 return (rawValue / 100).toFixed(1);
             }
 
