@@ -10,16 +10,16 @@ import pandas as pd
 import numpy as np
 import os
 from sqlalchemy import create_engine, Column, String, Float, BigInteger, UniqueConstraint, Boolean
-from sqlalchemy.orm import declarative_base, sessionmaker
-import matplotlib.pyplot as plt
+from sqlalchemy.orm import declarative_base, sessionmaker, DeclarativeMeta
+from add_bid_column import AtnBid, extract_pq_pairs
 
-DROP_EXISTING_DATA = False
+WRITING_TO_DATABASE = True
+DROP_EXISTING_TABLE = False
 
 dotenv.load_dotenv()
-
 gbo_db_url = os.getenv("GBO_DB_URL")
 engine_gbo = create_engine(gbo_db_url.replace("postgresql+asyncpg://", "postgresql+psycopg://"))
-Base = declarative_base()
+Base: DeclarativeMeta = declarative_base()
 
 class HourlyElectricity(Base):
     __tablename__ = 'hourly_electricity'
@@ -77,105 +77,81 @@ class HourlyElectricity(Base):
     dd_power_kw = Column(Float, nullable=True)
     dd_rswt = Column(Float, nullable=True)
     dd_delta_t = Column(Float, nullable=True)
+    bid = Column(String, nullable=True)
+    buffer_available_kwh = Column(Float, nullable=True)
+    buffer_used_kwh_before_charge = Column(Float, nullable=True)
     
     __table_args__ = (
         UniqueConstraint('hour_start_s', 'g_node_alias', name='hour_house_unique'),
     )
 
-if DROP_EXISTING_DATA:
-    print("\nWARNING: Continuing will drop existing data")
+if DROP_EXISTING_TABLE:
+    print("\nWARNING: Continuing will drop existing hourly table")
     continue_dropping = input("Continue? (y/n): ")
     if continue_dropping != 'y':
         print("Exiting...\n")
         exit()
     Base.metadata.drop_all(engine_gbo)
-    print("Existing data dropped")
+    print("Existing hourly table dropped")
     Base.metadata.create_all(engine_gbo)
-    if os.path.exists(f"energy_data_beech.csv"):
-        os.remove(f"energy_data_beech.csv")
 
 
-class EnergyDataset():
-    def __init__(self, house_alias, start_ms, end_ms, timezone):
-        gjk_db_url = os.getenv("GJK_DB_URL")
-        engine = create_engine(gjk_db_url.replace("postgresql+asyncpg://", "postgresql+psycopg://"))
-        Session = sessionmaker(bind=engine)
-        self.session = Session()
-        SessionGbo = sessionmaker(bind=engine_gbo)
-        self.session_gbo = SessionGbo()
+class HourlyData:
+    def __init__(self, house_alias:str, start_ms:int, end_ms:int, timezone:str, find_first_date:bool=False):
         self.house_alias = house_alias
-        self.dataset_file = f"energy_data_{self.house_alias}.csv"
         self.start_ms = start_ms
         self.end_ms = end_ms
         self.timezone_str = timezone
-        self.stop_flow_processing_date_ms = pendulum.datetime(2025,1,1,tz=self.timezone_str).timestamp()*1000
-        whitewire_threshold_watts = {'beech': 100, 'elm': 0.9, 'default': 20}
+
+        self.initialize_sqlalchemy_sessions()
+        self.initialize_parameters()
+        if find_first_date:
+            self.find_first_date()
+        
+    def initialize_sqlalchemy_sessions(self):
+        # Journaldb
+        gjk_db_url = os.getenv("GJK_DB_URL").replace("asyncpg", "psycopg")
+        engine_gjk = create_engine(gjk_db_url)
+        Session = sessionmaker(bind=engine_gjk)
+        self.session_gjk = Session()
+
+        # Backofficedb
+        gbo_db_url = os.getenv("GBO_DB_URL").replace("asyncpg", "psycopg")
+        engine_gbo = create_engine(gbo_db_url)
+        SessionGbo = sessionmaker(bind=engine_gbo)
+        self.session_gbo = SessionGbo()
+
+        # Data format
+        self.data_format = {col.name: [] for col in HourlyElectricity.__table__.columns}
+
+    def initialize_parameters(self):
+        # Whitewire threshold
+        whitewire_threshold_watts = {'beech': 100, 'elm': 1, 'default': 20}
         if self.house_alias in whitewire_threshold_watts:
             self.whitewire_threshold = whitewire_threshold_watts[self.house_alias]
         else:
             self.whitewire_threshold = whitewire_threshold_watts['default']
+
+        # Primary pump threshold
         primary_pump_gpm = {'beech': 5.5, 'default': 5}
         if self.house_alias in primary_pump_gpm:
             self.primary_pump_gpm = primary_pump_gpm[self.house_alias]
         else:
             self.primary_pump_gpm = primary_pump_gpm['default']
+
+        # Store pump threshold
         store_pump_gpm = {'beech': 1.5, 'default': 1.5}
         if self.house_alias in store_pump_gpm:
             self.store_pump_gpm = store_pump_gpm[self.house_alias]
         else:
             self.store_pump_gpm = store_pump_gpm['default']
-        self.data_format = {
-            'g_node_alias': [],
-            'short_alias': [],
-            'hour_start_ms': [],
-            'hp_kwh_el': [],
-            'hp_kwh_th': [],
-            'dist_kwh': [],
-            'store_change_kwh': [],
-            'hp_avg_lwt': [],
-            'hp_avg_ewt': [],
-            'dist_avg_swt': [],
-            'dist_avg_rwt': [],
-            'buffer_depth1_start': [],
-            'buffer_depth2_start': [],
-            'buffer_depth3_start': [],
-            'buffer_depth4_start': [],
-            'tank1_depth1_start': [],
-            'tank1_depth2_start': [],
-            'tank1_depth3_start': [],
-            'tank1_depth4_start': [],
-            'tank2_depth1_start': [],
-            'tank2_depth2_start': [],
-            'tank2_depth3_start': [],
-            'tank2_depth4_start': [],
-            'tank3_depth1_start': [],
-            'tank3_depth2_start': [],
-            'tank3_depth3_start': [],
-            'tank3_depth4_start': [],
-            'relay_3_pulled_fraction': [],
-            'relay_5_pulled_fraction': [],
-            'relay_6_pulled_fraction': [],
-            'relay_9_pulled_fraction': [],
-            'zone1_heatcall_fraction': [],
-            'zone2_heatcall_fraction': [],
-            'zone3_heatcall_fraction': [],
-            'zone4_heatcall_fraction': [],
-            'oat_f': [],
-            'ws_mph': [],
-            'total_usd_per_mwh': [],
-            'flo': [],
-            'alpha': [],
-            'beta': [],
-            'gamma': [],
-            'intermediate_power_kw': [],
-            'intermediate_rswt': [],
-            'dd_power_kw': [],
-            'dd_rswt': [],
-            'dd_delta_t': [],
-        }
+
+        self.stop_flow_processing_time_ms = pendulum.datetime(2025,1,1,tz=self.timezone_str).timestamp()*1000
+        self.small_batch_size = 20
+        self.large_batch_size = 100
 
     def find_first_date(self):
-        first_report: List[MessageSql] = self.session.query(MessageSql).filter(
+        first_report: List[MessageSql] = self.session_gjk.query(MessageSql).filter(
             MessageSql.from_alias.like(f'%{self.house_alias}%'),
             or_(
                 MessageSql.message_type_name == "batched.readings",
@@ -187,68 +163,40 @@ class EnergyDataset():
         self.start_ms = first_report.message_created_ms
         print(f"Data for {self.house_alias} starts at {self.unix_ms_to_date(self.start_ms)}")
 
-    def generate_dataset(self):
-        print("\nGenerating dataset...")
-        # self.find_first_date()
-        existing_dataset_dates = []
-        # if os.path.exists(self.dataset_file):
-        #     print(f"Found existing dataset: {self.dataset_file}")
-        #     df = pd.read_csv(self.dataset_file)
-        #     existing_dataset_dates = [int(x) for x in list(df['hour_start_ms'])]
-
-        # Add data in batches of BATCH_SIZE hours
-        SMALL_BATCH_SIZE = 20
-        LARGE_BATCH_SIZE = 100
-        using_small_batches = True
-
+    def generate_hourly_data(self):
+        print("\n" + "="*100 + f"\nGenerating hourly data for {self.house_alias.capitalize()}" + "\n" + "="*100)
         batch_start_ms = int(pendulum.from_timestamp(self.start_ms/1000, tz=self.timezone_str).replace(hour=0, minute=0, microsecond=0).timestamp()*1000)
-        batch_end_ms = batch_start_ms + SMALL_BATCH_SIZE*3600*1000
+        batch_size = self.small_batch_size if batch_start_ms < self.stop_flow_processing_time_ms else self.large_batch_size
+        batch_end_ms = batch_start_ms + batch_size*3600*1000
         now_ms = int(time.time()*1000)
         
         while batch_start_ms < min(self.end_ms, now_ms):
-            batch_end_ms = min(batch_end_ms, now_ms, self.end_ms)
-            if existing_dataset_dates and int(batch_end_ms-3600*1000) <= max(existing_dataset_dates):
-                print("Batch is already in data")
-                batch_start_ms += SMALL_BATCH_SIZE*3600*1000
-                batch_end_ms += SMALL_BATCH_SIZE*3600*1000
-            else:
-                # We are processing all the data: small batches
-                if batch_start_ms < self.stop_flow_processing_date_ms:
-                    try:
-                        self.add_data(batch_start_ms, batch_end_ms)
-                    except Exception as e:
-                        print(f"Error adding data from {self.unix_ms_to_date(batch_start_ms)} to {self.unix_ms_to_date(batch_end_ms)}: {e}")
-                    batch_start_ms += SMALL_BATCH_SIZE*3600*1000
-                    batch_end_ms += SMALL_BATCH_SIZE*3600*1000
-                
-                # All the necessary data has been processed: move to large batches
-                elif batch_start_ms >= self.stop_flow_processing_date_ms:
-                    try:
-                        self.add_data(batch_start_ms, batch_end_ms)
-                    except Exception as e:
-                        print(f"Error adding data from {self.unix_ms_to_date(batch_start_ms)} to {self.unix_ms_to_date(batch_end_ms)}: {e}")
-                    if using_small_batches:
-                        batch_start_ms += SMALL_BATCH_SIZE*3600*1000
-                        batch_end_ms += LARGE_BATCH_SIZE*3600*1000
-                        using_small_batches = False
-                    else:
-                        batch_start_ms += LARGE_BATCH_SIZE*3600*1000
-                        batch_end_ms += LARGE_BATCH_SIZE*3600*1000
+            batch_end_ms = min(batch_end_ms, self.end_ms, now_ms)            
+            try:
+                self.add_batch(batch_start_ms, batch_end_ms)
+            except Exception as e:
+                print(f"Error adding data from {self.unix_ms_to_date(batch_start_ms)} to {self.unix_ms_to_date(batch_end_ms)}: {e}")
+            batch_size = self.small_batch_size if batch_start_ms < self.stop_flow_processing_time_ms else self.large_batch_size
+            batch_start_ms += batch_size*3600*1000
+            batch_end_ms += batch_size*3600*1000
 
-    def add_data(self, batch_start_ms, batch_end_ms):
-        st = time.time()
-        print(f"\nGathering reports from: {self.unix_ms_to_date(batch_start_ms)} to {self.unix_ms_to_date(batch_end_ms)}...")
-        
-        messages: List[MessageSql] = self.session.query(MessageSql).filter(
+    def add_batch(self, batch_start_ms, batch_end_ms):
+        print(f"\nBatch from {self.unix_ms_to_date(batch_start_ms)} to {self.unix_ms_to_date(batch_end_ms)}")
+        messages: List[MessageSql] = self.session_gjk.query(MessageSql).filter(
             or_(
                 and_(
                     MessageSql.from_alias == f"hw1.isone.me.versant.keene.{self.house_alias}.scada",
                     or_(
                         MessageSql.message_type_name == "batched.readings",
-                        MessageSql.message_type_name == "report"
+                        MessageSql.message_type_name == "report",
+                        MessageSql.message_type_name == "layout.lite"
                     )
                 ),
-                MessageSql.message_type_name == "flo.params.house0"
+                and_(
+                    MessageSql.from_alias == f"hw1.isone.me.versant.keene.{self.house_alias}",
+                    MessageSql.message_type_name == "atn.bid"
+                ),
+                MessageSql.message_type_name == "flo.params.house0",
             ),
             MessageSql.message_created_ms >= batch_start_ms - 7*60*1000,
             MessageSql.message_created_ms <= batch_end_ms + 7*60*1000,
@@ -256,15 +204,15 @@ class EnergyDataset():
 
         reports = [m for m in messages if m.message_type_name in ['report', 'batched.readings']]
         flo_params = [m for m in messages if m.message_type_name == 'flo.params.house0']
+        atn_bids = [m for m in messages if m.message_type_name == 'atn.bid']
+        layout_lites = [m for m in messages if m.message_type_name == 'layout.lite']
         
-        print(f"Found {len(reports)} reports in database in {int(time.time()-st)} seconds")
-        st = time.time()
         if not reports:
+            print(f"No reports found in batch.")
             return
         
-        formatted_data = pd.DataFrame(self.data_format)
-        rows = []
-
+        # Generate a row per hour in the batch
+        batch_rows = []
         hour_start_ms = int(batch_start_ms) - 3600*1000
         hour_end_ms = int(batch_start_ms)
 
@@ -272,14 +220,14 @@ class EnergyDataset():
             hour_start_ms += 3600*1000
             hour_end_ms += 3600*1000
 
-            # Sort data by channels
-            channels = {}
             selected_messages = [
                 m for m in reports
-                if self.house_alias in m.from_alias
-                and m.message_created_ms >= hour_start_ms - 7*60*1000
-                and m.message_created_ms <= hour_end_ms + 7*60*1000
+                if m.message_created_ms >= hour_start_ms-7*60*1000 
+                and m.message_created_ms <= hour_end_ms+7*60*1000
                 ]
+
+            # Organize data by channel name
+            channels = {}
             for message in selected_messages:
                 for channel in message.payload['ChannelReadingList']:
                     if message.message_type_name == 'report':
@@ -293,7 +241,6 @@ class EnergyDataset():
                     channels[channel_name]['times'].extend(channel['ScadaReadTimeUnixMsList'])
                     channels[channel_name]['values'].extend(channel['ValueList'])
             if not channels:
-                print(f"No channels found in reports for hour {self.unix_ms_to_date(hour_start_ms)}: {channels}")
                 continue
             for channel in channels.keys():
                 sorted_times_values = sorted(zip(channels[channel]['times'], channels[channel]['values']))
@@ -310,52 +257,38 @@ class EnergyDataset():
             ] + [
                 x for x in channels if 'zone' in x and 'whitewire' in x
             ]
-            hp_critical_channels = ['hp-idu-pwr', 'hp-odu-pwr']
             hp_required_channels = [x for x in required_channels if 'hp' in x or 'primary-flow' in x]
             store_required_channels = [x for x in required_channels if 'flow' in x or 'store' in x or 'relay3' in x and 'pwr' not in x]
             dist_required_channels = [x for x in required_channels if 'dist' in x]
 
             timestep_seconds = 1
             num_points = int((hour_end_ms - hour_start_ms) / (timestep_seconds * 1000) + 1)
+            sync_times = np.linspace(hour_start_ms, hour_end_ms, num_points)
+            sync_times_dt = pd.to_datetime(sync_times, unit='ms', utc=True)
+            sync_times_dt = [x.tz_convert(self.timezone_str).replace(tzinfo=None) for x in sync_times_dt]
 
-            csv_times = np.linspace(hour_start_ms, hour_end_ms, num_points)
-            csv_times_dt = pd.to_datetime(csv_times, unit='ms', utc=True)
-            csv_times_dt = [x.tz_convert(self.timezone_str).replace(tzinfo=None) for x in csv_times_dt]
-
-            csv_values = {'times': csv_times}
+            sync_values = {'times': sync_times}
             for channel in required_channels:
                 if channel not in channels or not channels[channel]['times']:
-                    # print(f"Missing channel data: {channel}")
                     continue
                 channels[channel]['times'] = pd.to_datetime(channels[channel]['times'], unit='ms', utc=True)
                 channels[channel]['times'] = [x.tz_convert(self.timezone_str) for x in channels[channel]['times']]
                 channels[channel]['times'] = [x.replace(tzinfo=None) for x in channels[channel]['times']]
-                
                 try:
                     merged = pd.merge_asof(
-                        pd.DataFrame({'times': csv_times_dt}),
+                        pd.DataFrame({'times': sync_times_dt}),
                         pd.DataFrame(channels[channel]).ffill(),
                         on='times',
                         direction='backward'
                     )
-                    csv_values[channel] = list(merged['values'])
-
+                    sync_values[channel] = list(merged['values'])
                 except Exception as e:
-                    print(f"Error merging data around {csv_times_dt[0]} : {e}")
-                    # if sorted(csv_times_dt) != csv_times_dt:
-                    #     print(f"\ncsv_times_dt: {csv_times_dt}\n")
-                    # elif sorted(channels[channel]['times']) != channels[channel]['times']:
-                    #     print(f"\nchannels[channel]['times']: {channels[channel]['times']}\n")
-                    merged = pd.merge_asof(
-                        pd.DataFrame({'times': csv_times_dt}).sort_values('times'),
-                        pd.DataFrame(channels[channel]).sort_values('times'),
-                        on='times',
-                        direction='backward'
-                    )
-                    csv_values[channel] = list(merged['values'])
+                    print(f"Error merging {channel} data around {sync_times_dt[0]}: {e}")
 
             # Calculations from synchronous data
-            df = pd.DataFrame(csv_values)
+            df = pd.DataFrame(sync_values)
+
+            # Initialize variables to None
             hp_elec_in = None
             hp_heat_out = None
             dist_kwh = None
@@ -383,33 +316,29 @@ class EnergyDataset():
             dd_power_kw = None
             dd_rswt = None
             dd_delta_t = None
+            bid = None
+            buffer_available_kwh = None
+            buffer_used_kwh_before_charge = None
 
-            # Heat pump energy
-            if not [c for c in hp_critical_channels if c not in csv_values]:
-                df['hp_power'] = df['hp-idu-pwr'] + df['hp-odu-pwr']
-                hp_elec_in = round(float(np.mean(df['hp_power'])/1000),2)
+            # ------------------------------------------------------------------------------------------------
+            # Heat pump: hp_elec_in, hp_heat_out, hp_avg_lwt, hp_avg_ewt
+            # ------------------------------------------------------------------------------------------------
+
+            if 'hp-idu-pwr' in sync_values and 'hp-odu-pwr' in sync_values:
+                df['hp-elec-in'] = df['hp-idu-pwr'] + df['hp-odu-pwr']
+                hp_elec_in = round(float(np.mean(df['hp-elec-in'])/1000),2)
             else:
-                # print(f"Missing critical channels: {hp_critical_channels}")
                 continue
-            if (not [c for c in hp_required_channels if c not in csv_values]
-                or ('primary-pump-pwr' in csv_values and not [c for c in hp_required_channels if c not in csv_values and 'primary-flow' not in c])):
 
-                if 'primary-pump-pwr' in csv_values and hour_end_ms < self.stop_flow_processing_date_ms or 'primary-flow' not in csv_values:
+            if not [c for c in hp_required_channels if c not in sync_values] or (
+                'primary-pump-pwr' in sync_values 
+                and not [c for c in hp_required_channels if c not in sync_values and 'primary-flow' not in c]
+            ):
+                # Process primary flow
+                if 'primary-pump-pwr' in sync_values and hour_end_ms < self.stop_flow_processing_time_ms or 'primary-flow' not in sync_values:
                     primary_flow_processed = []
                     last_correct_gpm = self.primary_pump_gpm
-                    # Missing primary flow
-                    if 'primary-flow' not in csv_values:
-                        for i in range(len(df)):
-                            value_watts = float(df['primary-pump-pwr'][i])
-                            pump_on = value_watts > 10
-                            if pump_on:
-                                value_gpm = last_correct_gpm
-                            else:
-                                value_gpm = 0
-                            primary_flow_processed.append(value_gpm*100)
-                    
-                    # Process primary flow
-                    else:
+                    if 'primary-flow' in sync_values:
                         last_pump_off_ms = None
                         for i in range(len(df)):
                             value_gpm = float(df['primary-flow'][i]/100)
@@ -417,19 +346,16 @@ class EnergyDataset():
                             pump_on = value_watts > 10
                             if not pump_on:
                                 last_pump_off_ms = df['times'][i]
-
                             # Check if the pump was recently turned on
                             pump_just_turned_on = False
                             if last_pump_off_ms and pump_on and df['times'][i] - last_pump_off_ms < 20*1000:
                                 pump_just_turned_on = True
-
                             # Check if the pump will soon be turned off and flow has stopped
                             pump_about_to_be_turned_off = False
                             min_pump_pwr_in_next_seconds = min(df[(df['times']>=df['times'][i]) & (df['times']<=df['times'][i]+10*1000)]['primary-pump-pwr'])
                             max_flow_in_next_seconds = max(df[(df['times']>=df['times'][i]) & (df['times']<=df['times'][i]+10*1000)]['primary-flow'])
                             if min_pump_pwr_in_next_seconds < 10 and max_flow_in_next_seconds < self.primary_pump_gpm-2:
                                 pump_about_to_be_turned_off = True
-
                             # Update last correct GPM                            
                             if not np.isnan(value_gpm):
                                 if pump_on and value_gpm > self.primary_pump_gpm-1:
@@ -442,26 +368,19 @@ class EnergyDataset():
                                     value_gpm = last_correct_gpm
                                 else:
                                     value_gpm = 0
-
                             primary_flow_processed.append(value_gpm*100)
-                
-                    df['primary-flow-processed'] = primary_flow_processed
-                    
-                    # fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                    # if 'primary-flow' in csv_values:
-                    #     ax.plot(df['primary-flow'], label='primary-flow', color='purple', alpha=0.5, linestyle='--')
-                    # ax.plot(df['primary-flow-processed'], label='primary-flow-processed', color='red', alpha=0.5)
-                    # ax2 = ax.twinx()    
-                    # ax2.plot(df['primary-pump-pwr'], label='primary-pump-pwr', color='pink', alpha=0.6, linestyle='--')
-                    # ax.set_ylim(-50, 1000)
-                    # ax2.set_ylim(-5, 100)
-                    # ax.legend()
-                    # ax2.legend()
-                    # plt.title(f"{self.unix_ms_to_date(hour_start_ms)}")
-                    # plt.show()
+                    else:
+                        for i in range(len(df)):
+                            value_watts = float(df['primary-pump-pwr'][i])
+                            pump_on = value_watts > 10
+                            if pump_on:
+                                value_gpm = last_correct_gpm
+                            else:
+                                value_gpm = 0
+                            primary_flow_processed.append(value_gpm*100)
+                    df['primary-flow'] = primary_flow_processed
 
-                    df['primary-flow'] = df['primary-flow-processed']
-
+                # Compute heat pump heat output
                 df['lift_C'] = df['hp-lwt'] - df['hp-ewt']
                 df['lift_C'] = df['lift_C']/1000
                 df['flow_kgs'] = df['primary-flow'] / 100 / 60 * 3.78541 
@@ -473,17 +392,16 @@ class EnergyDataset():
                     first_non_nan_cumulative_heat = non_nan_cumulative_heat[0]
                     last_non_nan_cumulative_heat = non_nan_cumulative_heat[-1]
                     hp_heat_out = round(last_non_nan_cumulative_heat - first_non_nan_cumulative_heat,2)
-                else:
-                    # print("There are no non-NaN cumulative heat values")
-                    hp_heat_out = None
+                
+                # Heat pump average LWT and EWT
                 hp_avg_lwt = self.to_fahrenheit(float(np.mean(df['hp-lwt'])/1000))
                 hp_avg_ewt = self.to_fahrenheit(float(np.mean(df['hp-ewt'])/1000))
-            else:
-                # print(f"Missing HP required channels: {[c for c in hp_required_channels if c not in csv_values]}")
-                ...
 
-            # Distribution energy
-            if not [c for c in dist_required_channels if c not in csv_values]:
+            # ------------------------------------------------------------------------------------------------
+            # Distribution: dist_kwh, dist_avg_swt, dist_avg_rwt
+            # ------------------------------------------------------------------------------------------------
+            
+            if not [c for c in dist_required_channels if c not in sync_values]:
                 df['dist_flow_kgs'] = df['dist-flow'] / 100 / 60 * 3.78541
                 df['dist_lift_C'] = df['dist-swt'] - df['dist-rwt']
                 df['dist_lift_C'] = df['dist_lift_C']/1000
@@ -494,26 +412,19 @@ class EnergyDataset():
                 dist_avg_swt = self.to_fahrenheit(float(np.mean(df['dist-swt'])/1000))
                 dist_avg_rwt = self.to_fahrenheit(float(np.mean(df['dist-rwt'])/1000))
 
-            # Storage energy
-            if (not [c for c in store_required_channels if c not in csv_values]
-                or ('store-pump-pwr' in csv_values and 'primary-flow' in df and not [c for c in store_required_channels if c not in csv_values and 'store-flow' not in c and 'primary-flow' not in c])):
+            # ------------------------------------------------------------------------------------------------
+            # Storage: store_change_kwh
+            # ------------------------------------------------------------------------------------------------
 
-                if ('store-pump-pwr' in csv_values and hour_end_ms < self.stop_flow_processing_date_ms) or 'store-flow' not in csv_values:
+            if not [c for c in store_required_channels if c not in sync_values] or (
+                'store-pump-pwr' in sync_values and 'primary-flow' in df 
+                and not [c for c in store_required_channels if c not in sync_values and 'store-flow' not in c and 'primary-flow' not in c]
+            ):
+                # Process store flow
+                if ('store-pump-pwr' in sync_values and hour_end_ms < self.stop_flow_processing_time_ms) or 'store-flow' not in sync_values:
                     store_flow_processed = []
                     last_correct_gpm = self.store_pump_gpm
-                    # Missing store flow
-                    if 'store-flow' not in csv_values:
-                        for i in range(len(df)):
-                            value_watts = float(df['store-pump-pwr'][i])
-                            pump_on = value_watts > 5
-                            if pump_on:
-                                value_gpm = last_correct_gpm
-                            else:
-                                value_gpm = 0
-                            store_flow_processed.append(value_gpm*100)
-                    
-                    # Process store flow
-                    else:
+                    if 'store-flow' in sync_values:
                         last_pump_off_ms = None
                         for i in range(len(df)):
                             value_gpm = float(df['store-flow'][i]/100)
@@ -548,24 +459,18 @@ class EnergyDataset():
                                     value_gpm = 0
 
                             store_flow_processed.append(value_gpm*100)
-                
-                    df['store-flow-processed'] = store_flow_processed
+                    else:
+                        for i in range(len(df)):
+                            value_watts = float(df['store-pump-pwr'][i])
+                            pump_on = value_watts > 5
+                            if pump_on:
+                                value_gpm = last_correct_gpm
+                            else:
+                                value_gpm = 0
+                            store_flow_processed.append(value_gpm*100)
+                    df['store-flow'] = store_flow_processed
 
-                    # fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                    # if 'store-flow' in csv_values:
-                    #     ax.plot(df['store-flow'], label='store-flow', color='purple', alpha=0.5, linestyle='--')
-                    # ax.plot(df['store-flow-processed'], label='store-flow-processed', color='red', alpha=0.5)
-                    # ax2 = ax.twinx()    
-                    # ax2.plot(df['store-pump-pwr'], label='store-pump-pwr', color='pink', alpha=0.6, linestyle='--')
-                    # ax.set_ylim(-50, 1000)
-                    # ax2.set_ylim(-5, 100)
-                    # ax.legend()
-                    # ax2.legend()
-                    # plt.title(f"{self.unix_ms_to_date(hour_start_ms)}")
-                    # plt.show()
-
-                    df['store-flow'] = df['store-flow-processed']
-
+                # Compute storage heat output
                 df['store_lift_C'] = np.where(
                     df['charge-discharge-relay3'] == 0,
                     df['store-hot-pipe'] - df['store-cold-pipe'],
@@ -597,11 +502,11 @@ class EnergyDataset():
                 df['pipe_heat_power_kW'] = [m*4187*lift/1000 for lift, m in zip(df['pipe_lift_C'], df['pipe_flow_kgs'])]
                 df['pipe_cumulative_heat_kWh'] = df['pipe_heat_power_kW'].cumsum()
                 df['pipe_cumulative_heat_kWh'] = df['pipe_cumulative_heat_kWh'] / 3600 * timestep_seconds
-            else:
-                # print(f"Missing store required channels: {[c for c in store_required_channels if c not in csv_values]}")
-                # print(f"Missing store pump power: {'store-pump-pwr' not in csv_values}")
-                ...
 
+            # ------------------------------------------------------------------------------------------------
+            # Tank temperatures: buffer_temps, storage_temps
+            # ------------------------------------------------------------------------------------------------
+            
             # Buffer temperatures
             buffer_channels = ['buffer-depth1', 'buffer-depth2', 'buffer-depth3', 'buffer-depth4']
             buffer_temps = {x: None for x in buffer_channels}
@@ -622,22 +527,76 @@ class EnergyDataset():
                 closest_index = times_from_start.index(min(times_from_start))
                 storage_temps[channel] = self.to_fahrenheit(channels[channel]['values'][closest_index]/1000)
 
+            # ------------------------------------------------------------------------------------------------
+            # Buffer: buffer_used_kwh_before_charge
+            # ------------------------------------------------------------------------------------------------
+
+            # Buffer average temperature at hour start
+            temporary_buffer_temps = {}
+            for channel in [x for x in buffer_channels if x in channels]:
+                times_from_start = [abs(time-hour_start_ms) for time in channels[channel]['times']]
+                closest_index = times_from_start.index(min(times_from_start))
+                if channels[channel]['values'][closest_index] is not None:
+                    temporary_buffer_temps[channel] = self.to_fahrenheit(channels[channel]['values'][closest_index]/1000)
+            buffer_avg_temp_hour_start = np.mean(list(temporary_buffer_temps.values()))
+
+            # When the HP started charging the buffer
+            hp_start_charging_buffer_ms = None
+            for i in range(len(df)):
+                if df['charge-discharge-relay3'][i]==0 and df['hp-failsafe-relay5'][i]==1 and df['hp-scada-ops-relay6'][i]==0:
+                    hp_start_charging_buffer_ms = df['times'][i]
+                    break
+
+            # When the store started charging the buffer
+            store_start_charging_buffer_ms = None
+            for i in range(len(df)):
+                if df['store-pump-failsafe-relay9'][i]==1:
+                    store_start_charging_buffer_ms = df['times'][i]
+                    break
+
+            # When the buffer started charging
+            if hp_start_charging_buffer_ms is None and store_start_charging_buffer_ms is None:
+                start_charging_buffer_ms = None
+            elif hp_start_charging_buffer_ms is None:
+                start_charging_buffer_ms = store_start_charging_buffer_ms
+            elif store_start_charging_buffer_ms is None:
+                start_charging_buffer_ms = hp_start_charging_buffer_ms
+            else:
+                start_charging_buffer_ms = min(store_start_charging_buffer_ms, hp_start_charging_buffer_ms)
+
+            if start_charging_buffer_ms:
+                # Buffer average temperature when started charging
+                temporary_buffer_temps = {}
+                for channel in [x for x in buffer_channels if x in channels]:
+                    times_from_start = [abs(time-start_charging_buffer_ms) for time in channels[channel]['times']]
+                    closest_index = times_from_start.index(min(times_from_start))
+                    if channels[channel]['values'][closest_index] is not None:
+                        temporary_buffer_temps[channel] = self.to_fahrenheit(channels[channel]['values'][closest_index]/1000)
+                buffer_avg_temp_before_charge = np.mean(list(temporary_buffer_temps.values()))
+
+                # Buffer used kWh before charge
+                buffer_used_kwh_before_charge = round(120*3.79 * 4.187/3600 * (buffer_avg_temp_hour_start-buffer_avg_temp_before_charge)*5/9, 2)
+
+            # ------------------------------------------------------------------------------------------------
+            # Relays and zones
+            # ------------------------------------------------------------------------------------------------
+
             # Relays
-            if [c for c in csv_values if 'relay3' in c]:
+            if [c for c in sync_values if 'relay3' in c]:
                 df['relay3_cumulative'] = df['charge-discharge-relay3'].cumsum()
                 relay3_pulled_fraction = round(list(df['relay3_cumulative'])[-1] / len(df['relay3_cumulative']), 2)
-            if [c for c in csv_values if 'relay5' in c]:
+            if [c for c in sync_values if 'relay5' in c]:
                 df['relay5_cumulative'] = df['hp-failsafe-relay5'].cumsum()
                 relay5_pulled_fraction = round(list(df['relay5_cumulative'])[-1] / len(df['relay5_cumulative']), 2)
-            if [c for c in csv_values if 'relay6' in c]:
+            if [c for c in sync_values if 'relay6' in c]:
                 df['relay6_cumulative'] = df['hp-scada-ops-relay6'].cumsum()
                 relay6_pulled_fraction = round(list(df['relay6_cumulative'])[-1] / len(df['relay6_cumulative']), 2)
-            if [c for c in csv_values if 'relay9' in c]:
+            if [c for c in sync_values if 'relay9' in c]:
                 df['relay9_cumulative'] = df['store-pump-failsafe-relay9'].cumsum()
                 relay9_pulled_fraction = round(list(df['relay9_cumulative'])[-1] / len(df['relay9_cumulative']), 2)
 
             # Zones
-            whitewire_channels = [c for c in csv_values if 'whitewire' in c]
+            whitewire_channels = [c for c in sync_values if 'whitewire' in c]
             if [c for c in whitewire_channels if 'zone1' in c]:
                 zone1_ch = [c for c in whitewire_channels if 'zone1' in c][0]
                 df[zone1_ch] = [int(abs(x)>self.whitewire_threshold) for x in df[zone1_ch]]
@@ -659,28 +618,9 @@ class EnergyDataset():
                 df['zone4_cumulative'] = df[zone4_ch].cumsum()
                 zone4_heatcall_fraction = round(list(df['zone4_cumulative'])[-1] / len(df['zone4_cumulative']), 2)
 
-            # Cumulative energy balance
-            # if relay3_pulled_fraction > 0.96:
-            #     plt.plot(df['hp-lwt'].apply(lambda x: self.to_fahrenheit(x/1000)), label='HP LWT', color='tab:red')
-            #     plt.plot(df['store-hot-pipe'].apply(lambda x: self.to_fahrenheit(x/1000)), label='Store hot pipe', color='tab:red', linestyle='--')
-            #     plt.plot(df['hp-ewt'].apply(lambda x: self.to_fahrenheit(x/1000)), label='HP EWT', color='tab:blue')
-            #     plt.plot(df['store-cold-pipe'].apply(lambda x: self.to_fahrenheit(x/1000)), label='Store cold pipe', color='tab:blue', linestyle='--')
-            #     plt.legend()
-            #     plt.show()
-            #     plt.plot(df['lift_C']*9/5, label='HP lift', color='tab:blue')
-            #     plt.plot(-df['store_lift_C']*9/5, label='Store lift', color='tab:orange')
-            #     plt.plot(df['pipe_lift_C']*9/5, label='Pipe lift', color='tab:green')
-            #     plt.legend()
-            #     plt.show()
-            #     plt.plot(df['cumulative_heat_kWh'], label='Heat Pump', color='tab:blue', alpha=0.7)
-            #     plt.plot(-df['store_cumulative_heat_kWh'], label='Storage', color='tab:orange', alpha=0.7)
-            #     plt.plot(df['pipe_cumulative_heat_kWh'], label='Pipe (HP->Storage)', color='tab:green', alpha=0.7)
-            #     df['total'] = -df['store_cumulative_heat_kWh'] + df['pipe_cumulative_heat_kWh']
-            #     plt.plot(df['total'], label='Storage + Pipe', color='tab:red', alpha=0.4, linestyle='dashed', linewidth=5)
-            #     plt.xlabel("Time since hour start (seconds)")
-            #     plt.ylabel("Cumulative heat [kWh]")
-            #     plt.legend()
-            #     plt.show()
+            # ------------------------------------------------------------------------------------------------
+            # Advanced: weather, prices, house parameters, bids
+            # ------------------------------------------------------------------------------------------------
 
             # Get weather and price data
             for f in flo_params:
@@ -697,67 +637,23 @@ class EnergyDataset():
                 if f.payload['StartUnixS'] == hour_start_ms/1000: 
                     if f.from_alias == f"hw1.isone.me.versant.keene.{self.house_alias}":
                         flo_tf = True
-                        alpha = f.payload['AlphaTimes10']/10
-                        beta = f.payload['BetaTimes100']/100
-                        gamma = f.payload['GammaEx6']/10**6
-                        intermediate_power_kw = f.payload['IntermediatePowerKw']
-                        intermediate_rswt = f.payload['IntermediateRswtF']
-                        dd_power_kw = f.payload['DdPowerKw']
-                        dd_rswt = f.payload['DdRswtF']
-                        dd_delta_t = f.payload['DdDeltaTF']
+                        # alpha = f.payload['AlphaTimes10']/10
+                        # beta = f.payload['BetaTimes100']/100
+                        # gamma = f.payload['GammaEx6']/10**6
+                        # intermediate_power_kw = f.payload['IntermediatePowerKw']
+                        # intermediate_rswt = f.payload['IntermediateRswtF']
+                        # dd_power_kw = f.payload['DdPowerKw']
+                        # dd_rswt = f.payload['DdRswtF']
+                        # dd_delta_t = f.payload['DdDeltaTF']
+                        buffer_available_kwh = f.payload['BufferAvailableKwh']
                         break
-
-            row = [
-                reports[0].from_alias, 
-                self.house_alias, 
-                hour_start_ms, 
-                hp_elec_in, 
-                hp_heat_out,
-                dist_kwh,
-                store_change_kwh, 
-                hp_avg_lwt,
-                hp_avg_ewt,
-                dist_avg_swt,
-                dist_avg_rwt,
-                buffer_temps['buffer-depth1'],
-                buffer_temps['buffer-depth2'],
-                buffer_temps['buffer-depth3'],
-                buffer_temps['buffer-depth4'],
-                storage_temps['tank1-depth1'],
-                storage_temps['tank1-depth2'],
-                storage_temps['tank1-depth3'],
-                storage_temps['tank1-depth4'],
-                storage_temps['tank2-depth1'],
-                storage_temps['tank2-depth2'],
-                storage_temps['tank2-depth3'],
-                storage_temps['tank2-depth4'],
-                storage_temps['tank3-depth1'],
-                storage_temps['tank3-depth2'],
-                storage_temps['tank3-depth3'],
-                storage_temps['tank3-depth4'],
-                relay3_pulled_fraction,
-                relay5_pulled_fraction,
-                relay6_pulled_fraction,
-                relay9_pulled_fraction,
-                zone1_heatcall_fraction,
-                zone2_heatcall_fraction,
-                zone3_heatcall_fraction,
-                zone4_heatcall_fraction,
-                oat_f,
-                ws_mph,
-                total_usd_per_mwh,
-                flo_tf,
-                alpha,
-                beta,
-                gamma,
-                intermediate_power_kw,
-                intermediate_rswt,
-                dd_power_kw,
-                dd_rswt,
-                dd_delta_t,
-            ]
-            row = [x if x is not None else np.nan for x in row]
-            formatted_data.loc[len(formatted_data)] = row 
+            
+            for b in atn_bids:
+                bid_hour_start_ms = int((b.message_persisted_ms + 3599_999) // 3_600_000 * 3_600) * 1000
+                if bid_hour_start_ms == hour_start_ms:
+                    atn_bid = AtnBid(**b.payload)
+                    bid = str(extract_pq_pairs(atn_bid))
+                    break
 
             row = HourlyElectricity(
                 g_node_alias=reports[0].from_alias,
@@ -807,45 +703,43 @@ class EnergyDataset():
                 dd_power_kw=dd_power_kw,
                 dd_rswt=dd_rswt,
                 dd_delta_t=dd_delta_t,
+                bid=bid,
+                buffer_available_kwh=buffer_available_kwh,
+                buffer_used_kwh_before_charge=buffer_used_kwh_before_charge
             )
-            rows.append(row)
+            batch_rows.append(row)
+
+        if not WRITING_TO_DATABASE:
+            print(f"Not writing to database, just printing batch_rows")
+            return
         
         try:
-            self.session_gbo.add_all(rows)
+            self.session_gbo.add_all(batch_rows)
             self.session_gbo.commit()
-            print(f"Successfully inserted {len(rows)} new rows in {int(time.time()-st)} seconds")
+            print(f"Successfully inserted {len(batch_rows)} new batch_rows")
+
         except Exception as e:
-            if 'hour_house_unique' in str(e) or "hourly_electricity_pkey" in str(e):  # Check if it's our unique constraint violation
-                print("Some rows already exist in the database, filtering them out...")
+            if 'hour_house_unique' in str(e) or "hourly_electricity_pkey" in str(e):
+                print("Some batch_rows already exist in the database, deleting and replacing them...")
                 self.session_gbo.rollback()
-                conflicting_rows = []
-                for row in rows:
-                    try:
-                        self.session_gbo.add(row)
-                        self.session_gbo.commit()
-                    except Exception:
-                        self.session_gbo.rollback()
-                        conflicting_rows.append(row)
-                # Filter out the conflicting rows
-                rows = [row for row in rows if row not in conflicting_rows]
-                # Insert the remaining rows
-                if rows:
-                    self.session_gbo.add_all(rows)
+                # Delete all existing rows that conflict with batch_rows in a single query
+                conditions = [
+                    and_(
+                        HourlyElectricity.g_node_alias == row.g_node_alias,
+                        HourlyElectricity.hour_start_s == row.hour_start_s
+                    )
+                    for row in batch_rows
+                ]
+                if conditions:
+                    self.session_gbo.query(HourlyElectricity).filter(or_(*conditions)).delete(synchronize_session=False)
                     self.session_gbo.commit()
-                    print(f"Successfully inserted {len(rows)} new rows")
-                else:
-                    print("All rows already existed in the database")
+                # Insert all batch_rows (now that conflicting rows are deleted)
+                self.session_gbo.add_all(batch_rows)
+                self.session_gbo.commit()
+                print(f"Successfully deleted and replaced {len(batch_rows)} batch_rows")
             else:
                 self.session_gbo.rollback()
                 raise Exception(f"Unexpected error: {e}")
-
-        formatted_data['datetime_str'] = formatted_data['hour_start_ms'].apply(self.unix_ms_to_date)
-        formatted_data.to_csv(
-            self.dataset_file, 
-            mode='a' if os.path.exists(self.dataset_file) else 'w',
-            header=False if os.path.exists(self.dataset_file) else True, 
-            index=False,
-        )
 
     def unix_ms_to_date(self, time_ms):
         return str(pendulum.from_timestamp(time_ms/1000, tz=self.timezone_str).format('YYYY-MM-DD HH:mm'))
@@ -853,29 +747,22 @@ class EnergyDataset():
     def to_fahrenheit(self, t):
         return round(t*9/5+32,1)
     
-def generate(
-    house_alias, yesterday=False,
-    start_year=None, start_month=None, start_day=None, end_year=None, end_month=None, end_day=None, 
-):
+
+if __name__ == '__main__':
+    houses_to_generate = ['beech', 'oak', 'fir', 'maple', 'elm']
     timezone = 'America/New_York'
-    if yesterday:
+
+    for house in houses_to_generate:        
         start_year = pendulum.now(timezone).subtract(days=1).year
         start_month = pendulum.now(timezone).subtract(days=1).month
         start_day = pendulum.now(timezone).subtract(days=1).day
         end_year = pendulum.now(timezone).year
         end_month = pendulum.now(timezone).month
         end_day = pendulum.now(timezone).day
-    start_ms = pendulum.datetime(start_year, start_month, start_day, tz=timezone).timestamp()*1000
-    end_ms = pendulum.datetime(end_year, end_month, end_day, tz=timezone).timestamp()*1000
-    s = EnergyDataset(house_alias, start_ms, end_ms, timezone)
-    s.generate_dataset()
 
-if __name__ == '__main__':
-    houses_to_generate = ['oak', 'fir', 'maple', 'elm', 'beech']
-    for house in houses_to_generate:
-        print(f"\nGenerating data for {house}")
-        generate(
-            house_alias=house, 
-            yesterday=True
-        )
+        start_ms = pendulum.datetime(start_year, start_month, start_day, tz=timezone).timestamp()*1000
+        end_ms = pendulum.datetime(end_year, end_month, end_day, tz=timezone).timestamp()*1000
+        
+        s = HourlyData(house, start_ms, end_ms, timezone)
+        s.generate_hourly_data()
         print(f"Done.")
