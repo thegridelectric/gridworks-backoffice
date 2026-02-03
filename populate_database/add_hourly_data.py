@@ -763,9 +763,9 @@ if __name__ == '__main__':
     timezone = 'America/New_York'
 
     for house in houses_to_generate:        
-        start_year = pendulum.now(timezone).subtract(days=1).year
-        start_month = pendulum.now(timezone).subtract(days=1).month
-        start_day = pendulum.now(timezone).subtract(days=1).day
+        start_year = pendulum.now(timezone).subtract(days=2).year
+        start_month = pendulum.now(timezone).subtract(days=2).month
+        start_day = pendulum.now(timezone).subtract(days=2).day
         end_year = pendulum.now(timezone).add(days=1).year
         end_month = pendulum.now(timezone).add(days=1).month
         end_day = pendulum.now(timezone).add(days=1).day
