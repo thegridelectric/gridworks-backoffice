@@ -189,7 +189,8 @@ class HourlyData:
                     or_(
                         MessageSql.message_type_name == "batched.readings",
                         MessageSql.message_type_name == "report",
-                        MessageSql.message_type_name == "layout.lite"
+                        MessageSql.message_type_name == "layout.lite",
+                        MessageSql.message_type_name == "weather.forecast",
                     )
                 ),
                 and_(
@@ -206,6 +207,7 @@ class HourlyData:
         flo_params = [m for m in messages if m.message_type_name == 'flo.params.house0']
         atn_bids = [m for m in messages if m.message_type_name == 'atn.bid']
         layout_lites = [m for m in messages if m.message_type_name == 'layout.lite']
+        weather_forecasts = [m for m in messages if m.message_type_name == 'weather.forecast']
         
         if not reports:
             print(f"No reports found in batch.")
@@ -622,11 +624,19 @@ class HourlyData:
             # Advanced: weather, prices, house parameters, bids
             # ------------------------------------------------------------------------------------------------
 
-            # Get weather and price data
+            # oat_f and ws_mph from weather.forecast (OatF, WindSpeedMph), same as backfill script
+            for w in weather_forecasts:
+                if hour_start_ms <= w.message_created_ms < hour_end_ms:
+                    try:
+                        oat_f = float(w.payload['OatF'][0])
+                        ws_mph = float(w.payload['WindSpeedMph'][0])
+                    except (KeyError, IndexError, TypeError):
+                        pass
+                    break
+
+            # Get price data and FLO flag from flo.params
             for f in flo_params:
                 if f.payload['StartUnixS'] == hour_start_ms/1000:
-                    oat_f = f.payload['OatForecastF'][0]
-                    ws_mph = f.payload['WindSpeedForecastMph'][0]
                     total_usd_per_mwh = f.payload['LmpForecast'][0] + f.payload['DistPriceForecast'][0]
                     total_usd_per_mwh = round(total_usd_per_mwh, 3)
                     break
@@ -756,9 +766,9 @@ if __name__ == '__main__':
         start_year = pendulum.now(timezone).subtract(days=1).year
         start_month = pendulum.now(timezone).subtract(days=1).month
         start_day = pendulum.now(timezone).subtract(days=1).day
-        end_year = pendulum.now(timezone).year
-        end_month = pendulum.now(timezone).month
-        end_day = pendulum.now(timezone).day
+        end_year = pendulum.now(timezone).add(days=1).year
+        end_month = pendulum.now(timezone).add(days=1).month
+        end_day = pendulum.now(timezone).add(days=1).day
 
         start_ms = pendulum.datetime(start_year, start_month, start_day, tz=timezone).timestamp()*1000
         end_ms = pendulum.datetime(end_year, end_month, end_day, tz=timezone).timestamp()*1000
