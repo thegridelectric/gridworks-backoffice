@@ -4755,6 +4755,18 @@
                     const plotContainer = document.getElementById('plot-container');
                     plotContainer.style.display = 'block';
 
+                    const toNyLocalIso = (value) => {
+                        if (value === null || value === undefined || value === '') {
+                            return value;
+                        }
+                        if (typeof value === 'number' && Number.isFinite(value)) {
+                            return luxon.DateTime.fromMillis(value, { zone: 'utc' })
+                                .setZone('America/New_York')
+                                .toFormat("yyyy-LL-dd'T'HH:mm:ss");
+                        }
+                        return value;
+                    };
+
                     const plotConfig = { displayModeBar: false, responsive: true };
                     const plotOrder = ['plot1', 'plot2', 'plot3', 'plot4', 'plot5', 'plot6', 'plot7', 'plot8', 'plot9', 'plot10', 'plot11'];
                     for (const plotId of plotOrder) {
@@ -4762,8 +4774,18 @@
                         const div = document.getElementById(plotId);
                         if (div && spec && spec.data) {
                             const config = spec.config || plotConfig;
+                            const traces = spec.data.map((trace) => {
+                                if (!trace || !Array.isArray(trace.x)) {
+                                    return trace;
+                                }
+                                return { ...trace, x: trace.x.map(toNyLocalIso) };
+                            });
                             const layout = { ...(spec.layout || {}), height: 375, autosize: true };
-                            Plotly.newPlot(div, spec.data, layout, config);
+                            if (!layout.xaxis) {
+                                layout.xaxis = {};
+                            }
+                            layout.xaxis.type = 'date';
+                            Plotly.newPlot(div, traces, layout, config);
                             div.style.width = '100%';
                             div.style.height = '350px';
                         }
