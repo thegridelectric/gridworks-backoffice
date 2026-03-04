@@ -924,25 +924,43 @@
         /* Plot container styling */
         #plot-container {
             margin-top: 0.5rem;
-            padding: 0;
-            padding-top: 1rem;
+            padding: 1rem 2.5% 0 2.5%;
             background-color: var(--card-background);
             border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .plot-div {
-            margin-bottom: 1rem;
+            margin-bottom: 2rem;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 0;
-            max-width: 1400px;
+            width: 100%;
+            max-width: 1500px;
             margin-left: auto;
             margin-right: auto;
         }
 
+        /* Ensure Plotly charts fill and center within their container */
+        .plot-div .js-plotly-plot,
+        .plot-div .plotly-graph-div,
+        .plot-div .plotly {
+            width: 100% !important;
+            min-width: 0;
+        }
+
         .plot-div:last-child {
             margin-bottom: 0;
+        }
+
+        @media (max-width: 650px) {
+            #plot-container {
+                padding-left: 0;
+                padding-right: 0;
+            }
         }
 
         /* Loader styling */
@@ -2853,6 +2871,7 @@
             // Fullscreen toggle functionality
             const fullscreenBtn = document.getElementById('fullscreen-btn');
             const visualizerCard = document.querySelector('.card:has(#plot-container)');
+            initVisualizerPlotResizeObserver();
 
             fullscreenBtn.addEventListener('click', function() {
                 const wasFullscreen = visualizerCard.classList.contains('fullscreen');
@@ -4185,7 +4204,7 @@
             }
         }
 
-        let isRunningLocally = false;
+        let isRunningLocally = true;
         let api_host = isRunningLocally ? 'http://localhost:8000' : 'https://visualizer.electricity.works';
 
         function getDefaultDate(start, electricity_use) {
@@ -4263,6 +4282,36 @@
             // document.getElementById('end-date').value = nyDate.toISOString().split('T')[0];
             // document.getElementById('end-time').value = nyDate.toTimeString().split(' ')[0].substring(0, 5);
             getData();
+        }
+
+        const visualizerPlotIds = ['plot1', 'plot2', 'plot3', 'plot4', 'plot5', 'plot6', 'plot7', 'plot8', 'plot9', 'plot10', 'plot11'];
+        let visualizerPlotsResizeObserver = null;
+
+        function initVisualizerPlotResizeObserver() {
+            if (visualizerPlotsResizeObserver || typeof ResizeObserver === 'undefined') {
+                return;
+            }
+
+            visualizerPlotsResizeObserver = new ResizeObserver((entries) => {
+                for (const entry of entries) {
+                    const div = entry.target;
+                    if (!div || !div.querySelector('.plotly, .js-plotly-plot, .plotly-graph-div')) {
+                        continue;
+                    }
+                    requestAnimationFrame(() => {
+                        try {
+                            Plotly.Plots.resize(div);
+                        } catch (e) { /* ignore */ }
+                    });
+                }
+            });
+
+            visualizerPlotIds.forEach((plotId) => {
+                const div = document.getElementById(plotId);
+                if (div) {
+                    visualizerPlotsResizeObserver.observe(div);
+                }
+            });
         }
 
         function clearPlots() {
@@ -4697,58 +4746,26 @@
                     })
                 });
 
-                const contentType = response.headers.get("Content-Type");
-                if (contentType && contentType.includes("application/json")) {
-                    const data = await response.json();
-                    if ('success' in data && data.success === false) {
-                        console.error('Error:', data.message);
-                        alert(data.message);
-                    }
-                } else {
-                    const blob = await response.blob();
-                    const zip = await JSZip.loadAsync(blob);
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    console.error('Error:', data.message || response.statusText);
+                    alert(data.message || response.statusText || 'An error occurred while getting plots');
+                } else if (data.plots) {
                     clearPlots();
-                    
                     const plotContainer = document.getElementById('plot-container');
                     plotContainer.style.display = 'block';
-                    
-                    let iframeCount = 0;
-                    const plotDivs = [
-                        document.getElementById('plot1'),
-                        document.getElementById('plot2'),
-                        document.getElementById('plot3'),
-                        document.getElementById('plot4'),
-                        document.getElementById('plot5'),
-                        document.getElementById('plot6'),
-                        document.getElementById('plot7'),
-                        document.getElementById('plot8'),
-                        document.getElementById('plot9'),
-                        document.getElementById('plot10'),
-                        document.getElementById('plot11'),
-                        document.getElementById('plot-png')
-                    ];
 
-                    for (const filename of Object.keys(zip.files)) {
-                        const fileData = await zip.files[filename].async('blob');
-                        if (filename.endsWith('.html')) {
-                            const blob = new Blob([await zip.files[filename].async('text')], { type: 'text/html' });
-                            const htmlUrl = URL.createObjectURL(blob);
-                            const iframe = document.createElement('iframe');
-                            iframe.src = htmlUrl;
-                            iframe.style.width = window.innerWidth < 650 ? '100%' : '97.5%';
-                            iframe.style.height = '375px';
-                            iframe.style.maxWidth = '1500px';
-                            iframe.style.border = 'none';
-                            
-                            const currentDiv = plotDivs[iframeCount % plotDivs.length];
-                            currentDiv.appendChild(iframe);
-                            iframeCount++;
-                        } else if (filename.endsWith('.png')) {
-                            const imgUrl = URL.createObjectURL(fileData);
-                            const img = document.createElement('img');
-                            img.src = imgUrl;
-                            img.alt = 'Plot Image';
-                            document.getElementById('plot-png').appendChild(img);
+                    const plotConfig = { displayModeBar: false, responsive: true };
+                    const plotOrder = ['plot1', 'plot2', 'plot3', 'plot4', 'plot5', 'plot6', 'plot7', 'plot8', 'plot9', 'plot10', 'plot11'];
+                    for (const plotId of plotOrder) {
+                        const spec = data.plots[plotId];
+                        const div = document.getElementById(plotId);
+                        if (div && spec && spec.data) {
+                            const config = spec.config || plotConfig;
+                            const layout = { ...(spec.layout || {}), height: 375, autosize: true };
+                            Plotly.newPlot(div, spec.data, layout, config);
+                            div.style.width = '100%';
+                            div.style.height = '350px';
                         }
                     }
                 }
