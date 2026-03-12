@@ -195,6 +195,7 @@
                     const data = await response.json();
                     // Store the token
                     localStorage.setItem('token', data.access_token);
+                    localStorage.setItem('username', username.trim());
                     // Redirect to the main page - use relative path
                     window.location.href = "index.html";
                 } else {

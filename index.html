@@ -1222,6 +1222,22 @@
             background-color: var(--hover-color) !important;
         }
 
+        .card-toggle-btn.restricted {
+            color: var(--text-muted);
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .card-toggle-btn.restricted:hover {
+            color: var(--text-muted);
+        }
+
+        .card.restricted-card {
+            opacity: 0.45;
+            filter: grayscale(35%);
+            pointer-events: none;
+        }
+
         /* Hide cards by default */
         .card.hidden {
             display: none !important;
@@ -2340,6 +2356,82 @@
         (function() {
             const getAuthToken = window.getAuthToken;
             let darkmode_tf = false;
+            const ADMIN_USERNAME = 'admin';
+            const VISUALIZER_CARD_ID = 'visualizer-card';
+            const ROLE_CONTROLLED_CARD_IDS = [
+                'dashboard-card',
+                'visualizer-card',
+                'data-download-card',
+                'electricity-card',
+                'information-card',
+                'morning-report-card',
+                'parameters-card',
+                'map-card',
+            ];
+
+            function getStoredUsername() {
+                return (localStorage.getItem('username') || '').trim();
+            }
+
+            function isAdminUser(username = getStoredUsername()) {
+                return username.toLowerCase() === ADMIN_USERNAME;
+            }
+
+            function canAccessCard(cardId) {
+                return isAdminUser() || cardId === VISUALIZER_CARD_ID;
+            }
+
+            function isEndDateOldEnough(endUnixMilliseconds, lookbackDays = 10) {
+                const nowNy = luxon.DateTime.now().setZone('America/New_York');
+                const cutoffUnixMilliseconds = nowNy.minus({ days: lookbackDays }).toUTC().toMillis();
+                return endUnixMilliseconds <= cutoffUnixMilliseconds;
+            }
+
+            function showRecentDataBlockedMessage(lookbackDays = 10) {
+                alert(`Access restricted: the end date must be more than ${lookbackDays} days in the past. Please choose an earlier end date and try again.`);
+            }
+
+            function applyRolePermissions() {
+                const isAdmin = isAdminUser();
+                const cardButtons = document.querySelectorAll('.card-toggle-btn');
+
+                cardButtons.forEach((button) => {
+                    const cardId = button.dataset.card;
+                    if (!cardId) return;
+
+                    const hasAccess = isAdmin || cardId === VISUALIZER_CARD_ID;
+                    button.classList.toggle('restricted', !hasAccess);
+                    button.disabled = !hasAccess;
+                    button.setAttribute('aria-disabled', String(!hasAccess));
+
+                    const card = document.getElementById(cardId);
+                    if (card) {
+                        card.classList.toggle('restricted-card', !hasAccess);
+                    }
+                });
+
+                if (!isAdmin) {
+                    cardButtons.forEach((button) => button.classList.remove('active'));
+
+                    ROLE_CONTROLLED_CARD_IDS.forEach((cardId) => {
+                        const card = document.getElementById(cardId);
+                        if (!card) return;
+                        card.classList.toggle('hidden', cardId !== VISUALIZER_CARD_ID);
+                    });
+
+                    const visualizerButton = document.getElementById('show-visualizer');
+                    const visualizerCard = document.getElementById(VISUALIZER_CARD_ID);
+                    if (visualizerButton) {
+                        visualizerButton.classList.add('active');
+                    }
+                    if (visualizerCard) {
+                        visualizerCard.classList.remove('hidden');
+                    }
+                }
+            }
+
+            window.isCardAccessAllowed = canAccessCard;
+            window.applyRolePermissions = applyRolePermissions;
 
             function getDefaultDate(start) {
                 const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
@@ -2534,6 +2626,10 @@
                     const endDateTime = luxon.DateTime.fromFormat(`${endDate} ${endTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
                     const startUnixMilliseconds = startDateTime.toUTC().toMillis();
                     const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+                    if (!isEndDateOldEnough(endUnixMilliseconds, 10)) {
+                        showRecentDataBlockedMessage(10);
+                        return;
+                    }
                     disable_plot_buttons();
                     showLoader();
                     try {
@@ -2603,6 +2699,10 @@
                         
                         // Add event listener
                         button.addEventListener('click', function() {
+                            if (window.isCardAccessAllowed && !window.isCardAccessAllowed(cardId)) {
+                                return;
+                            }
+
                             // Remove active class from all buttons
                             Object.keys(buttons).forEach(otherButtonId => {
                                 const otherButton = document.getElementById(otherButtonId);
@@ -2647,6 +2747,12 @@
                 document.addEventListener('DOMContentLoaded', initializeCardVisibility);
             } else {
                 initializeCardVisibility();
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', applyRolePermissions);
+            } else {
+                applyRolePermissions();
             }
 
             // Auto-refresh functionality
@@ -2800,6 +2906,7 @@
 
         function logout() {
             localStorage.removeItem('token');
+            localStorage.removeItem('username');
             window.location.href = 'login.html';
         }
 
@@ -2818,6 +2925,10 @@
                     if (usernameDisplay) {
                         usernameDisplay.textContent = userData.username;
                     }
+                    localStorage.setItem('username', userData.username);
+                    if (window.applyRolePermissions) {
+                        window.applyRolePermissions();
+                    }
                 } else {
                     console.error('Failed to fetch user info:', response.status);
                 }
@@ -2831,6 +2942,10 @@
             if (!isAuthenticated()) {
                 window.location.href = 'login.html';
                 return;
+            }
+
+            if (window.applyRolePermissions) {
+                window.applyRolePermissions();
             }
 
             // Fetch user info
@@ -4253,6 +4368,16 @@
             return `${hours}:${minutes}`;
         }
 
+        function isEndDateOldEnough(endUnixMilliseconds, lookbackDays = 10) {
+            const nowNy = luxon.DateTime.now().setZone('America/New_York');
+            const cutoffUnixMilliseconds = nowNy.minus({ days: lookbackDays }).toUTC().toMillis();
+            return endUnixMilliseconds <= cutoffUnixMilliseconds;
+        }
+
+        function showRecentDataBlockedMessage(lookbackDays = 10) {
+            alert(`Access restricted: the end date must be more than ${lookbackDays} days in the past. Please choose an earlier end date and try again.`);
+        }
+
         function setNow() {
             const nyDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
             nyDate.setMinutes(nyDate.getMinutes() + 1);
@@ -4390,6 +4515,10 @@
             
             const startUnixMilliseconds = startDateTime.toUTC().toMillis();
             const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+            if (!isEndDateOldEnough(endUnixMilliseconds, 10)) {
+                showRecentDataBlockedMessage(10);
+                return;
+            }
 
             const selectedChannels = Array.from(document.querySelectorAll('input[name="channels"]:checked'))
                 .map(checkbox => checkbox.value);
@@ -4477,6 +4606,10 @@
             
             const startUnixMilliseconds = startDateTime.toUTC().toMillis();
             const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+            if (!isEndDateOldEnough(endUnixMilliseconds, 10)) {
+                showRecentDataBlockedMessage(10);
+                return;
+            }
 
             const selectedChannels = Array.from(document.querySelectorAll('input[name="data-download-channels"]:checked'))
                 .map(checkbox => checkbox.value);
@@ -4559,6 +4692,10 @@
 
             const endDateTime = luxon.DateTime.fromFormat(`${endDate} ${endTime}`, 'yyyy-MM-dd HH:mm', { zone: 'America/New_York' });
             const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+            if (!isEndDateOldEnough(endUnixMilliseconds, 10)) {
+                showRecentDataBlockedMessage(10);
+                return;
+            }
 
             disableButton('flo-btn');
 
@@ -4706,6 +4843,10 @@
             
             const startUnixMilliseconds = startDateTime.toUTC().toMillis();
             const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+            if (!isEndDateOldEnough(endUnixMilliseconds, 10)) {
+                showRecentDataBlockedMessage(10);
+                return;
+            }
 
             const selectedChannels = Array.from(document.querySelectorAll('input[name="channels"]:checked'))
                 .map(checkbox => checkbox.value);
@@ -7021,6 +7162,12 @@
             
             const startUnixMilliseconds = startDateTime.toUTC().toMillis();
             const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+            if (!isEndDateOldEnough(endUnixMilliseconds, 10)) {
+                showRecentDataBlockedMessage(10);
+                plotBtn.disabled = false;
+                plotBtn.style.opacity = '1';
+                return;
+            }
             
             try {
                 // Check if we're in dark mode
@@ -7117,6 +7264,12 @@
             
             const startUnixMilliseconds = startDateTime.toUTC().toMillis();
             const endUnixMilliseconds = endDateTime.toUTC().toMillis();
+            if (!isEndDateOldEnough(endUnixMilliseconds, 10)) {
+                showRecentDataBlockedMessage(10);
+                csvBtn.disabled = false;
+                csvBtn.style.opacity = '1';
+                return;
+            }
             
             try {
                 const selectedAliases = getSelectedHouseAliases();
