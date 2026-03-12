@@ -1,12 +1,12 @@
-from sqlalchemy import insert
 from sqlalchemy import Table, create_engine, MetaData
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import declarative_base, sessionmaker
-from passlib.context import CryptContext
+import bcrypt
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
-database_url = os.getenv("GBO_DB_URL")
+database_url = os.getenv("GBO_DB_URL_NO_ASYNC")
 engine_gbo = create_engine(database_url)
 
 Base = declarative_base()
@@ -14,15 +14,9 @@ metadata = MetaData()
 
 users = Table('users', metadata, autoload_with=engine_gbo)
 
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__rounds=12,
-    bcrypt__ident="2b"
-)
-
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12))
+    return hashed.decode("utf-8")
 
 Session = sessionmaker(bind=engine_gbo)
 
@@ -34,15 +28,22 @@ def create_user():
     session = Session()
     
     user = {
-        "username": "admin",
+        "username": "user",
         "email": "test@example.com",
-        "hashed_password": get_password_hash("swim2fish"),
+        "hashed_password": get_password_hash("password"),
         "is_active": True
     }
     
-    session.execute(insert(users).values(**user))
+    stmt = insert(users).values(**user)
+    # If a row with this email exists, overwrite all provided fields.
+    upsert_stmt = stmt.on_conflict_do_update(
+        index_elements=["email"],
+        set_={key: getattr(stmt.excluded, key) for key in user.keys()},
+    )
+
+    session.execute(upsert_stmt)
     session.commit()
-    print("User table recreated and test user created successfully")
+    print("User upserted successfully")
     session.close()
 
 if __name__ == "__main__":
