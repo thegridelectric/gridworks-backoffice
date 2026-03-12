@@ -2382,6 +2382,10 @@
             }
 
             function isEndDateOldEnough(endUnixMilliseconds, lookbackDays = 10) {
+                // Admin users are exempt from the historical data restriction.
+                if (isAdminUser()) {
+                    return true;
+                }
                 const nowNy = luxon.DateTime.now().setZone('America/New_York');
                 const cutoffUnixMilliseconds = nowNy.minus({ days: lookbackDays }).toUTC().toMillis();
                 return endUnixMilliseconds <= cutoffUnixMilliseconds;
@@ -4369,6 +4373,11 @@
         }
 
         function isEndDateOldEnough(endUnixMilliseconds, lookbackDays = 10) {
+            // Admin users are exempt from the historical data restriction.
+            const username = (localStorage.getItem('username') || '').trim().toLowerCase();
+            if (username === 'admin') {
+                return true;
+            }
             const nowNy = luxon.DateTime.now().setZone('America/New_York');
             const cutoffUnixMilliseconds = nowNy.minus({ days: lookbackDays }).toUTC().toMillis();
             return endUnixMilliseconds <= cutoffUnixMilliseconds;
