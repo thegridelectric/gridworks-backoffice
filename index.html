@@ -10,6 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1/build/global/luxon.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="visualizer-plots.js"></script>
 
     <style>
         :root {
@@ -924,24 +925,27 @@
         /* Plot container styling */
         #plot-container {
             margin-top: 0.5rem;
-            padding: 1rem 2.5% 0 2.5%;
+            padding: 1rem 2.5% 1.25rem 2.5%;
             background-color: var(--card-background);
             border-top: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             align-items: center;
+            overflow: visible;
         }
 
         .plot-div {
             margin-bottom: 2rem;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
             padding: 0;
             width: 100%;
             max-width: 1500px;
             margin-left: auto;
             margin-right: auto;
+            overflow: visible;
+            box-sizing: content-box;
         }
 
         /* Ensure Plotly charts fill and center within their container */
@@ -950,6 +954,7 @@
         .plot-div .plotly {
             width: 100% !important;
             min-width: 0;
+            overflow: visible !important;
         }
 
         .plot-div:last-child {
@@ -4323,7 +4328,7 @@
             }
         }
 
-        let isRunningLocally = false;
+        let isRunningLocally = true;
         let api_host = isRunningLocally ? 'http://localhost:8000' : 'https://visualizer.electricity.works';
 
         function getDefaultDate(start, electricity_use) {
@@ -4918,11 +4923,49 @@
                     };
 
                     const plotConfig = { displayModeBar: false, responsive: true };
+                    /** Must match Plotly layout.height so the figure is not clipped; extra bottom margin fits date ticks. */
+                    const VISUALIZER_PLOT_HEIGHT = 400;
+                    const mergeVisualizerLayout = (layout) => {
+                        const m = layout && layout.margin ? layout.margin : {};
+                        const prevB = Number(m.b);
+                        return {
+                            ...layout,
+                            height: VISUALIZER_PLOT_HEIGHT,
+                            autosize: true,
+                            margin: {
+                                ...m,
+                                b: Number.isFinite(prevB) ? Math.max(prevB, 52) : 52
+                            }
+                        };
+                    };
+                    const applyPlotDivSize = (div) => {
+                        div.style.width = '100%';
+                        div.style.height = `${VISUALIZER_PLOT_HEIGHT}px`;
+                        div.style.minHeight = `${VISUALIZER_PLOT_HEIGHT}px`;
+                    };
                     const plotOrder = ['plot1', 'plot2', 'plot3', 'plot4', 'plot5', 'plot6', 'plot7', 'plot8', 'plot9', 'plot10', 'plot11'];
                     for (const plotId of plotOrder) {
                         const spec = data.plots[plotId];
                         const div = document.getElementById(plotId);
-                        if (div && spec && spec.data) {
+                        if (!div || !spec) {
+                            continue;
+                        }
+                        if (spec.plotKind && typeof VisualizerPlots !== 'undefined' && VisualizerPlots.build) {
+                            const built = VisualizerPlots.build(
+                                spec.plotKind,
+                                spec,
+                                selectedChannels,
+                                isDarkMode,
+                                toNyLocalIso
+                            );
+                            if (built && Array.isArray(built.traces)) {
+                                const layoutMerged = mergeVisualizerLayout(built.layout);
+                                Plotly.newPlot(div, built.traces, layoutMerged, plotConfig);
+                                applyPlotDivSize(div);
+                                continue;
+                            }
+                        }
+                        if (spec.data) {
                             const config = spec.config || plotConfig;
                             const traces = spec.data.map((trace) => {
                                 if (!trace || !Array.isArray(trace.x)) {
@@ -4930,14 +4973,13 @@
                                 }
                                 return { ...trace, x: trace.x.map(toNyLocalIso) };
                             });
-                            const layout = { ...(spec.layout || {}), height: 375, autosize: true };
+                            const layout = mergeVisualizerLayout({ ...(spec.layout || {}) });
                             if (!layout.xaxis) {
                                 layout.xaxis = {};
                             }
                             layout.xaxis.type = 'date';
                             Plotly.newPlot(div, traces, layout, config);
-                            div.style.width = '100%';
-                            div.style.height = '350px';
+                            applyPlotDivSize(div);
                         }
                     }
                 }
