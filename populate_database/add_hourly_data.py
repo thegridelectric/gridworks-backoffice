@@ -641,7 +641,7 @@ class HourlyData:
                 if f.payload['StartUnixS'] == hour_start_ms/1000:
                     total_usd_per_mwh = f.payload['LmpForecast'][0] + f.payload['DistPriceForecast'][0]
                     total_usd_per_mwh = round(total_usd_per_mwh, 3)
-                    lmp_usd_per_mwh = total_usd_per_mwh
+                    lmp_usd_per_mwh = f.payload['LmpForecast'][0]
                     break
 
             # Determine if FLO or HomeAlone and get house parameters
