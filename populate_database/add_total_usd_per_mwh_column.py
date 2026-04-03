@@ -1,7 +1,7 @@
 """
-Clear and backfill total_usd_per_mwh in hourly_electricity from flo.params.house0.
+Clear and backfill lmp_usd_per_mwh in hourly_electricity from flo.params.house0.
 Same logic as add_hourly_data.py: message_type_name == 'flo.params.house0',
-total_usd_per_mwh = round(LmpForecast[0] + DistPriceForecast[0], 3), matched by
+lmp_usd_per_mwh = round(LmpForecast[0] + DistPriceForecast[0], 3), matched by
 payload['StartUnixS'] == hour_start_s.
 """
 import os
@@ -35,22 +35,67 @@ def unix_ms_to_date(time_ms, timezone_str):
     )
 
 
-def clear_total_usd_per_mwh():
-    """Set total_usd_per_mwh to NULL for all rows in hourly_electricity."""
+def create_lmp_usd_per_mwh_column():
+    print("Creating lmp_usd_per_mwh column in hourly_electricity...")
+    with engine_gbo.connect() as conn:
+        # Avoid hanging forever if another session is holding a table lock.
+        conn.execute(text("SET lock_timeout = '5s'"))
+
+        column_exists = conn.execute(
+            text("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name = 'hourly_electricity'
+                  AND column_name = 'lmp_usd_per_mwh'
+            )
+            """)
+        ).scalar()
+
+        if column_exists:
+            print("Dropping existing lmp_usd_per_mwh column...")
+            try:
+                conn.execute(
+                    text("""
+                    ALTER TABLE hourly_electricity
+                    DROP COLUMN lmp_usd_per_mwh
+                    """)
+                )
+            except OperationalError as e:
+                # If we can't grab the DDL lock quickly, keep the existing column and proceed.
+                print(
+                    "Could not drop lmp_usd_per_mwh within 5s due to table lock; "
+                    "using existing column instead."
+                )
+                print(f"Lock detail: {e}")
+                conn.rollback()
+                return
+
+        conn.execute(
+            text("""
+            ALTER TABLE hourly_electricity ADD COLUMN lmp_usd_per_mwh FLOAT
+            """)
+        )
+        conn.commit()
+        print("Created lmp_usd_per_mwh column in hourly_electricity.")
+
+def clear_lmp_usd_per_mwh():
+    print("Clearing lmp_usd_per_mwh for all rows in hourly_electricity...")
+    """Set lmp_usd_per_mwh to NULL for all rows in hourly_electricity."""
     with engine_gbo.connect() as conn:
         conn.execute(
             text("""
             UPDATE hourly_electricity
-            SET total_usd_per_mwh = NULL
+            SET lmp_usd_per_mwh = NULL
             """)
         )
         conn.commit()
-        print("Cleared total_usd_per_mwh for all rows in hourly_electricity.")
+        print("Cleared lmp_usd_per_mwh for all rows in hourly_electricity.")
 
 
-def backfill_total_usd_per_mwh():
-    """Backfill total_usd_per_mwh from flo.params.house0 (LmpForecast + DistPriceForecast)."""
-    print("\nBackfilling total_usd_per_mwh from flo.params.house0...")
+def backfill_lmp_usd_per_mwh():
+    """Backfill lmp_usd_per_mwh from flo.params.house0 (LmpForecast + DistPriceForecast)."""
+    print("\nBackfilling lmp_usd_per_mwh from flo.params.house0...")
     session_gbo = SessionGbo()
     session_gjk = SessionGjk()
 
@@ -90,42 +135,67 @@ def backfill_total_usd_per_mwh():
         messages = session_gjk.execute(stmt).scalars().all()
         print(f"Found {len(messages)} flo.params.house0 messages")
 
-        # Map hour_start_s -> total_usd_per_mwh (same as add_hourly_data: StartUnixS, Lmp+Dist rounded)
+        # Map hour_start_s -> lmp_usd_per_mwh (same as add_hourly_data: StartUnixS, Lmp+Dist rounded)
         price_by_hour = {}
         for m in messages:
             try:
                 hour_start_s = int(m.payload["StartUnixS"])
                 lmp = float(m.payload["LmpForecast"][0])
                 dist = float(m.payload["DistPriceForecast"][0])
-                total_usd_per_mwh = round(lmp + dist, 3)
+                lmp_usd_per_mwh = round(lmp + dist, 3)
             except (KeyError, IndexError, TypeError):
                 continue
             if min_hour_s <= hour_start_s <= max_hour_s:
-                price_by_hour[hour_start_s] = total_usd_per_mwh
+                price_by_hour[hour_start_s] = lmp_usd_per_mwh
 
         print(f"Built price map for {len(price_by_hour)} hours")
 
-        # Update in batches and commit often to avoid long-lived transactions (SSL timeouts)
-        COMMIT_EVERY = 200
-        updated_count = 0
-        for i, (hour_start_s, total_usd_per_mwh) in enumerate(price_by_hour.items()):
-            r = session_gbo.execute(
-                text("""
-                UPDATE hourly_electricity
-                SET total_usd_per_mwh = :total_usd_per_mwh
-                WHERE hour_start_s = :hour_start_s
-                """),
-                {
-                    "total_usd_per_mwh": total_usd_per_mwh,
-                    "hour_start_s": hour_start_s,
-                },
-            )
-            updated_count += r.rowcount
-            if (i + 1) % COMMIT_EVERY == 0:
-                session_gbo.commit()
+        # Batch updates (executemany) to avoid thousands of round trips.
+        update_stmt = text("""
+            UPDATE hourly_electricity
+            SET lmp_usd_per_mwh = :lmp_usd_per_mwh
+            WHERE hour_start_s = :hour_start_s
+        """)
 
-        session_gbo.commit()
-        print(f"Updated {updated_count} rows with total_usd_per_mwh")
+        BATCH_SIZE = 100
+        MAX_RETRIES = 4
+        updated_count = 0
+        items = list(price_by_hour.items())
+        for batch_start in range(0, len(items), BATCH_SIZE):
+            batch = items[batch_start:batch_start + BATCH_SIZE]
+            params = [
+                {"hour_start_s": hour_start_s, "lmp_usd_per_mwh": lmp_usd_per_mwh}
+                for hour_start_s, lmp_usd_per_mwh in batch
+            ]
+            for attempt in range(1, MAX_RETRIES + 1):
+                try:
+                    session_gbo.execute(update_stmt, params)
+                    session_gbo.commit()
+                    updated_count += len(params)
+                    print(f"Updated {updated_count}/{len(items)} hours...")
+                    break
+                except OperationalError as e:
+                    print(
+                        f"Batch starting at index {batch_start} failed "
+                        f"(attempt {attempt}/{MAX_RETRIES}): {e}"
+                    )
+                    try:
+                        session_gbo.rollback()
+                    except Exception:
+                        pass
+                    try:
+                        session_gbo.close()
+                    except Exception:
+                        pass
+                    if attempt == MAX_RETRIES:
+                        raise
+                    # Recreate connection/session and retry this same batch.
+                    session_gbo = SessionGbo()
+                    backoff_s = min(2 ** attempt, 15)
+                    print(f"Retrying this batch in {backoff_s}s...")
+                    time.sleep(backoff_s)
+
+        print(f"Updated {updated_count} rows with lmp_usd_per_mwh")
 
     except Exception as e:
         session_gbo.rollback()
@@ -141,6 +211,7 @@ def backfill_total_usd_per_mwh():
 
 
 if __name__ == "__main__":
-    clear_total_usd_per_mwh()
-    backfill_total_usd_per_mwh()
-    print("\n" + "=" * 60 + " total_usd_per_mwh backfill complete " + "=" * 60)
+    create_lmp_usd_per_mwh_column()
+    clear_lmp_usd_per_mwh()
+    backfill_lmp_usd_per_mwh()
+    print("\n" + "=" * 60 + " lmp_usd_per_mwh backfill complete " + "=" * 60)

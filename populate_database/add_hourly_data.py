@@ -67,6 +67,7 @@ class HourlyElectricity(Base):
     oat_f = Column(Float, nullable=True)
     ws_mph = Column(Float, nullable=True)
     total_usd_per_mwh = Column(Float, nullable=True)
+    lmp_usd_per_mwh = Column(Float, nullable=True)
     flo = Column(Boolean, nullable=True)
 
     alpha = Column(Float, nullable=True)
@@ -310,6 +311,7 @@ class HourlyData:
             oat_f = None
             ws_mph = None
             total_usd_per_mwh = None
+            lmp_usd_per_mwh = None
             alpha = None
             beta = None
             gamma = None
@@ -634,11 +636,12 @@ class HourlyData:
                         pass
                     break
 
-            # Get price data and FLO flag from flo.params
+            # Get price data from flo.params (Lmp + Dist, same as backfill script)
             for f in flo_params:
                 if f.payload['StartUnixS'] == hour_start_ms/1000:
                     total_usd_per_mwh = f.payload['LmpForecast'][0] + f.payload['DistPriceForecast'][0]
                     total_usd_per_mwh = round(total_usd_per_mwh, 3)
+                    lmp_usd_per_mwh = total_usd_per_mwh
                     break
 
             # Determine if FLO or HomeAlone and get house parameters
@@ -704,6 +707,7 @@ class HourlyData:
                 oat_f=oat_f,
                 ws_mph=ws_mph,
                 total_usd_per_mwh=total_usd_per_mwh,
+                lmp_usd_per_mwh=lmp_usd_per_mwh,
                 flo=flo_tf,
                 alpha=alpha,
                 beta=beta,
