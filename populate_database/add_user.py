@@ -1,18 +1,43 @@
-from sqlalchemy import Table, create_engine, MetaData
+from sqlalchemy import Table, Column, String, JSON, Enum, create_engine, MetaData, text, DateTime
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import sessionmaker
 import bcrypt
 import os
 from dotenv import load_dotenv
+from enum import StrEnum, auto
+from datetime import datetime, timezone
+
+
+class userType(StrEnum):
+    admin = auto()
+    owner = auto()
+    viewer = auto()
+
+# ------------------------------------------------------------
+USERNAME = ''
+PASSWORD = ''
+EMAIL = ''
+USER_TYPE = userType.admin
+USER_INSTALLATIONS = []
+DELETE_EXISTING_TABLE = False
+# ------------------------------------------------------------
 
 load_dotenv()
 database_url = os.getenv("GBO_DB_URL_NO_ASYNC")
 engine_gbo = create_engine(database_url)
 
-Base = declarative_base()
 metadata = MetaData()
 
-users = Table('users', metadata, autoload_with=engine_gbo)
+users = Table(
+    "users",
+    metadata,
+    Column("username", String, nullable=False, unique=True, primary_key=True),
+    Column("hashed_password", String, nullable=False),
+    Column("email", String, nullable=False, unique=True),
+    Column("user_type", Enum(userType, name="user_type_enum", native_enum=False), nullable=False),
+    Column("user_installations", JSON, nullable=False, default=list, server_default=text("'[]'")),
+    Column("last_login", DateTime, nullable=True),
+)
 
 def get_password_hash(password):
     hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12))
@@ -22,16 +47,19 @@ Session = sessionmaker(bind=engine_gbo)
 
 def create_user():
     # Drop and recreate the users table
-    # metadata.drop_all(engine_gbo, tables=[users])
-    # metadata.create_all(engine_gbo, tables=[users])
-    
+    if DELETE_EXISTING_TABLE:
+        metadata.drop_all(engine_gbo, tables=[users], checkfirst=True)
+        metadata.create_all(engine_gbo, tables=[users], checkfirst=True)
+        
     session = Session()
     
     user = {
-        "username": "user",
-        "email": "test@example.com",
-        "hashed_password": get_password_hash("password"),
-        "is_active": True
+        "username": USERNAME,
+        "hashed_password": get_password_hash(PASSWORD),
+        "email": EMAIL,
+        "user_type": USER_TYPE,
+        "user_installations": USER_INSTALLATIONS,
+        "last_login": datetime.now(timezone.utc),
     }
     
     stmt = insert(users).values(**user)
