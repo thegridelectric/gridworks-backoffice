@@ -726,34 +726,22 @@ class HourlyData:
         if not WRITING_TO_DATABASE:
             print(f"Not writing to database, just printing batch_rows")
             return
-        
-        try:
-            self.session_gbo.add_all(batch_rows)
-            self.session_gbo.commit()
-            print(f"Successfully inserted {len(batch_rows)} new batch_rows")
 
-        except Exception as e:
-            if 'hour_house_unique' in str(e) or "hourly_electricity_pkey" in str(e):
-                print("Some batch_rows already exist in the database, deleting and replacing them...")
-                self.session_gbo.rollback()
-                # Delete all existing rows that conflict with batch_rows in a single query
-                conditions = [
-                    and_(
-                        HourlyElectricity.g_node_alias == row.g_node_alias,
-                        HourlyElectricity.hour_start_s == row.hour_start_s
-                    )
-                    for row in batch_rows
-                ]
-                if conditions:
-                    self.session_gbo.query(HourlyElectricity).filter(or_(*conditions)).delete(synchronize_session=False)
-                    self.session_gbo.commit()
-                # Insert all batch_rows (now that conflicting rows are deleted)
-                self.session_gbo.add_all(batch_rows)
-                self.session_gbo.commit()
-                print(f"Successfully deleted and replaced {len(batch_rows)} batch_rows")
-            else:
-                self.session_gbo.rollback()
-                raise Exception(f"Unexpected error: {e}")
+        # Remove any existing rows for the same keys before insert so re-runs do not hit
+        # UniqueViolation (which leaves psycopg in INERROR and logs noisy pipeline-aborted messages).
+        if batch_rows:
+            conditions = [
+                and_(
+                    HourlyElectricity.g_node_alias == row.g_node_alias,
+                    HourlyElectricity.hour_start_s == row.hour_start_s
+                )
+                for row in batch_rows
+            ]
+            self.session_gbo.query(HourlyElectricity).filter(or_(*conditions)).delete(synchronize_session=False)
+
+        self.session_gbo.add_all(batch_rows)
+        self.session_gbo.commit()
+        print(f"Successfully wrote {len(batch_rows)} batch_rows")
 
     def unix_ms_to_date(self, time_ms):
         return str(pendulum.from_timestamp(time_ms/1000, tz=self.timezone_str).format('YYYY-MM-DD HH:mm'))
