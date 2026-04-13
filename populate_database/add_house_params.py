@@ -302,9 +302,9 @@ def backfill(session_gbo: Session, session_gjk: Session, house_alias, start_ms, 
     batch_size = 100
     num_batches = ceil(len(rows_to_update) / batch_size)
 
+    updated_count = 0
     for batch_idx in range(num_batches):
-        print(f"  Processing batch {batch_idx + 1} of {num_batches}")
-        updated_count = 0
+        # print(f"  Processing batch {batch_idx + 1} of {num_batches}")
         batch = rows_to_update[batch_idx * batch_size : (batch_idx + 1) * batch_size]
         
         for row in batch:
@@ -334,7 +334,7 @@ def backfill(session_gbo: Session, session_gjk: Session, house_alias, start_ms, 
                 updated_count += 1
 
         session_gbo.commit()
-        print(f"  Updated {updated_count} rows in batch {batch_idx + 1} of {num_batches}")
+    print(f"  Updated {updated_count} rows in batch {batch_idx + 1} of {num_batches}")
     
 
 if __name__ == '__main__':    
