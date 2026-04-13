@@ -311,15 +311,22 @@ def backfill(session_gbo: Session, session_gjk: Session, house_alias, start_ms, 
             g_node_alias = str(row[0])
             hour_start_s = float(row[1])
 
+            # Map each hour to the layout active for that hour: the latest layout whose
+            # MessageCreatedMs is strictly after the hour start uses the *previous* layout.
+            # Hours at or after the last layout must still use that last layout (carry-forward);
+            # without the else branch, layout_time_created_s stayed None and those rows were skipped.
             layout_time_created_s = None
-            previous_layout_time_created = sorted(parameter_map.keys())[0]
-            for layout_time_created in sorted(parameter_map.keys()):
+            sorted_layout_times = sorted(parameter_map.keys())
+            previous_layout_time_created = sorted_layout_times[0]
+            for layout_time_created in sorted_layout_times:
                 if hour_start_s < layout_time_created:
                     layout_time_created_s = previous_layout_time_created
                     break
                 previous_layout_time_created = layout_time_created
+            else:
+                layout_time_created_s = previous_layout_time_created
 
-            if layout_time_created_s and layout_time_created_s in parameter_map:
+            if layout_time_created_s in parameter_map:
                 parameter_value = parameter_map[layout_time_created_s]
                 # print(f"  {parameter_name} = {parameter_value} for {unix_ms_to_date(hour_start_s*1000)}")
                 session_gbo.execute(text(f"""
@@ -334,7 +341,7 @@ def backfill(session_gbo: Session, session_gjk: Session, house_alias, start_ms, 
                 updated_count += 1
 
         session_gbo.commit()
-    print(f"  Updated {updated_count} rows in batch {batch_idx + 1} of {num_batches}")
+    print(f"  Updated {updated_count} rows in {num_batches} batches")
     
 
 if __name__ == '__main__':    
