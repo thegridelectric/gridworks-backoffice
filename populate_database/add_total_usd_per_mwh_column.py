@@ -142,7 +142,7 @@ def backfill_lmp_usd_per_mwh():
                 hour_start_s = int(m.payload["StartUnixS"])
                 lmp = float(m.payload["LmpForecast"][0])
                 dist = float(m.payload["DistPriceForecast"][0])
-                lmp_usd_per_mwh = round(lmp + dist, 3)
+                lmp_usd_per_mwh = round(lmp, 3)
             except (KeyError, IndexError, TypeError):
                 continue
             if min_hour_s <= hour_start_s <= max_hour_s:
