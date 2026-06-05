@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-HOUSE_ALIAS = "elm"
+HOUSE_ALIAS = "oak"
 RESULTS_DIR = Path(__file__).parent / "results"
 
 cop_params_per_house = {
@@ -216,7 +216,7 @@ def plot_flo_timeline(
 
 
 def main() -> None:
-    default_csv = Path(__file__).parent / f"data/{HOUSE_ALIAS}_electricity_use_2025-11-01-00-00-2026-06-05-07-46.csv"
+    default_csv = Path(__file__).parent / f"data/{HOUSE_ALIAS}_electricity_use_2025-11-01-00-00-2026-06-05-11-15.csv"
 
     parser = argparse.ArgumentParser(description="Plot FLO active periods from hourly CSV data.")
     parser.add_argument("csv", nargs="?", type=Path, default=default_csv, help="Hourly CSV input file")
