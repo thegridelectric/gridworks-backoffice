@@ -72,10 +72,10 @@ Thermal load is estimated in two steps.
 A linear regression is fit on all hours in the dataset (not only FLO-active hours) to predict hourly distribution energy from OAT and wind speed:
 
 $$
-\hat{D} = \alpha + \beta \, \text{OAT} + \gamma \, W \left(65 - \text{OAT}\right)
+\hat{D} = \alpha + \beta \, \text{OAT} + \gamma \, WS \left(65 - \text{OAT}\right)
 $$
 
-where $W$ is wind speed (mph) and $\alpha$, $\beta$, and $\gamma$ are fitted from the data.
+where $WS$ is wind speed (mph) and $\alpha$, $\beta$, and $\gamma$ are fitted from the data.
 
 **Step 2 — Scale to total heat pump output**
 
