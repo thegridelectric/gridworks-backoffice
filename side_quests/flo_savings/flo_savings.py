@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 HOUSE_ALIAS = "elm"
+RESULTS_DIR = Path(__file__).parent / "results"
 
 cop_params_per_house = {
     "beech": {
@@ -205,13 +206,13 @@ def plot_flo_timeline(
 
     plt.tight_layout()
 
-    if output_path:
-        fig.savefig(output_path, dpi=150, bbox_inches="tight")
-        print(f"Saved plot to {output_path}")
-    else:
-        plt.show()
-        plt.savefig(f"side_quests/flo_savings/results/{HOUSE_ALIAS}_flo_timeline.png", dpi=150, bbox_inches="tight")
-        print(f"Saved plot to {HOUSE_ALIAS}_flo_timeline.png")
+    if output_path is None:
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        output_path = RESULTS_DIR / f"{HOUSE_ALIAS}_flo_timeline.png"
+
+    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    print(f"Saved plot to {output_path}")
+    plt.close(fig)
 
 
 def main() -> None:
@@ -219,7 +220,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Plot FLO active periods from hourly CSV data.")
     parser.add_argument("csv", nargs="?", type=Path, default=default_csv, help="Hourly CSV input file")
-    parser.add_argument("-o", "--output", type=Path, help="Save plot to file instead of displaying")
+    parser.add_argument("-o", "--output", type=Path, help="Save plot to a custom file path")
     args = parser.parse_args()
 
     df = load_data(args.csv)

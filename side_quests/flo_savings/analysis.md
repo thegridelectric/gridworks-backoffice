@@ -23,35 +23,35 @@ The timeline plots show when FLO was active (green) versus rule-based control (g
 
 ### FLO electricity cost
 
-For each hour $h$ when FLO is running:
+For each hour when FLO is running:
 
 $$
-C^{\text{FLO}}_h = E^{\text{HP, el}}_h \cdot \frac{\text{LMP}_h}{1000}
+C^{\text{FLO}} = E^{\text{HP, el}} \cdot \frac{\text{LMP}}{1000}
 $$
 
-where $E^{\text{HP, el}}_h$ is heat pump electricity use (kWh) and $\text{LMP}_h$ is the locational marginal price (USD/MWh). The factor of 1000 converts MWh pricing to kWh consumption.
+where $E^{\text{HP, el}}$ is heat pump electricity use (kWh) and $\text{LMP}$ is the locational marginal price (USD/MWh). The factor of 1000 converts MWh pricing to kWh consumption.
 
-The reported FLO total is $\sum_h C^{\text{FLO}}_h$ over FLO-active hours.
+The reported FLO total is $\sum C^{\text{FLO}}$ over FLO-active hours.
 
 ### Baseline electricity cost
 
 The baseline estimates how much electricity the heat pump would have consumed in each hour if it had delivered the thermal load on demand, with no storage buffer and no price optimization. This requires hourly estimates of **load** and **COP**.
 
 $$
-C^{\text{base}}_h = \frac{L_h}{\text{COP}_h} \cdot \frac{\text{LMP}_h}{1000}
+C^{\text{base}} = \frac{L}{\text{COP}} \cdot \frac{\text{LMP}}{1000}
 $$
 
-The reported baseline total is $\sum_h C^{\text{base}}_h$ over the same FLO-active hours.
+The reported baseline total is $\sum C^{\text{base}}$ over the same FLO-active hours.
 
 #### COP model
 
 COP is modeled as a linear function of outdoor air temperature (OAT), with a fixed value at very cold temperatures. Parameters are set per house.
 
 $$
-\text{COP}_h =
+\text{COP} =
 \begin{cases}
-\text{COP}_{\min} & \text{if } \text{OAT}_h < T_{\min} \\
-\beta_0 + \beta_{\text{oat}} \cdot \text{OAT}_h & \text{otherwise}
+\text{COP}_{\min} & \text{if } \text{OAT} < T_{\min} \\
+\beta_0 + \beta_{\text{oat}} \cdot \text{OAT} & \text{otherwise}
 \end{cases}
 $$
 
@@ -59,7 +59,7 @@ $$
 | --- | --- |
 | $\beta_0$ | COP intercept (`cop_intercept`) |
 | $\beta_{\text{oat}}$ | OAT coefficient (`cop_oat_coeff`) |
-| $\text{OAT}_h$ | Outdoor air temperature at hour $h$ (°F) |
+| $\text{OAT}$ | Outdoor air temperature (°F) |
 | $\text{COP}_{\min}$ | COP used below the cold-temperature threshold (`cop_min`) |
 | $T_{\min}$ | OAT threshold (°F) below which COP is held constant (`cop_min_oat_f`) |
 
@@ -72,20 +72,20 @@ Thermal load is estimated in two steps.
 A linear regression is fit on all hours in the dataset (not only FLO-active hours) to predict hourly distribution energy from OAT and wind speed:
 
 $$
-\hat{D}_h = \alpha + \beta \, \text{OAT}_h + \gamma \, W_h \left(65 - \text{OAT}_h\right)
+\hat{D} = \alpha + \beta \, \text{OAT} + \gamma \, W \left(65 - \text{OAT}\right)
 $$
 
-where $W_h$ is wind speed (mph) and $\alpha$, $\beta$, and $\gamma$ are fitted from the data.
+where $W$ is wind speed (mph) and $\alpha$, $\beta$, and $\gamma$ are fitted from the data.
 
 **Step 2 — Scale to total heat pump output**
 
 The predicted distribution curve is scaled so its total matches the ratio between aggregate heat pump thermal output and aggregate measured distribution energy:
 
 $$
-L_h = \hat{D}_h \cdot \frac{\sum_h E^{\text{HP, th}}_h}{\sum_h D_h}
+L = \hat{D} \cdot \frac{\sum E^{\text{HP, th}}}{\sum D}
 $$
 
-where $E^{\text{HP, th}}_h$ is measured heat pump thermal output and $D_h$ is measured distribution energy. This scaling maps distribution-side load to the thermal output the heat pump would need to deliver in a no-storage scenario.
+where $E^{\text{HP, th}}$ is measured heat pump thermal output and $D$ is measured distribution energy. This scaling maps distribution-side load to the thermal output the heat pump would need to deliver in a no-storage scenario.
 
 ---
 
