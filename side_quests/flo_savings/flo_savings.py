@@ -184,7 +184,7 @@ def plot_flo_timeline(
     data_start = df["hour_start"].iloc[0]
     data_end = df["hour_start"].iloc[-1] + pd.Timedelta(hours=1)
 
-    fig, ax = plt.subplots(figsize=(20, 1.8))
+    fig, ax = plt.subplots(figsize=(12, 1.8))
 
     ax.axvspan(data_start, data_end, ymin=0.25, ymax=0.75, color="#e0e0e0", alpha=0.8)
     for start, end in periods:
