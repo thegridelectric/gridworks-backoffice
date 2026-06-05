@@ -46,6 +46,8 @@ cop_params_per_house = {
 }
 
 WIND_OAT_REFERENCE_F = 65
+ROLLING_LOAD_WINDOW_DAYS = 30
+MIN_LOAD_MODEL_ROWS = 24 * 7
 COP_INTERCEPT = cop_params_per_house[HOUSE_ALIAS]["cop_intercept"]  
 COP_OAT_COEFF = cop_params_per_house[HOUSE_ALIAS]["cop_oat_coeff"]
 COP_MIN = cop_params_per_house[HOUSE_ALIAS]["cop_min"]
@@ -70,8 +72,8 @@ def load_data(csv_path: Path) -> pd.DataFrame:
 def fit_dist_kwh_model(df: pd.DataFrame) -> tuple[float, float, float]:
     """Fit dist_kwh ~ intercept + beta_0*oat + gamma*ws*(65-oat) using all valid rows."""
     reg_df = df.dropna(subset=["dist_kwh", "oat_f", "ws_mph"])
-    if reg_df.empty:
-        raise ValueError("No rows with dist_kwh, oat_f, and ws_mph available for load regression")
+    if len(reg_df) < 3:
+        raise ValueError("At least 3 rows with dist_kwh, oat_f, and ws_mph are required for load regression")
 
     oat = reg_df["oat_f"].to_numpy(dtype=float)
     ws = reg_df["ws_mph"].to_numpy(dtype=float)
@@ -82,33 +84,88 @@ def fit_dist_kwh_model(df: pd.DataFrame) -> tuple[float, float, float]:
     return float(intercept), float(beta_0), float(gamma)
 
 
+def load_model_window(df: pd.DataFrame, hour_start: pd.Timestamp) -> tuple[pd.DataFrame, bool]:
+    """Return trailing 30-day training data, falling back to the first 30 days if needed."""
+    rolling_window = pd.Timedelta(days=ROLLING_LOAD_WINDOW_DAYS)
+    window_start = hour_start - rolling_window
+    training_df = df[
+        (df["hour_start"] >= window_start)
+        & (df["hour_start"] < hour_start)
+    ]
+    if len(training_df) >= MIN_LOAD_MODEL_ROWS:
+        return training_df, False
+
+    first_window_end = df["hour_start"].iloc[0] + rolling_window
+    fallback_df = df[df["hour_start"] < first_window_end]
+    if len(fallback_df) >= MIN_LOAD_MODEL_ROWS:
+        return fallback_df, True
+
+    if len(df) >= 3:
+        return df, True
+
+    raise ValueError("Not enough valid rows to fit a rolling load model")
+
+
 def add_load_predictions(df: pd.DataFrame) -> pd.DataFrame:
     required_columns = {"dist_kwh", "oat_f", "ws_mph", "hp_kwh_th"}
     missing_columns = required_columns - set(df.columns)
     if missing_columns:
         raise ValueError(f"CSV must contain columns: {', '.join(sorted(missing_columns))}")
 
-    intercept, beta_0, gamma = fit_dist_kwh_model(df)
-    print(
-        "Load model: "
-        f"dist_kwh = {intercept:.3f} + {beta_0:.3f}*oat + {gamma:.5f}*ws*({WIND_OAT_REFERENCE_F}-oat)"
-    )
-
     df = df.copy()
-    wind_term = df["ws_mph"] * (WIND_OAT_REFERENCE_F - df["oat_f"])
-    df["pred_dist_kwh"] = intercept + beta_0 * df["oat_f"] + gamma * wind_term
+    valid_training_df = df.dropna(subset=["hour_start", "dist_kwh", "oat_f", "ws_mph", "hp_kwh_th"])
+    if len(valid_training_df) < 3:
+        raise ValueError("Not enough valid rows to fit a rolling load model")
 
-    dist_sum = df["dist_kwh"].sum()
-    if dist_sum == 0:
-        raise ValueError("dist_kwh sum is zero, cannot scale load prediction")
+    df["pred_dist_kwh"] = np.nan
+    df["load_pred"] = np.nan
+    df["load_scaling_ratio"] = np.nan
+    df["load_fit_intercept"] = np.nan
+    df["load_fit_beta_oat"] = np.nan
+    df["load_fit_gamma"] = np.nan
 
-    hp_th_sum = df["hp_kwh_th"].sum()
-    hp_th_to_dist_ratio = hp_th_sum / dist_sum
-    df["load_pred"] = df["pred_dist_kwh"] * hp_th_to_dist_ratio
+    fallback_count = 0
+    fitted_count = 0
+
+    for idx, row in df.iterrows():
+        if pd.isna(row["hour_start"]) or pd.isna(row["oat_f"]) or pd.isna(row["ws_mph"]):
+            continue
+
+        training_df, used_fallback = load_model_window(valid_training_df, row["hour_start"])
+        fallback_count += int(used_fallback)
+
+        dist_sum = training_df["dist_kwh"].sum()
+        if dist_sum == 0:
+            continue
+
+        hp_th_sum = training_df["hp_kwh_th"].sum()
+        hp_th_to_dist_ratio = hp_th_sum / dist_sum
+        intercept, beta_0, gamma = fit_dist_kwh_model(training_df)
+        wind_term = row["ws_mph"] * (WIND_OAT_REFERENCE_F - row["oat_f"])
+        pred_dist_kwh = intercept + beta_0 * row["oat_f"] + gamma * wind_term
+
+        df.at[idx, "pred_dist_kwh"] = pred_dist_kwh
+        df.at[idx, "load_pred"] = pred_dist_kwh * hp_th_to_dist_ratio
+        df.at[idx, "load_scaling_ratio"] = hp_th_to_dist_ratio
+        df.at[idx, "load_fit_intercept"] = intercept
+        df.at[idx, "load_fit_beta_oat"] = beta_0
+        df.at[idx, "load_fit_gamma"] = gamma
+        fitted_count += 1
+
+    if fitted_count == 0:
+        raise ValueError("No load predictions could be generated")
+
+    ratio = df["load_scaling_ratio"].dropna()
     print(
-        f"Load scaling ratio: {hp_th_to_dist_ratio:.3f} "
-        f"(sum hp_kwh_th={hp_th_sum:,.1f} / sum dist_kwh={dist_sum:,.1f})"
+        f"Rolling load model: {ROLLING_LOAD_WINDOW_DAYS}-day windows, "
+        f"{fitted_count:,} hourly predictions"
     )
+    print(
+        f"Load scaling ratio (rolling): mean={ratio.mean():.3f}, "
+        f"min={ratio.min():.3f}, max={ratio.max():.3f}"
+    )
+    if fallback_count:
+        print(f"Used first-window fallback for {fallback_count:,} early-hour predictions")
 
     return df
 

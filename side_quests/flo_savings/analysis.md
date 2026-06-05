@@ -69,23 +69,23 @@ Thermal load is estimated in two steps.
 
 **Step 1 — Predict distribution energy from weather**
 
-A linear regression is fit on all hours in the dataset (not only FLO-active hours) to predict hourly distribution energy from OAT and wind speed:
+For each hour, a local linear regression is fit using the previous 30 days of data. This keeps the load estimate tied to the current part of the heating season instead of forcing one weather-load relationship across the full dataset. At the very beginning of the dataset, where fewer than 30 prior days are available, the first 30-day window is used as a fallback.
 
 $$
 \hat{D} = \alpha + \beta \, \text{OAT} + \gamma \, WS \left(65 - \text{OAT}\right)
 $$
 
-where $WS$ is wind speed (mph) and $\alpha$, $\beta$, and $\gamma$ are fitted from the data.
+where $WS$ is wind speed (mph) and $\alpha$, $\beta$, and $\gamma$ are fitted from the local 30-day window.
 
 **Step 2 — Scale to total heat pump output**
 
-The predicted distribution curve is scaled so its total matches the ratio between aggregate heat pump thermal output and aggregate measured distribution energy:
+The predicted distribution curve is scaled using the ratio between heat pump thermal output and measured distribution energy over the same 30-day window:
 
 $$
 L = \hat{D} \cdot \frac{\sum E^{\text{HP, th}}}{\sum D}
 $$
 
-where $E^{\text{HP, th}}$ is measured heat pump thermal output and $D$ is measured distribution energy. This scaling maps distribution-side load to the thermal output the heat pump would need to deliver in a no-storage scenario.
+where $E^{\text{HP, th}}$ is measured heat pump thermal output and $D$ is measured distribution energy within the local fitting window. This scaling maps distribution-side load to the thermal output the heat pump would need to deliver in a no-storage scenario.
 
 ---
 
