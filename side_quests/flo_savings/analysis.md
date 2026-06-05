@@ -26,10 +26,10 @@ The timeline plots show when FLO was active (green) versus rule-based control (g
 For each hour when FLO is running:
 
 $$
-C^{\text{FLO}} = E^{\text{HP, el}} \cdot \frac{\text{LMP}}{1000}
+C^{\text{FLO}} = E^{\text{HP, el}} \cdot \text{LMP}
 $$
 
-where $E^{\text{HP, el}}$ is heat pump electricity use (kWh) and $\text{LMP}$ is the locational marginal price (USD/MWh). The factor of 1000 converts MWh pricing to kWh consumption.
+where $E^{\text{HP, el}}$ is heat pump electricity use (kWh) and $\text{LMP}$ is the locational marginal price (USD/MWh).
 
 The reported FLO total is $\sum C^{\text{FLO}}$ over FLO-active hours.
 
@@ -38,7 +38,7 @@ The reported FLO total is $\sum C^{\text{FLO}}$ over FLO-active hours.
 The baseline estimates how much electricity the heat pump would have consumed in each hour if it had delivered the thermal load on demand, with no storage buffer and no price optimization. This requires hourly estimates of **load** and **COP**.
 
 $$
-C^{\text{base}} = \frac{L}{\text{COP}} \cdot \frac{\text{LMP}}{1000}
+C^{\text{base}} = \frac{L}{\text{COP}} \cdot \text{LMP}
 $$
 
 The reported baseline total is $\sum C^{\text{base}}$ over the same FLO-active hours.
@@ -57,11 +57,11 @@ $$
 
 | Symbol | Meaning |
 | --- | --- |
-| $\beta_0$ | COP intercept (`cop_intercept`) |
-| $\beta_{\text{oat}}$ | OAT coefficient (`cop_oat_coeff`) |
+| $\beta_0$ | COP intercept |
+| $\beta_{\text{oat}}$ | OAT coefficient |
 | $\text{OAT}$ | Outdoor air temperature (°F) |
-| $\text{COP}_{\min}$ | COP used below the cold-temperature threshold (`cop_min`) |
-| $T_{\min}$ | OAT threshold (°F) below which COP is held constant (`cop_min_oat_f`) |
+| $\text{COP}_{\min}$ | COP used below the cold-temperature threshold |
+| $T_{\min}$ | OAT threshold (°F) below which COP is held constant |
 
 #### Load model
 
